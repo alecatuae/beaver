@@ -333,24 +333,6 @@ export default function ComponentsPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center"
-                    onClick={() => openEditComponentForm(selectedComponent)}
-                  >
-                    <Edit size={16} className="mr-1" />
-                    Editar
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="flex items-center"
-                    onClick={() => handleDeleteComponent(selectedComponent.id)}
-                  >
-                    <Trash2 size={16} className="mr-1" />
-                    Excluir
-                  </Button>
-                  <Button 
                     variant="ghost" 
                     size="sm"
                     onClick={() => setShowDetails(false)} 
@@ -396,7 +378,7 @@ export default function ComponentsPage() {
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t flex justify-end">
+              <div className="mt-6 pt-4 border-t flex justify-end gap-4">
                 <Button 
                   variant="outline"
                   onClick={() => openEditComponentForm(selectedComponent)}
@@ -408,12 +390,6 @@ export default function ComponentsPage() {
                   onClick={() => handleDeleteComponent(selectedComponent.id)}
                 >
                   Excluir
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setShowDetails(false)}
-                >
-                  Fechar
                 </Button>
               </div>
             </div>
