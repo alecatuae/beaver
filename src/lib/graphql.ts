@@ -154,7 +154,7 @@ export const GET_RELATIONS = gql`
 `;
 
 export const GET_RELATION = gql`
-  query GetRelation($id: Int!) {
+  query GetRelation($id: String!) {
     relation(id: $id) {
       id
       sourceId
@@ -178,7 +178,7 @@ export const GET_RELATION = gql`
 `;
 
 export const UPDATE_RELATION = gql`
-  mutation UpdateRelation($id: Int!, $input: RelationInput!) {
+  mutation UpdateRelation($id: String!, $input: RelationInput!) {
     updateRelation(id: $id, input: $input) {
       id
       sourceId
@@ -190,7 +190,7 @@ export const UPDATE_RELATION = gql`
 `;
 
 export const DELETE_RELATION = gql`
-  mutation DeleteRelation($id: Int!) {
+  mutation DeleteRelation($id: String!) {
     deleteRelation(id: $id)
   }
 `;
@@ -227,7 +227,7 @@ export interface RelationInput {
 }
 
 export interface RelationType {
-  id: number;
+  id: string;
   sourceId: number;
   targetId: number;
   type: string;

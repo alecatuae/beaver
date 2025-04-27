@@ -6,7 +6,9 @@ import { logger } from '../../utils/logger';
 // Definição do tipo Relation para GraphQL
 export const RelationType = builder.objectType('Relation', {
   fields: (t) => ({
-    id: t.exposeInt('id'),
+    id: t.exposeString('id', {
+      resolve: (relation) => relation.id.toString(),
+    }),
     sourceId: t.exposeInt('sourceId'),
     targetId: t.exposeInt('targetId'),
     type: t.exposeString('type'),
@@ -63,7 +65,7 @@ builder.queryField('relation', (t) =>
   t.field({
     type: RelationType,
     args: {
-      id: t.arg.int({ required: true }),
+      id: t.arg.string({ required: true }),
     },
     resolve: async (_, { id }) => {
       try {
@@ -126,7 +128,7 @@ builder.mutationField('updateRelation', (t) =>
   t.field({
     type: RelationType,
     args: {
-      id: t.arg.int({ required: true }),
+      id: t.arg.string({ required: true }),
       input: t.arg({
         type: 'RelationInput',
         required: true,
@@ -175,7 +177,7 @@ builder.mutationField('deleteRelation', (t) =>
   t.field({
     type: 'Boolean',
     args: {
-      id: t.arg.int({ required: true }),
+      id: t.arg.string({ required: true }),
     },
     resolve: async (_, { id }) => {
       try {

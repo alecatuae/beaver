@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 // Interface dos relacionamentos
 export interface IRelation {
-  id: number;
+  id: number | string;
   sourceId: number;
   targetId: number;
   type: string;
@@ -206,7 +206,7 @@ export class Neo4jClient {
       const result = await session.run(`
         MATCH (source:Component)-[r]->(target:Component)
         RETURN 
-          id(r) AS id, 
+          toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
@@ -216,8 +216,10 @@ export class Neo4jClient {
       `);
 
       return result.records.map(record => {
+        // Convertemos o id para string para evitar problemas com IDs grandes
+        const idValue = record.get('id');
         return {
-          id: record.get('id').toNumber(),
+          id: idValue,
           type: record.get('type'),
           sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
           targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
@@ -246,7 +248,7 @@ export class Neo4jClient {
         MATCH (source)-[r]->(target)
         WHERE id(r) = $id
         RETURN 
-          id(r) AS id, 
+          toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
@@ -260,8 +262,9 @@ export class Neo4jClient {
       }
 
       const record = result.records[0];
+      const idValue = record.get('id');
       return {
-        id: record.get('id').toNumber(),
+        id: idValue,
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
@@ -296,7 +299,7 @@ export class Neo4jClient {
         MATCH (target:Component {id: $targetId})
         CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
         RETURN 
-          id(r) AS id, 
+          toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
@@ -310,8 +313,9 @@ export class Neo4jClient {
       }
 
       const record = result.records[0];
+      const idValue = record.get('id');
       return {
-        id: record.get('id').toNumber(),
+        id: idValue,
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
@@ -355,7 +359,7 @@ export class Neo4jClient {
         MATCH (target:Component {id: $targetId})
         CREATE (source)-[r:${type} {properties: $properties, createdAt: $createdAt, updatedAt: $now}]->(target)
         RETURN 
-          id(r) AS id, 
+          toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
@@ -376,8 +380,9 @@ export class Neo4jClient {
       }
 
       const record = result.records[0];
+      const idValue = record.get('id');
       return {
-        id: record.get('id').toNumber(),
+        id: idValue,
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
@@ -394,9 +399,9 @@ export class Neo4jClient {
   }
 
   // Excluir um relacionamento
-  async deleteRelation(id: number): Promise<boolean> {
+  async deleteRelation(id: number | string): Promise<boolean> {
     if (this.mockMode) {
-      return this.deleteMockRelation(id);
+      return this.deleteMockRelation(typeof id === 'string' ? parseInt(id) : id);
     }
 
     const session = this.driver.session();
