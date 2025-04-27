@@ -13,6 +13,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Script `scripts/restart-app.sh` para facilitar a reinicialização da aplicação em caso de problemas
 - Contador de caracteres no campo de descrição do formulário de componentes, com limite máximo de 256 caracteres para conformidade com o esquema do banco de dados
 - Implementação de rolagem infinita na página de componentes, carregando inicialmente 12 componentes e adicionando mais 8 conforme o usuário rola para baixo, melhorando o desempenho e a experiência do usuário
+- Adicionado diálogo de confirmação para todas as operações de exclusão, evitando exclusões acidentais e melhorando a experiência do usuário
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
@@ -25,6 +26,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Implementada validação e limite de 256 caracteres no campo de descrição dos componentes, com feedback visual para indicar ao usuário a quantidade de caracteres restantes
 - Redesenhados os cards de componentes com altura fixa (180px) para apresentação visual simétrica e consistente, incluindo truncamento inteligente de texto, limitação de tags visíveis e formato de data compacto
 - Corrigido o estilo dos dropdowns para garantir fundo sólido (não transparente) em todos os menus suspensos, melhorando a legibilidade e consistência visual em ambos os temas (claro e escuro)
+- Alterada a cor dos botões de ação em destaque para utilizar a cor primária roxa (var(--primary)), garantindo consistência visual e aderência ao guia de estilo da aplicação
 
 ## [0.3.0] - 2023-11-18
 

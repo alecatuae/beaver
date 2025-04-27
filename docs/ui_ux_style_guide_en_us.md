@@ -240,12 +240,13 @@ Our design follows these core principles:
 ### Buttons and Controls
 
 - **Primary Buttons**:
-  - Background: Primary color
+  - Background: Primary color (purple #7839EE)
   - Text: White
   - Padding: 8px 16px (minimum)
   - Height: 36-40px
   - Border-radius: 8px
   - Hover effect: Slight darkening of background
+  - Use for main/destructive actions like "Save", "Create", "Delete", "Submit"
 
 - **Secondary Buttons**:
   - Background: Transparent or light gray
@@ -253,6 +254,7 @@ Our design follows these core principles:
   - Text: Same as border color
   - Same dimensions as primary buttons
   - Hover effect: Slight background fill
+  - Use for secondary actions like "Cancel", "Back", "Edit"
 
 - **Tertiary/Text Buttons**:
   - No background or border
@@ -342,6 +344,21 @@ Our design follows these core principles:
   - Error: Red background with problem description and solution
   - Warning: Amber background with cautionary information
   - Information: Blue background with helpful context
+
+### Deletion Confirmation
+
+- **Consistently Required**: Todas as operações de exclusão devem solicitar confirmação do usuário
+- **Dialog Design**:
+  - Título claro: "Confirmar Exclusão"
+  - Mensagem de aviso explicando as consequências
+  - Menção de que a ação não pode ser desfeita
+  - Dois botões: "Cancelar" (variante outline) e "Excluir" (variante default/primary)
+  - Espaçamento consistente entre os botões (gap-4)
+  - Botões alinhados à direita para manter o padrão da plataforma
+- **Implementation**:
+  - Diálogo modal centralizado com fundo semi-transparente
+  - Foco inicial no botão "Cancelar" para evitar exclusões acidentais
+  - Opção de fechar o diálogo clicando fora dele ou pressionando Escape
 
 ### Loading States
 

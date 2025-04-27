@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -39,6 +39,8 @@ export default function ComponentsPage() {
   const [hasMore, setHasMore] = useState(true); // Indica se há mais componentes para carregar
   const observer = useRef<IntersectionObserver | null>(null);
   const lastComponentRef = useRef<HTMLDivElement | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [componentToDelete, setComponentToDelete] = useState<number | null>(null);
 
   // Consulta GraphQL para buscar componentes
   const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
@@ -186,18 +188,23 @@ export default function ComponentsPage() {
     setIsFormOpen(false);
   };
 
-  // Função para excluir componente
-  const handleDeleteComponent = (id: number) => {
+  // Função para iniciar o processo de exclusão
+  const confirmDeleteComponent = (id: number) => {
+    setComponentToDelete(id);
+    setShowDeleteConfirm(true);
+    setShowDetails(false); // Fechar o modal de detalhes
+  };
+
+  // Função para excluir componente após confirmação
+  const handleConfirmedDelete = () => {
+    if (componentToDelete === null) return;
+    
     deleteComponent({
-      variables: { id },
-      /**
-       * Callback executado após a exclusão bem-sucedida.
-       * Fecha o modal de detalhes e atualiza a lista de componentes
-       * para refletir a exclusão imediatamente na interface.
-       */
+      variables: { id: componentToDelete },
       onCompleted: () => {
         console.log("Componente excluído com sucesso");
-        setShowDetails(false);
+        setShowDeleteConfirm(false);
+        setComponentToDelete(null);
         // Atualiza a lista após excluir
         setTimeout(() => refetch(), 300);
       },
@@ -481,8 +488,8 @@ export default function ComponentsPage() {
                   Editar
                 </Button>
                 <Button 
-                  variant="destructive"
-                  onClick={() => handleDeleteComponent(selectedComponent.id)}
+                  variant="default"
+                  onClick={() => confirmDeleteComponent(selectedComponent.id)}
                 >
                   Excluir
                 </Button>
@@ -504,6 +511,26 @@ export default function ComponentsPage() {
               onSubmit={handleSaveComponent}
               onCancel={() => setIsFormOpen(false)}
             />
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de confirmação de exclusão */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription className="pt-2">
+                Tem certeza de que deseja excluir este componente? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancelar
+              </Button>
+              <Button variant="default" onClick={handleConfirmedDelete}>
+                Excluir
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

@@ -83,6 +83,11 @@
     - Intersection Observer API used for efficient detection of scroll position
     - Visual loading indicator for transparency during data fetching
     - Responsive grid layout adapting to different screen sizes (1, 2, or 3 columns)
+  - Improved user protection and experience:
+    - Confirmation dialog for deletion operations to prevent accidental data loss
+    - Clear warning about irreversible actions
+    - Consistent button placement and styling in confirmation dialogs
+    - Ability to cancel deletion operations
 
 ### Team Management
 - **Description**: Manage teams within the organization.

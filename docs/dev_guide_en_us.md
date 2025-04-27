@@ -49,16 +49,25 @@ This guide provides detailed instructions on how to develop and maintain the Bea
    - Express 4.21.x como servidor HTTP.
    - JWT para autenticação.
 
-3. **Testing**
+3. **Best Practices**
+   - **Operações de Exclusão**:
+     - **Sempre** implementar um diálogo de confirmação para qualquer operação de exclusão
+     - Fornecer mensagem clara sobre a natureza permanente da ação
+     - Oferecer opção de cancelamento facilmente acessível
+     - Manter um padrão consistente para todas as operações de exclusão em toda a aplicação
+     - Implementar exclusão como uma operação assíncrona com feedback visual
+     - Atualizar listagens automaticamente após a conclusão da operação
+
+4. **Testing**
    - Jest 29.7.x e Supertest 6.3.x para testes unitários e de integração.
    - Cypress/Playwright para testes end-to-end.
 
-4. **Code Quality and Standards**
+5. **Code Quality and Standards**
    - ESLint 9.x e Biome 1.6.x para qualidade de código.
    - TypeScript 5.x para tipagem estática.
    - Commitizen para mensagens de commit e semantic-release para versionamento.
 
-5. **Observability and Monitoring**
+6. **Observability and Monitoring**
    - Optional: Use Prometheus, Grafana, Loki, and Tempo for monitoring and observability.
 
 ## Deployment
