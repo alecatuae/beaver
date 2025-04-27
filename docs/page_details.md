@@ -95,6 +95,50 @@
     - Persistent sorting state during session
     - Clear UI with dropdown menu for sort options
 
+### Relationship Management
+- **Description**: Page for managing relationships between existing components in the architecture graph.
+- **Features**:
+  - Full CRUD operations for relationships (Create, Read, Update, Delete).
+  - Relationships link two pre-existing components via a defined connection type.
+  - Interactive form with field validations:
+    - Required fields: Source Component, Target Component, and Relationship Type.
+    - Optional field for additional description (up to 256 characters) with visual counter.
+    - Relationship type selection from a predefined list (e.g., CONNECTS_TO, PROTECTS, STORES_DATA_IN).
+    - Automatic validation to prevent creation of duplicate relationships between the same components.
+  - Real-time list updates after create, edit, or delete operations.
+  - Modal-based interface for relationship detail viewing and editing.
+  - Responsive card-based layout for relationship listings:
+    - Fixed-height cards (180px) displaying Source → Target and Relationship Type.
+    - Intelligent truncation for long component names and description.
+    - Color-coded badge displaying the relationship type.
+    - Visual indicator if the relationship has a description.
+    - Compact display format for creation and last update dates.
+  - Performance optimized interface:
+    - Infinite scroll implementation loading 12 relationships initially.
+    - Additional relationships load automatically (8 at a time) on scroll.
+    - Intersection Observer API used for efficient lazy loading.
+    - Visual loading spinner during data fetching.
+    - Responsive grid layout adapting to different screen sizes (1, 2, or 3 columns).
+  - Improved user protection and experience:
+    - Confirmation dialog required for delete operations with irreversible action warning.
+    - Consistent placement of confirmation and cancellation buttons.
+    - Prevention of deletion if components are currently involved in critical system processes (optional rule).
+  - Flexible data organization:
+    - Advanced sorting capabilities for relationships listing:
+      - Sort by Source Component (alphabetical), Target Component (alphabetical), or Relationship Type.
+      - Visual indication of active sort field and order (ascending/descending).
+      - Persistent sorting state during user session.
+    - Clear and compact UI with dropdown menu for sort options.
+  - Advanced filtering:
+    - Filter by Relationship Type.
+    - Search by Source or Target Component name (partial matches allowed).
+    - Combination of filters and search to refine results.
+- **Additional Interaction Patterns**:
+  - Hovering over a relationship card highlights the related nodes in the main graph visualization.
+  - Editing a relationship updates the corresponding graph edge in real-time.
+  - Deleting a relationship removes the corresponding edge immediately from the graph without requiring full reload.
+
+
 ### Team Management
 - **Description**: Manage teams within the organization.
 - **Features**:
