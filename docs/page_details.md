@@ -71,6 +71,12 @@
     - Status selection (Active, Inactive, Deprecated)
   - Real-time list updates after create, edit, or delete operations
   - Modal-based interface for detail viewing and editing
+  - Responsive card-based layout:
+    - Fixed-height component cards (180px) for consistent visual presentation
+    - Intelligent text truncation for long names and descriptions
+    - Limited tag display (up to 3) with counter for additional tags
+    - Compact date display format
+    - Status indication with color-coded badges
 
 ### Team Management
 - **Description**: Manage teams within the organization.

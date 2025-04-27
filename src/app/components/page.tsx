@@ -316,28 +316,33 @@ export default function ComponentsPage() {
             filteredComponents.map((component: ComponentType) => (
               <div 
                 key={component.id} 
-                className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors"
+                className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors h-[180px] flex flex-col"
                 onClick={() => handleComponentClick(component)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium">{component.name}</h3>
+                  <h3 className="text-lg font-medium truncate max-w-[70%]">{component.name}</h3>
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(component.status)}`}>
                     {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
                      component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
                   </span>
                 </div>
-                <p className="text-muted-foreground text-sm mb-4">{component.description}</p>
-                <div className="flex flex-wrap items-center justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {component.tags.map((tag, index) => (
-                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs">
-                        <Tag size={12} className="mr-1" />
-                        {tag}
+                <p className="text-muted-foreground text-sm mb-4 line-clamp-2 flex-grow">{component.description}</p>
+                <div className="flex flex-wrap items-center justify-between mt-auto">
+                  <div className="flex flex-wrap gap-2 max-w-[70%]">
+                    {component.tags.slice(0, 3).map((tag, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs truncate max-w-[100px]">
+                        <Tag size={12} className="mr-1 flex-shrink-0" />
+                        <span className="truncate">{tag}</span>
                       </span>
                     ))}
+                    {component.tags.length > 3 && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs">
+                        +{component.tags.length - 3}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    Criado em: {format(component.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {format(component.created_at, "dd/MM/yyyy")}
                   </span>
                 </div>
               </div>

@@ -182,6 +182,32 @@ Our design follows these core principles:
   - Directional indicators on connections
   - Side toolbar with interaction controls
 
+### Component Cards
+
+- **Dimensions**:
+  - Fixed height: 180px
+  - Flexible width based on container
+  - Padding: 16px (1rem)
+
+- **Layout**:
+  - Flexbox-based with column direction
+  - Header: Component name (truncated if needed) with status tag
+  - Body: Description text limited to 2 lines with ellipsis
+  - Footer: Tags (max 3 visible with counter) and creation date
+
+- **Text Handling**:
+  - Component name: Truncate with ellipsis if exceeds 70% of card width
+  - Description: Line clamp to 2 lines with ellipsis
+  - Tags: Truncate individual tags if longer than container
+  - Date format: Compact format (DD/MM/YYYY)
+
+- **Visual Design**:
+  - Border radius: 8px (rounded-lg)
+  - Shadow: Subtle shadow for depth
+  - Hover state: Primary color border highlight
+  - Tags: Maximum 3 visible with counter for additional
+  - Status indicators: Color-coded pills (Active: green, Inactive: amber, Deprecated: red)
+
 ### Details Panel
 
 - **Width**: 320-360px (can be collapsible)
