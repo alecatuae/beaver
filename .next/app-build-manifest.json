@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/components/page": [
+    "/relationships/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/components/page.js"
+      "static/chunks/app/relationships/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -16,10 +16,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
-    "/relationships/page": [
+    "/components/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/relationships/page.js"
+      "static/chunks/app/components/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",
