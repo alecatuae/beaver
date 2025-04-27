@@ -7,6 +7,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 ### Added
+- Criação do documento `docs/neo4j_best_practices.md` detalhando boas práticas para trabalhar com Neo4j no projeto Beaver, incluindo diretrizes para operações com nós e relacionamentos
+- Criação do documento `docs/neo4j_relationship_requirements.md` com especificações técnicas detalhadas sobre os requisitos para criação de relacionamentos no Neo4j
+- Atualização do documento `docs/fluxo_criacao_relacionamento.md` com adição de seção sobre requisitos e boas práticas para criação de relacionamentos no Neo4j
+- Implementação de correção para o erro "Int cannot represent non 32-bit signed integer value" no Neo4j Client, convertendo IDs de relacionamentos para string 
 - Criação do documento `docs/fluxo_consulta_relacionamento.md` detalhando o fluxo completo de dados na consulta de relacionamentos, destacando a interação entre Neo4j e MariaDB
 - Criação do documento `docs/fluxo_consulta_componente.md` detalhando o fluxo completo de dados na consulta de componentes, com foco no uso do MariaDB para dados principais
 - Criação do documento `docs/fluxo_criacao_relacionamento.md` detalhando o fluxo completo de dados na criação de relacionamentos entre componentes, com ênfase na persistência exclusiva no Neo4j
@@ -45,6 +49,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Implementado MockNeo4jClient para permitir desenvolvimento sem Neo4j disponível
 
 ### Changed
+- Modificada a interface IRelation para suportar IDs como string ou number, corrigindo erro de representação de inteiros grandes
+- Atualizado o código do Neo4jClient para converter IDs de relacionamentos para string com toString(id(r))
+- Atualizado o esquema GraphQL para utilizar String em vez de Int para IDs de relacionamentos
+- Atualizada a interface do usuário para lidar corretamente com IDs de relacionamentos como strings
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
 - Correção na configuração do Docker para o contêiner da API: adicionado suporte a OpenSSL para o Prisma Client
 - Corrigida a definição de tipos no GraphQL (ComponentTag e ADRTag) que estavam causando erros de inicialização
@@ -60,6 +68,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Corrigido o alinhamento e a margem do texto nas opções do menu lateral, adicionando truncamento para textos longos e garantindo espaçamento consistente entre os elementos
 
 ### Fixed
+- Corrigido erro "Int cannot represent non 32-bit signed integer value" no Neo4j Client, que ocorria ao lidar com IDs grandes de relacionamentos
 - Corrigido o erro 400 na página de relacionamentos que impedia a exibição dos dados
 - Implementada integração completa entre o Neo4j e o frontend para visualização de relacionamentos
 - Corrigido erro de compilação do Pothos GraphQL que exigia a propriedade 'notStrict' no SchemaBuilder

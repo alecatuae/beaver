@@ -143,7 +143,7 @@ async createRelation(
       MATCH (target:Component {id: $targetId})
       CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
       RETURN 
-        id(r) AS id, 
+        toString(id(r)) AS id, 
         type(r) AS type, 
         source.id AS sourceId, 
         target.id AS targetId,
@@ -159,7 +159,7 @@ async createRelation(
     const record = result.records[0];
     // Processar e retornar o resultado
     return {
-      id: record.get('id').toNumber(),
+      id: record.get('id'),
       type: record.get('type'),
       sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
       targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
@@ -200,3 +200,78 @@ O sistema suporta os seguintes tipos de relacionamento:
 - As consultas Cypher são parametrizadas para evitar injeção
 - O sistema usa sessões isoladas para cada operação, garantindo atomicidade
 - Log de todas as operações para auditoria e depuração 
+
+## Requisitos e Boas Práticas para Criação de Relacionamentos no Neo4j
+
+Para garantir a integridade e a eficiência na criação de relacionamentos no Neo4j, o sistema Beaver implementa os seguintes requisitos e boas práticas:
+
+### 1. Existência Prévia dos Nós
+
+- **Requisito**: Os nós de origem e destino devem existir antes da criação do relacionamento
+- **Implementação**: O sistema utiliza a cláusula `MATCH` para verificar a existência dos componentes antes de criar a relação:
+  ```cypher
+  MATCH (source:Component {id: $sourceId})
+  MATCH (target:Component {id: $targetId})
+  ```
+- **Validação**: Se algum dos nós não existir, o sistema retorna um erro antes de tentar criar o relacionamento
+
+### 2. Direção Explícita do Relacionamento
+
+- **Requisito**: Todo relacionamento deve ter uma direção definida (origem → destino)
+- **Implementação**: A sintaxe Cypher utilizada no sistema define claramente a direção:
+  ```cypher
+  CREATE (source)-[r:${type}]->(target)
+  ```
+- **Contexto**: A direção é semanticamente importante na arquitetura, indicando fluxo de dados, dependência ou composição
+
+### 3. Tipo de Relacionamento Obrigatório
+
+- **Requisito**: Todo relacionamento deve ter um tipo que descreve sua natureza
+- **Implementação**: O tipo é especificado como parâmetro obrigatório na API e utiliza convenção de nomes em CAIXA ALTA:
+  ```typescript
+  type: string; // Obrigatório no RelationInput
+  ```
+- **Validação**: O formulário de UI e o schema GraphQL garantem que o tipo seja fornecido
+
+### 4. Propriedades Opcionais nos Relacionamentos
+
+- **Requisito**: Relacionamentos podem (opcionalmente) conter metadados adicionais
+- **Implementação**: O sistema permite a adição de propriedades como descrição, datas e metadados:
+  ```cypher
+  CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
+  ```
+- **Padrão**: Todo relacionamento recebe automaticamente timestamps de criação e atualização
+
+### 5. Prevenção de Relacionamentos Duplicados
+
+- **Recomendação**: Evitar a criação de múltiplos relacionamentos idênticos entre os mesmos nós
+- **Estratégia futura**: Implementar verificação de unicidade ou uso de `MERGE` em vez de `CREATE`:
+  ```cypher
+  // Exemplo de implementação futura para evitar duplicação
+  MERGE (source:Component {id: $sourceId})
+  MERGE (target:Component {id: $targetId})
+  MERGE (source)-[r:${type}]->(target)
+  ON CREATE SET r.properties = $properties, r.createdAt = $now, r.updatedAt = $now
+  ON MATCH SET r.properties = $properties, r.updatedAt = $now
+  ```
+
+### 6. Índices e Constraints
+
+- **Recomendação**: Usar índices para otimizar a busca de componentes e constraints para garantir unicidade
+- **Implementação**: O sistema define índices nos IDs dos componentes para acelerar a localização:
+  ```cypher
+  // Exemplo de criação de índice (executado na inicialização do banco)
+  CREATE INDEX ON :Component(id)
+  ```
+
+### 7. Permissões de Acesso
+
+- **Requisito**: Usuários precisam ter permissões adequadas para criar relacionamentos
+- **Implementação**: O sistema utiliza autenticação JWT e verifica permissões antes de permitir operações de criação
+- **Controle**: Apenas usuários autenticados com papel "admin" ou "architect" podem criar relacionamentos
+
+### Considerações Adicionais
+
+- A implementação atual usa IDs do tipo `string` para lidar com IDs grandes do Neo4j, evitando limitações de inteiros de 32 bits
+- Todas as operações são registradas em logs para fins de auditoria e depuração
+- Validações adicionais no frontend evitam tentativas de criação de relacionamentos inválidos antes de atingirem a API 
