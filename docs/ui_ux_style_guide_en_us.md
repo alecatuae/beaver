@@ -289,6 +289,9 @@ Our design follows these core principles:
   - Clear indicator for expandability
   - Consistent styling of dropdown options
   - Active/selected state highlighted
+  - Solid background (white in light mode, card background in dark mode)
+  - Non-transparent menus for improved readability
+  - Border radius matching other UI elements
 
 - **Checkboxes and Radio Buttons**:
   - Custom styling matching overall design language

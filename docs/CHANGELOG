@@ -24,6 +24,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Aprimorada a experiência do usuário na página de Componentes com atualização automática da lista após operações CRUD: implementado hook useEffect para detectar fechamento do modal e callbacks específicos para garantir que a lista seja sempre atualizada após criação, edição ou exclusão
 - Implementada validação e limite de 256 caracteres no campo de descrição dos componentes, com feedback visual para indicar ao usuário a quantidade de caracteres restantes
 - Redesenhados os cards de componentes com altura fixa (180px) para apresentação visual simétrica e consistente, incluindo truncamento inteligente de texto, limitação de tags visíveis e formato de data compacto
+- Corrigido o estilo dos dropdowns para garantir fundo sólido (não transparente) em todos os menus suspensos, melhorando a legibilidade e consistência visual em ambos os temas (claro e escuro)
 
 ## [0.3.0] - 2023-11-18
 
