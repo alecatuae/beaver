@@ -59,10 +59,14 @@ export default function ComponentForm({
     setErrors({});
     
     // Garantir que o status é enviado como o enum correto
+    const validStatus = Object.values(ComponentStatus).includes(status as ComponentStatus) 
+      ? status 
+      : ComponentStatus.ACTIVE;
+      
     onSubmit({
       name,
       description,
-      status: status.toString() as ComponentStatus, // Convertendo para string para garantir compatibilidade
+      status: validStatus,
       tags
     });
   };

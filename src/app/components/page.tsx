@@ -40,6 +40,13 @@ export default function ComponentsPage() {
   const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
     variables: { status: statusFilter === 'all' ? null : statusFilter },
     fetchPolicy: 'network-only',
+    onError: (error) => {
+      console.error('Erro na consulta GraphQL:', error);
+      console.error('Erro em detalhes:', JSON.stringify(error, null, 2));
+    },
+    onCompleted: (data) => {
+      console.log('Consulta completada com sucesso. Dados recebidos:', data);
+    }
   });
   
   // Efeito para logar quando os dados mudam
@@ -50,22 +57,43 @@ export default function ComponentsPage() {
 
   // Mutations GraphQL
   const [createComponent] = useMutation(CREATE_COMPONENT, {
-    onCompleted: () => refetch(),
+    onCompleted: () => {
+      console.log("Componente criado com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao criar componente:", error);
+    }
   });
 
   const [updateComponent] = useMutation(UPDATE_COMPONENT, {
-    onCompleted: () => refetch(),
+    onCompleted: () => {
+      console.log("Componente atualizado com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar componente:", error);
+    }
   });
 
   const [deleteComponent] = useMutation(DELETE_COMPONENT, {
-    onCompleted: () => refetch(),
+    onCompleted: () => {
+      console.log("Componente excluído com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao excluir componente:", error);
+    }
   });
 
   // Transforma os dados da API para o formato esperado pela interface
   const components = data?.components?.map((component: any) => ({
     ...component,
     created_at: new Date(component.createdAt),
-    tags: component.tags?.map((tag: any) => typeof tag === 'string' ? tag : tag.tag) || []
+    tags: component.tags?.map((tag: any) => {
+      // Verifica se a tag já é uma string ou se precisamos extrair a propriedade 'tag'
+      return typeof tag === 'string' ? tag : (tag?.tag || '');
+    }) || []
   })) || [];
 
   // Função para filtrar componentes com base na busca

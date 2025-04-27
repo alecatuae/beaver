@@ -58,7 +58,11 @@ export const componentResolvers = (builder: any) => {
       }),
       status: t.field({
         type: 'String',
-        resolve: (parent: any) => parent.status,
+        resolve: (parent: any) => {
+          // Garantir que o status sempre seja retornado em maiúsculas
+          const status = parent.status || 'ACTIVE';
+          return status.toUpperCase();
+        },
       }),
       createdAt: t.field({
         type: 'Date',
@@ -151,7 +155,7 @@ export const componentResolvers = (builder: any) => {
     t.field({
       type: [Component],
       args: {
-        status: t.arg.string(),
+        status: t.arg.string({ nullable: true }),
       },
       resolve: async (_root: any, args: any, ctx: any) => {
         try {
@@ -185,7 +189,7 @@ export const componentResolvers = (builder: any) => {
           
           // Mapeamento para o formato esperado pelo tipo Component
           return rawComponents;
-        } catch (error) {
+        } catch (error: any) {
           console.error('Erro detalhado ao buscar componentes:', error);
           throw new Error(`Erro ao carregar os componentes: ${error.message}`);
         }
@@ -213,7 +217,7 @@ export const componentResolvers = (builder: any) => {
           }
           
           return rawComponents[0];
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Erro ao buscar componente com ID ${args.id}:`, error);
           throw new Error(`Erro ao carregar o componente: ${error.message}`);
         }
@@ -289,8 +293,8 @@ export const componentResolvers = (builder: any) => {
         // }
         
         const { name, description, tags } = args.input;
-        // Sempre definimos o status como 'ACTIVE' para evitar problemas
-        const status = 'ACTIVE';
+        // Usar o status fornecido ou ACTIVE como padrão
+        const status = args.input.status ? args.input.status.toUpperCase() : 'ACTIVE';
         
         try {
           // Cria o componente no MariaDB com SQL bruto
@@ -339,7 +343,7 @@ export const componentResolvers = (builder: any) => {
             ...createdComponent,
             id: String(createdComponent.id) // Converte ID para string conforme esperado pelo tipo
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error('Erro ao criar componente com queryRaw:', error);
           throw new Error(`Falha ao criar componente: ${error.message}`);
         }
@@ -363,8 +367,8 @@ export const componentResolvers = (builder: any) => {
         
         const { id } = args;
         const { name, description, tags } = args.input;
-        // Sempre definimos o status como 'ACTIVE' para evitar problemas
-        const status = 'ACTIVE';
+        // Usar o status fornecido ou ACTIVE como padrão
+        const status = args.input.status ? args.input.status.toUpperCase() : 'ACTIVE';
         
         try {
           // Atualiza o componente no MariaDB com SQL bruto
@@ -417,7 +421,7 @@ export const componentResolvers = (builder: any) => {
             ...updatedComponent,
             id: String(updatedComponent.id) // Converte ID para string conforme esperado pelo tipo
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error('Erro ao atualizar componente com queryRaw:', error);
           throw new Error(`Falha ao atualizar componente: ${error.message}`);
         }
@@ -533,7 +537,7 @@ export const componentResolvers = (builder: any) => {
             ...component,
             id: String(component.id) // Converte ID para string conforme esperado pelo tipo
           };
-        } catch (error) {
+        } catch (error: any) {
           console.error(`Erro detalhado ao excluir componente:`, error);
           throw new Error(`Falha ao excluir componente: ${error.message}`);
         }

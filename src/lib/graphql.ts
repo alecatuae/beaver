@@ -166,8 +166,11 @@ const mockLink = new ApolloLink((operation, forward) => {
 });
 
 // HTTP link para a API real (que usaríamos em produção)
+const apiUrl = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
+console.log('Usando endpoint GraphQL:', apiUrl);
+
 const httpLink = new HttpLink({
-  uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql',
+  uri: apiUrl,
 });
 
 // Link com fallback - tenta httpLink primeiro, se falhar usa mockLink
@@ -242,7 +245,7 @@ export const client = new ApolloClient({
 
 // Queries para componentes
 export const GET_COMPONENTS = gql`
-  query GetComponents($status: ComponentStatus) {
+  query GetComponents($status: String) {
     components(status: $status) {
       id
       name
