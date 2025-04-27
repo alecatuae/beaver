@@ -194,7 +194,15 @@ export default function ComponentsPage() {
       <AppLayout>
         <div className="flex justify-center items-center h-96 flex-col gap-4">
           <p className="text-lg text-destructive">Erro ao carregar os componentes</p>
-          <p className="text-sm text-muted-foreground">{error.message}</p>
+          <p className="text-sm text-muted-foreground">
+            {error.message === 'Failed to fetch' 
+              ? 'Erro de conexão com a API. Verifique se o servidor está em execução.' 
+              : error.message}
+          </p>
+          <pre className="text-xs bg-muted p-4 rounded-md overflow-auto max-w-full">
+            {error.networkError && JSON.stringify(error.networkError, null, 2)}
+            {error.graphQLErrors?.length > 0 && JSON.stringify(error.graphQLErrors, null, 2)}
+          </pre>
           <Button onClick={() => refetch()}>Tentar novamente</Button>
         </div>
       </AppLayout>

@@ -12,7 +12,7 @@ services:
       sh -c "npm install --legacy-peer-deps && 
              npm run dev -- -H 0.0.0.0 -p 3002"
     environment:
-      NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://api:4000/graphql
+      NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://localhost:4000/graphql
       NODE_ENV: development
     ports: ["3002:3002"]
     depends_on: [api]
@@ -42,6 +42,7 @@ services:
     depends_on: [neo4j, mariadb]
     ports: ["4000:4000"]
     profiles: ["base"]
+    network_mode: "host"
 
   mariadb:
     image: mariadb:latest
