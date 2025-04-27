@@ -29,11 +29,22 @@ export default function ComponentForm({
 }: ComponentFormProps) {
   // Estados do formulário
   const [name, setName] = useState(initialData.name || '');
-  const [description, setDescription] = useState(initialData.description || '');
+  const [description, setDescription] = useState(initialData.description?.slice(0, 256) || '');
   const [status, setStatus] = useState<ComponentStatus>(initialData.status || ComponentStatus.ACTIVE);
   const [tags, setTags] = useState<string[]>(initialData.tags || []);
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Contador de caracteres restantes
+  const remainingChars = 256 - description.length;
+
+  // Manipulador para o campo de descrição
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (value.length <= 256) {
+      setDescription(value);
+    }
+  };
 
   // Manipulador de submit
   const handleSubmit = (e: React.FormEvent) => {
@@ -48,6 +59,8 @@ export default function ComponentForm({
     
     if (!description.trim()) {
       validationErrors.description = 'A descrição é obrigatória';
+    } else if (description.length > 256) {
+      validationErrors.description = 'A descrição deve ter no máximo 256 caracteres';
     }
     
     if (Object.keys(validationErrors).length > 0) {
@@ -117,13 +130,21 @@ export default function ComponentForm({
           <Textarea
             id="description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={handleDescriptionChange}
             rows={4}
+            maxLength={256}
             className={errors.description ? 'border-destructive' : ''}
           />
-          {errors.description && (
-            <p className="text-destructive text-sm mt-1">{errors.description}</p>
-          )}
+          <div className="flex justify-between items-center mt-1">
+            <div>
+              {errors.description && (
+                <p className="text-destructive text-sm">{errors.description}</p>
+              )}
+            </div>
+            <p className={`text-xs ${remainingChars <= 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {remainingChars} caracteres restantes
+            </p>
+          </div>
         </div>
 
         <div>

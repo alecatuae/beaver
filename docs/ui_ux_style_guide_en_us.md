@@ -249,6 +249,15 @@ Our design follows these core principles:
   - Focus state: Primary color highlight
   - Error state: Error color highlight with message
 
+- **Textarea Inputs**:
+  - Padding: 12px
+  - Border: 1px solid border color
+  - Border-radius: 4-8px
+  - Description fields: Maximum 256 characters with visual counter
+  - Character counter: Shows remaining characters
+  - Warning state: Counter turns red when 20 or fewer characters remain
+  - Error state: Border changes to error color with descriptive message
+
 - **Dropdowns**:
   - Similar styling to text inputs
   - Clear indicator for expandability

@@ -11,6 +11,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Implementação completa da operação de exclusão de componentes (`deleteComponent`) com persistência síncrona nos bancos de dados MariaDB e Neo4j
 - Método `deleteNode` adicionado à classe Neo4jClient para facilitar a exclusão de nós e suas relações no Neo4j
 - Script `scripts/restart-app.sh` para facilitar a reinicialização da aplicação em caso de problemas
+- Contador de caracteres no campo de descrição do formulário de componentes, com limite máximo de 256 caracteres para conformidade com o esquema do banco de dados
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
@@ -19,6 +20,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Melhoria na configuração de volumes do Docker para evitar problemas com os módulos do Node.js
 - Revisão do padrão de layout na página de Componentes: removidos botões redundantes de Editar e Excluir da parte superior e botão de Fechar na parte inferior do modal de detalhes
 - Melhorado o espaçamento entre botões de ação (gap-4) no modal de detalhes de componentes para melhor alinhamento com as diretrizes de UI/UX
+- Aprimorada a experiência do usuário na página de Componentes com atualização automática da lista após operações CRUD: implementado hook useEffect para detectar fechamento do modal e callbacks específicos para garantir que a lista seja sempre atualizada após criação, edição ou exclusão
+- Implementada validação e limite de 256 caracteres no campo de descrição dos componentes, com feedback visual para indicar ao usuário a quantidade de caracteres restantes
 
 ## [0.3.0] - 2023-11-18
 

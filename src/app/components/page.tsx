@@ -55,6 +55,19 @@ export default function ComponentsPage() {
     console.log('Componentes:', data?.components);
   }, [data]);
 
+  /**
+   * Efeito para atualização automática da lista de componentes.
+   * Detecta quando o modal de formulário é fechado (após criação/edição)
+   * e atualiza a lista após um pequeno atraso para garantir que a operação
+   * no banco de dados tenha sido concluída.
+   */
+  useEffect(() => {
+    if (!isFormOpen) {
+      // Atualiza a lista após fechar o modal
+      setTimeout(() => refetch(), 300);
+    }
+  }, [isFormOpen, refetch]);
+
   // Mutations GraphQL
   const [createComponent] = useMutation(CREATE_COMPONENT, {
     onCompleted: () => {
@@ -172,9 +185,22 @@ export default function ComponentsPage() {
   // Função para excluir componente
   const handleDeleteComponent = (id: number) => {
     deleteComponent({
-      variables: { id }
+      variables: { id },
+      /**
+       * Callback executado após a exclusão bem-sucedida.
+       * Fecha o modal de detalhes e atualiza a lista de componentes
+       * para refletir a exclusão imediatamente na interface.
+       */
+      onCompleted: () => {
+        console.log("Componente excluído com sucesso");
+        setShowDetails(false);
+        // Atualiza a lista após excluir
+        setTimeout(() => refetch(), 300);
+      },
+      onError: (error) => {
+        console.error("Erro ao excluir componente:", error);
+      }
     });
-    setShowDetails(false);
   };
 
   // Renderizar mensagem de carregamento se necessário

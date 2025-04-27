@@ -64,6 +64,13 @@
 - **Features**:
   - CRUD operations for components.
   - Association of components with ADRs and other entities.
+  - Interactive form with field validations:
+    - Required name and description fields
+    - Description field limited to 256 characters with visual counter
+    - Dynamic tag management with add/remove capabilities
+    - Status selection (Active, Inactive, Deprecated)
+  - Real-time list updates after create, edit, or delete operations
+  - Modal-based interface for detail viewing and editing
 
 ### Team Management
 - **Description**: Manage teams within the organization.
