@@ -1,0 +1,84 @@
+# Registro de Alterações (CHANGELOG)
+
+Todas as alterações significativas neste projeto serão documentadas neste arquivo.
+
+O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
+e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
+
+## [Unreleased]
+### Added
+- Script `scripts/update-app.sh` para facilitar a atualização e reinicialização dos contêineres de frontend e backend
+- Implementação completa da operação de exclusão de componentes (`deleteComponent`) com persistência síncrona nos bancos de dados MariaDB e Neo4j
+- Método `deleteNode` adicionado à classe Neo4jClient para facilitar a exclusão de nós e suas relações no Neo4j
+- Script `scripts/restart-app.sh` para facilitar a reinicialização da aplicação em caso de problemas
+
+### Changed
+- Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
+- Correção na configuração do Docker para o contêiner da API: adicionado suporte a OpenSSL para o Prisma Client
+- Corrigida a definição de tipos no GraphQL (ComponentTag e ADRTag) que estavam causando erros de inicialização
+- Melhoria na configuração de volumes do Docker para evitar problemas com os módulos do Node.js
+
+## [0.3.0] - 2023-11-18
+
+### Adicionado
+- Recriação completa do frontend baseado na nova interface
+- Implementação do layout responsivo
+- Navegação lateral com opções expansíveis
+- Tema escuro/claro com suporte ao Next.js
+- Componentes de interface seguindo o novo design
+- Página inicial com estatísticas e recursos
+- Visualização de arquitetura com diagrama interativo
+
+## [0.2.0] - 2023-11-17
+
+### Removido
+- Estrutura completa do frontend removida, incluindo:
+  - Todos os componentes React (layout, UI)
+  - Arquivos de estilo e utilitários
+  - Páginas e rotas Next.js
+  - Configurações de tema
+- Dependências do frontend removidas do package.json:
+  - React, Next.js e suas dependências
+  - Componentes Radix UI
+  - TailwindCSS e utilitários
+  - Bibliotecas de interface como Lucide, Headless UI, etc.
+- Arquivos de configuração frontend removidos:
+  - next.config.ts
+  - eslint.config.mjs
+  - .eslintrc.json
+  - postcss.config.js
+  - tailwind.config.js
+- Diretórios removidos:
+  - node_modules_frontend
+  - .next
+  - public
+
+### Alterado
+- Atualizado docker-compose.yml para remover o serviço de frontend
+- Testado o funcionamento do backend em GraphQL:
+  - Servidor Apollo funciona corretamente
+  - API responde a consultas básicas
+  - Verificado endpoints /graphql e /status
+
+## [0.1.1] - 2023-11-15
+
+### Adicionado
+- Configuração completa do TailwindCSS
+- Definição das cores personalizadas da marca no tema do Tailwind
+- Configuração das fontes Inter e Roboto
+- Atualização do layout para utilizar classes do Tailwind
+
+## [0.1.0] - 2023-11-10
+
+### Adicionado
+- Inicialização do projeto Next.js
+- Criação dos componentes de layout (Header, Sidebar, Footer)
+- Implementação do layout padrão da aplicação
+- Criação das páginas iniciais:
+  - Home
+  - Arch Overview (Visão geral da arquitetura)
+  - ADR Management (Gerenciamento de ADRs)
+  - Impact Workflow (Fluxo de impacto)
+- Implementação de navegação entre páginas
+- Estrutura básica do projeto seguindo as boas práticas do Next.js
+- Documentação inicial no README.md 

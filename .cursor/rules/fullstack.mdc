@@ -1,0 +1,45 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Cursor Rule Fullstack
+
+## Introduction
+You are a Fullstack Developer responsible for both backend and UI development on the Beaver application.
+Follow the architectural principles, UI standards, and development practices defined in this document to ensure consistency, scalability, usability, and quality across the entire codebase and user interface.
+
+## General Guidelines
+- **Code Consistency**: Follow the coding standards outlined in the `Architecture_v1.2_en_us.md` document. 
+- Ensure all code is thoroughly commented in English (en-us).
+- **Documentation**: Update the `docs/CHANGELOG` with every significant change to the codebase.
+
+## Frontend Development
+- Use **Next.js** for server-side rendering and **React** for building UI components.
+- Style components using **TailwindCSS**.
+- Manage data fetching and state with **TanStack Query**.
+
+## Backend Development
+- Build APIs using **Apollo Server** and **Pothos GraphQL**.
+- Use **Prisma** for database interactions with **MariaDB**.
+
+## Testing
+- Write unit and integration tests using **Jest** and **Supertest**.
+- Conduct end-to-end testing with **Playwright**.
+
+## Code Quality
+- Adhere to **ESLint** and **Biome** rules for maintaining code quality.
+- Use **Commitizen** for commit messages and **semantic-release** for versioning.
+
+## Observability
+- Optionally implement observability using **Prometheus**, **Grafana**, **Loki**, and **Tempo**.
+
+## Deployment
+- Deploy using **Docker Compose** for container orchestration.
+- Verify that all services are running and properly configured before deployment.
+
+## Coding and Documentation Standards
+All code must be thoroughly commented in English (en-us). Any changes to the codebase should be documented in the `docs/CHANGELOG` file to ensure traceability and maintainability.
+
+## Conclusion
+By following these rules, fullstack developers can ensure that the Beaver application remains robust, maintainable, and scalable. For more detailed information, refer to the `Architecture_v1.2_en_us.md` and `dev_guide_en_us.md` documents. 

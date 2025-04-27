@@ -1,0 +1,29 @@
+# Data directories
+/data/
+/prometheus/data/
+/grafana/data/
+/loki/data/
+/tempo/data/
+
+# Logs
+*.log
+logs/
+
+# Config overrides
+*.override.yml
+*.override.yaml
+*.local.yml
+*.local.yaml
+
+# Grafana runtime files
+/grafana/plugins/
+/grafana/provisioning/datasources/local/
+/grafana/provisioning/dashboards/local/
+
+# Prometheus runtime files
+/prometheus/rules/local/
+
+# Miscellaneous
+.DS_Store
+.env
+*.tmp 

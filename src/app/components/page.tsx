@@ -1,0 +1,405 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { AppLayout } from '@/components/layout/app-layout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import ComponentForm from './form-component';
+import { useQuery, useMutation } from '@apollo/client';
+import { 
+  GET_COMPONENTS, 
+  CREATE_COMPONENT, 
+  UPDATE_COMPONENT, 
+  DELETE_COMPONENT, 
+  ComponentStatus,
+  ComponentType,
+  ComponentInput
+} from '@/lib/graphql';
+
+export default function ComponentsPage() {
+  // Estados para filtros e busca
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ComponentStatus | 'all'>('all');
+  const [selectedComponent, setSelectedComponent] = useState<ComponentType | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  // Consulta GraphQL para buscar componentes
+  const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
+    variables: { status: statusFilter === 'all' ? null : statusFilter },
+    fetchPolicy: 'network-only',
+  });
+  
+  // Efeito para logar quando os dados mudam
+  useEffect(() => {
+    console.log('Dados recebidos:', data);
+    console.log('Componentes:', data?.components);
+  }, [data]);
+
+  // Mutations GraphQL
+  const [createComponent] = useMutation(CREATE_COMPONENT, {
+    onCompleted: () => refetch(),
+  });
+
+  const [updateComponent] = useMutation(UPDATE_COMPONENT, {
+    onCompleted: () => refetch(),
+  });
+
+  const [deleteComponent] = useMutation(DELETE_COMPONENT, {
+    onCompleted: () => refetch(),
+  });
+
+  // Transforma os dados da API para o formato esperado pela interface
+  const components = data?.components?.map((component: any) => ({
+    ...component,
+    created_at: new Date(component.createdAt),
+    tags: component.tags?.map((tag: any) => typeof tag === 'string' ? tag : tag.tag) || []
+  })) || [];
+
+  // Função para filtrar componentes com base na busca
+  const filteredComponents = components.filter((component: ComponentType) => {
+    const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        component.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        component.tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch;
+  });
+
+  // Manipuladores de ações
+  const handleStatusFilterChange = (status: ComponentStatus | 'all') => {
+    setStatusFilter(status);
+    if (status !== 'all') {
+      refetch({ status });
+    } else {
+      refetch({ status: null });
+    }
+  };
+
+  const handleComponentClick = (component: ComponentType) => {
+    setSelectedComponent(component);
+    setShowDetails(true);
+  };
+
+  const getStatusColor = (status: ComponentStatus) => {
+    switch (status) {
+      case ComponentStatus.ACTIVE:
+        return 'bg-success text-success-foreground';
+      case ComponentStatus.INACTIVE:
+        return 'bg-warning text-warning-foreground';
+      case ComponentStatus.DEPRECATED:
+        return 'bg-destructive text-destructive-foreground';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  // Função para abrir formulário de componente (em modo de criação)
+  const openNewComponentForm = () => {
+    setIsEditMode(false);
+    setSelectedComponent(null);
+    setIsFormOpen(true);
+  };
+
+  // Função para abrir formulário de componente (em modo de edição)
+  const openEditComponentForm = (component: ComponentType) => {
+    setIsEditMode(true);
+    setSelectedComponent(component);
+    setShowDetails(false);
+    setIsFormOpen(true);
+  };
+
+  // Função para salvar componente (criar ou atualizar)
+  const handleSaveComponent = (componentData: ComponentInput) => {
+    if (isEditMode && selectedComponent) {
+      // Atualizar componente existente
+      updateComponent({
+        variables: {
+          id: selectedComponent.id,
+          input: componentData
+        }
+      });
+    } else {
+      // Criar novo componente
+      createComponent({
+        variables: {
+          input: componentData
+        }
+      });
+    }
+    
+    setIsFormOpen(false);
+  };
+
+  // Função para excluir componente
+  const handleDeleteComponent = (id: number) => {
+    deleteComponent({
+      variables: { id }
+    });
+    setShowDetails(false);
+  };
+
+  // Renderizar mensagem de carregamento se necessário
+  if (loading && !data) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-96">
+          <p className="text-lg">Carregando componentes...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Renderizar mensagem de erro se necessário
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-96 flex-col gap-4">
+          <p className="text-lg text-destructive">Erro ao carregar os componentes</p>
+          <p className="text-sm text-muted-foreground">{error.message}</p>
+          <Button onClick={() => refetch()}>Tentar novamente</Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <div className="pb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Gerenciamento de Componentes</h1>
+          <Button 
+            className="flex items-center gap-1"
+            onClick={openNewComponentForm}
+          >
+            <Plus size={16} className="mr-1" />
+            Novo Componente
+          </Button>
+        </div>
+
+        {/* Área de busca e filtros */}
+        <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              type="text"
+              placeholder="Buscar componentes..."
+              className="w-full pl-10 pr-4 py-2 border rounded-md focus:ring-1 focus:ring-primary focus:border-primary bg-background"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Filter size={16} />
+                  Filtrar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem 
+                  onClick={() => handleStatusFilterChange('all')}
+                  className={statusFilter === 'all' ? 'bg-muted' : ''}
+                >
+                  Todos os status
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={() => handleStatusFilterChange(ComponentStatus.ACTIVE)}
+                  className={statusFilter === ComponentStatus.ACTIVE ? 'bg-muted' : ''}
+                >
+                  <span className="w-2 h-2 rounded-full bg-success mr-2"></span>
+                  Ativos
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleStatusFilterChange(ComponentStatus.INACTIVE)}
+                  className={statusFilter === ComponentStatus.INACTIVE ? 'bg-muted' : ''}
+                >
+                  <span className="w-2 h-2 rounded-full bg-warning mr-2"></span>
+                  Inativos
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleStatusFilterChange(ComponentStatus.DEPRECATED)}
+                  className={statusFilter === ComponentStatus.DEPRECATED ? 'bg-muted' : ''}
+                >
+                  <span className="w-2 h-2 rounded-full bg-destructive mr-2"></span>
+                  Depreciados
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline">
+              <Download size={16} />
+            </Button>
+          </div>
+        </div>
+
+        {/* Grid de componentes */}
+        <div className="grid grid-cols-1 gap-4">
+          {filteredComponents.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhum componente encontrado.
+            </div>
+          ) : (
+            filteredComponents.map((component: ComponentType) => (
+              <div 
+                key={component.id} 
+                className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors"
+                onClick={() => handleComponentClick(component)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium">{component.name}</h3>
+                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(component.status)}`}>
+                    {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                     component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                  </span>
+                </div>
+                <p className="text-muted-foreground text-sm mb-4">{component.description}</p>
+                <div className="flex flex-wrap items-center justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    {component.tags.map((tag, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs">
+                        <Tag size={12} className="mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Criado em: {format(component.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Modal de detalhes do componente */}
+        {showDetails && selectedComponent && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-card rounded-lg border shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">{selectedComponent.name}</h2>
+                  <span className={`mt-2 inline-block px-2 py-1 text-xs rounded-full ${getStatusColor(selectedComponent.status)}`}>
+                    {selectedComponent.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                     selectedComponent.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center"
+                    onClick={() => openEditComponentForm(selectedComponent)}
+                  >
+                    <Edit size={16} className="mr-1" />
+                    Editar
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="flex items-center"
+                    onClick={() => handleDeleteComponent(selectedComponent.id)}
+                  >
+                    <Trash2 size={16} className="mr-1" />
+                    Excluir
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowDetails(false)} 
+                  >
+                    ✕
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
+                  <p className="text-foreground">{selectedComponent.description}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedComponent.tags.map((tag, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
+                        <Tag size={14} className="mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Detalhes</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="text-sm text-muted-foreground">ID:</div>
+                    <div className="text-sm">{selectedComponent.id}</div>
+                    <div className="text-sm text-muted-foreground">Status:</div>
+                    <div className="text-sm capitalize">{selectedComponent.status}</div>
+                    <div className="text-sm text-muted-foreground">Data de Criação:</div>
+                    <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>
+                  <p className="text-sm text-muted-foreground italic">Nenhum relacionamento configurado.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t flex justify-end">
+                <Button 
+                  variant="outline"
+                  onClick={() => openEditComponentForm(selectedComponent)}
+                >
+                  Editar
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={() => handleDeleteComponent(selectedComponent.id)}
+                >
+                  Excluir
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowDetails(false)}
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal do formulário de componente */}
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditMode ? 'Editar Componente' : 'Novo Componente'}
+              </DialogTitle>
+            </DialogHeader>
+            <ComponentForm
+              initialData={selectedComponent || undefined}
+              onSubmit={handleSaveComponent}
+              onCancel={() => setIsFormOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+} 
