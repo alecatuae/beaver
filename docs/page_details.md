@@ -88,6 +88,12 @@
     - Clear warning about irreversible actions
     - Consistent button placement and styling in confirmation dialogs
     - Ability to cancel deletion operations
+  - Flexible data organization:
+    - Advanced sorting capabilities for component listing
+    - Sort by name (alfabético), date (cronológico), or status (prioridade)
+    - Visual indication of current sort field and direction (ascendente/descendente)
+    - Persistent sorting state during session
+    - Clear UI with dropdown menu for sort options
 
 ### Team Management
 - **Description**: Manage teams within the organization.

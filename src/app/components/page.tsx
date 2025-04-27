@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown } from 'lucide-react';
+import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +41,8 @@ export default function ComponentsPage() {
   const lastComponentRef = useRef<HTMLDivElement | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [componentToDelete, setComponentToDelete] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'status'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Consulta GraphQL para buscar componentes
   const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
@@ -122,6 +124,45 @@ export default function ComponentsPage() {
                         component.tags.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
   });
+
+  // Função para ordenar componentes
+  const sortComponents = (components: ComponentType[]) => {
+    return [...components].sort((a, b) => {
+      if (sortBy === 'name') {
+        return sortDirection === 'asc' 
+          ? a.name.localeCompare(b.name) 
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === 'date') {
+        return sortDirection === 'asc'
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortBy === 'status') {
+        // Ordem customizada: Active (1), Inactive (2), Deprecated (3)
+        const statusOrder = {
+          [ComponentStatus.ACTIVE]: 1,
+          [ComponentStatus.INACTIVE]: 2,
+          [ComponentStatus.DEPRECATED]: 3
+        };
+        return sortDirection === 'asc'
+          ? statusOrder[a.status] - statusOrder[b.status]
+          : statusOrder[b.status] - statusOrder[a.status];
+      }
+      return 0;
+    });
+  };
+
+  // Função para alternar a ordenação
+  const toggleSort = (field: 'name' | 'date' | 'status') => {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Aplicar ordenação aos componentes filtrados
+  const sortedComponents = sortComponents(filteredComponents);
 
   // Manipuladores de ações
   const handleStatusFilterChange = (status: ComponentStatus | 'all') => {
@@ -223,13 +264,13 @@ export default function ComponentsPage() {
     if (entry.isIntersecting && hasMore) {
       setVisibleCount(prev => {
         const newCount = prev + 8; // Incrementa 8 componentes por vez
-        if (newCount >= filteredComponents.length) {
+        if (newCount >= sortedComponents.length) {
           setHasMore(false);
         }
         return newCount;
       });
     }
-  }, [hasMore, filteredComponents.length]);
+  }, [hasMore, sortedComponents.length]);
 
   // Configuração do observador de interseção para rolagem infinita
   useEffect(() => {
@@ -252,7 +293,7 @@ export default function ComponentsPage() {
         observer.current.disconnect();
       }
     };
-  }, [handleObserver, filteredComponents.length]);
+  }, [handleObserver, sortedComponents.length]);
 
   // Resetar visibleCount quando os filtros mudam
   useEffect(() => {
@@ -262,7 +303,7 @@ export default function ComponentsPage() {
 
   // Função para definir a referência do último componente
   const setLastComponentRef = (el: HTMLDivElement | null, index: number) => {
-    if (index === Math.min(visibleCount - 1, filteredComponents.length - 1)) {
+    if (index === Math.min(visibleCount - 1, sortedComponents.length - 1)) {
       lastComponentRef.current = el;
     }
   };
@@ -364,6 +405,42 @@ export default function ComponentsPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <ArrowUpDown size={16} />
+                  Ordenar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => toggleSort('name')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Nome</span>
+                    {sortBy === 'name' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('date')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Data de criação</span>
+                    {sortBy === 'date' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('status')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Status</span>
+                    {sortBy === 'status' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button variant="outline">
               <Download size={16} />
             </Button>
@@ -372,12 +449,12 @@ export default function ComponentsPage() {
 
         {/* Grid de componentes */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredComponents.length === 0 ? (
+          {sortedComponents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground col-span-full">
               Nenhum componente encontrado.
             </div>
           ) : (
-            filteredComponents.slice(0, visibleCount).map((component: ComponentType, index: number) => (
+            sortedComponents.slice(0, visibleCount).map((component: ComponentType, index: number) => (
               <div 
                 key={component.id}
                 ref={(el) => setLastComponentRef(el, index)}
@@ -414,7 +491,7 @@ export default function ComponentsPage() {
             ))
           )}
           {/* Indicador de carregamento */}
-          {hasMore && filteredComponents.length > 0 && (
+          {hasMore && sortedComponents.length > 0 && (
             <div className="col-span-full flex justify-center py-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>

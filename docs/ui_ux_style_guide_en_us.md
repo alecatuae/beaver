@@ -267,6 +267,23 @@ Our design follows these core principles:
   - Clear hover state
   - Optional tooltip for clarity
 
+### Data Sorting Controls
+
+- **Sort Button Appearance**:
+  - Consistent placement next to filter controls
+  - Clear icon representation (ArrowUpDown)
+  - Label text "Ordenar" for clarity
+  - Same height and styling as adjacent buttons
+  - Visual feedback of current sort state
+
+- **Sort Options**:
+  - Dropdown with common sort fields (name, date, status)
+  - Indication of current sort field with icon
+  - Toggle direction (ascending/descending) when selecting already active field
+  - Icons indicating sort direction (SortAsc/SortDesc)
+  - Consistent spacing and alignment of options
+  - Clear visual distinction of selected option
+
 ### Forms and Inputs
 
 - **Text Inputs**:

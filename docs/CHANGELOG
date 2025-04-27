@@ -14,6 +14,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Contador de caracteres no campo de descrição do formulário de componentes, com limite máximo de 256 caracteres para conformidade com o esquema do banco de dados
 - Implementação de rolagem infinita na página de componentes, carregando inicialmente 12 componentes e adicionando mais 8 conforme o usuário rola para baixo, melhorando o desempenho e a experiência do usuário
 - Adicionado diálogo de confirmação para todas as operações de exclusão, evitando exclusões acidentais e melhorando a experiência do usuário
+- Implementado recurso de ordenação na lista de componentes, permitindo ordenar por nome, data de criação e status, com indicação visual da ordem atual
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
