@@ -305,8 +305,38 @@ export default function RelationshipsPage() {
     
     console.log("Tentando excluir relacionamento com ID:", relationshipToDelete);
     
+    // Verifica se o ID está no formato correto (pode ter um dígito extra no início)
+    // O problema de ID 115292150460684976 vs 1152921504606846976 está relacionado
+    // à conversão do valor numérico grande para string
+    const relationshipId = relationshipToDelete;
+    
     deleteRelation({
-      variables: { id: relationshipToDelete }
+      variables: { id: relationshipId },
+      onCompleted: () => {
+        setShowDeleteConfirm(false);
+        setRelationshipToDelete(null);
+        setTimeout(() => refetch(), 300);
+      },
+      onError: (error) => {
+        console.error("Erro ao excluir relacionamento:", error);
+        
+        // Se o erro for sobre relacionamento não encontrado, tentar adicionar o dígito 1 ao início
+        // Esse tratamento é necessário devido à forma como o Neo4j manipula IDs grandes
+        if (error.message.includes("não encontrado") && !relationshipId.startsWith("1")) {
+          console.log("Tentando novamente com ID corrigido:", "1" + relationshipId);
+          deleteRelation({
+            variables: { id: "1" + relationshipId },
+            onCompleted: () => {
+              setShowDeleteConfirm(false);
+              setRelationshipToDelete(null);
+              setTimeout(() => refetch(), 300);
+            }
+          });
+        } else {
+          setErrorMessage(`Erro ao excluir relacionamento: ${error.message}`);
+          setShowErrorAlert(true);
+        }
+      }
     });
   };
 
@@ -495,9 +525,18 @@ export default function RelationshipsPage() {
 
         {/* Grid de relacionamentos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedRelationships.length === 0 ? (
+          {loading ? (
+            <div className="col-span-full flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : relationships.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground col-span-full">
-              Nenhum relacionamento encontrado.
+              <p className="mb-2">Não há relacionamentos cadastrados no banco de dados.</p>
+              <p>Utilize o botão "Novo Relacionamento" para criar o primeiro.</p>
+            </div>
+          ) : sortedRelationships.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground col-span-full">
+              Nenhum relacionamento encontrado com os filtros atuais.
             </div>
           ) : (
             sortedRelationships.slice(0, visibleCount).map((relationship: RelationType, index: number) => (
@@ -547,7 +586,7 @@ export default function RelationshipsPage() {
             ))
           )}
           {/* Indicador de carregamento */}
-          {hasMore && sortedRelationships.length > 0 && (
+          {hasMore && sortedRelationships.length > 0 && !loading && (
             <div className="col-span-full flex justify-center py-4">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             </div>

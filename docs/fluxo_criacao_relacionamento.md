@@ -28,6 +28,8 @@ sequenceDiagram
     API->>Neo4j: Verifica existência dos componentes
     
     alt Componentes não existem no Neo4j
+        API->>MariaDB: Busca dados completos dos componentes
+        MariaDB-->>API: Retorna detalhes dos componentes
         API->>Neo4j: Sincroniza componentes faltantes
     end
     
@@ -97,16 +99,41 @@ O resolver `createRelation` no backend processa a requisição através dos segu
    - Verifica se ambos existem e são ativos
 
 2. **Verificação de Componentes no Neo4j**:
-   - Verifica se os componentes de origem e destino existem no Neo4j
-   - Se algum dos componentes não existir no Neo4j, mas existir no MariaDB:
-     - Identifica quais componentes estão faltando
-     - Busca os dados completos desses componentes no MariaDB
-     - Cria os componentes no Neo4j utilizando os dados do MariaDB
-     - Registra no log a sincronização realizada
+   - Verifica se os componentes de origem e destino existem no Neo4j usando a query Cypher:
+   ```cypher
+   MATCH (source:Component {id: $sourceId})
+   MATCH (target:Component {id: $targetId})
+   RETURN count(source) > 0 AND count(target) > 0 as exist
+   ```
+   - Se o resultado for `false`, identifica quais componentes específicos estão faltando:
+     ```cypher
+     MATCH (source:Component {id: $sourceId})
+     RETURN count(source) > 0 as exist
+     ```
+     ```cypher
+     MATCH (target:Component {id: $targetId})
+     RETURN count(target) > 0 as exist
+     ```
+   - Para os componentes não encontrados no Neo4j, busca seus dados completos no MariaDB:
+     ```sql
+     SELECT id, name, description 
+     FROM Component 
+     WHERE id IN ($sourceId, $targetId)
+     ```
+   - Cria os componentes faltantes no Neo4j usando MERGE para evitar duplicação:
+     ```cypher
+     MERGE (c:Component {id: $id})
+     ON CREATE SET 
+       c.name = $name,
+       c.description = $description,
+       c.valid_from = datetime(),
+       c.valid_to = datetime('9999-12-31T23:59:59Z')
+     RETURN c
+     ```
+   - Registra no log todas as etapas da sincronização
 
 3. **Criação do Relacionamento**:
-   - Cria o relacionamento no Neo4j usando Cypher
-   - A query Cypher segue o padrão:
+   - Após garantir que ambos os componentes existem no Neo4j, cria o relacionamento:
    ```cypher
    MATCH (source:Component {id: $sourceId})
    MATCH (target:Component {id: $targetId})
@@ -139,13 +166,22 @@ O sistema suporta diversos tipos de relacionamentos entre componentes:
 
 Para garantir a integridade referencial e que todos os componentes estejam corretamente sincronizados entre o banco de dados principal (MariaDB) e o banco de grafos (Neo4j), o sistema implementa:
 
-1. **Verificação Automática**: Durante a criação e atualização de relacionamentos, o sistema verifica a existência dos componentes em ambos os bancos.
+1. **Verificação Automática**: Durante a criação e atualização de relacionamentos, o sistema executa uma verificação em duas etapas:
+   - Primeiro verifica se os componentes existem no MariaDB (fonte principal)
+   - Em seguida, verifica se os mesmos componentes existem no Neo4j
 
-2. **Sincronização sob Demanda**: Se um componente existe no MariaDB mas não no Neo4j, o sistema automaticamente sincroniza esse componente para o Neo4j.
+2. **Sincronização sob Demanda**: O fluxo de sincronização é acionado automaticamente quando:
+   - Um componente existe no MariaDB mas não no Neo4j
+   - O sistema precisa identificar qual componente específico está faltando (origem, destino ou ambos)
+   - Os dados completos dos componentes faltantes são recuperados do MariaDB
+   - Os componentes são criados no Neo4j com todos os atributos necessários
 
-3. **Scripts de Manutenção**: Existem scripts auxiliares para:
+3. **Scripts de Manutenção**: Além da sincronização automática durante o fluxo de criação, existem scripts auxiliares para:
    - `sync-components.ts`: Sincroniza todos os componentes do MariaDB para o Neo4j
-   - `fix-relationships.ts`: Identifica e corrige relacionamentos problemáticos no Neo4j
+   - `fix-relationships.ts`: Identifica e corrige relacionamentos problemáticos no Neo4j, como:
+     - Relacionamentos órfãos (onde origem ou destino não existem)
+     - Componentes isolados (sem relacionamentos)
+     - Relacionamentos com IDs específicos que possam estar causando problemas
 
 ## Manuseio de Erros
 

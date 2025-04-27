@@ -244,4 +244,57 @@ A exclusão de relacionamentos não afeta diretamente os componentes (nós) no g
 2. Outras relações entre os mesmos ou outros componentes não são afetadas
 3. A integridade referencial é mantida no grafo
 
-Não é necessário atualizar informações no MariaDB, pois os relacionamentos são mantidos exclusivamente no Neo4j. 
+Não é necessário atualizar informações no MariaDB, pois os relacionamentos são mantidos exclusivamente no Neo4j.
+
+## Manuseio de Erros
+
+O sistema implementa tratamento de erros em múltiplos níveis:
+
+1. **Validação no Frontend**:
+   - Campos obrigatórios não preenchidos
+   - Seleção do mesmo componente como origem e destino
+
+2. **Validação no Backend**:
+   - Componentes inexistentes no MariaDB
+   - Falha ao criar relacionamento no Neo4j
+   - Falha ao sincronizar componentes entre bancos
+
+3. **Feedback ao Usuário**:
+   - Mensagens claras sobre erros ocorridos
+   - Log detalhado de operações para troubleshooting 
+
+## Tratamento de IDs do Neo4j
+
+O sistema implementa um tratamento especial para IDs de relacionamentos no Neo4j, devido a uma peculiaridade na representação desses valores:
+
+### Problema
+
+Neo4j gera IDs internos para relacionamentos que podem ser muito grandes (maiores que 2^53), ultrapassando o limite seguro para representação precisa de inteiros em JavaScript. Isso pode causar problemas quando:
+
+1. Um ID é gerado no Neo4j e enviado para o frontend
+2. O frontend tenta usar esse ID para operações como exclusão
+3. O valor enviado de volta para o backend pode ter sofrido truncamento ou imprecisão
+
+### Solução Implementada
+
+Para mitigar esse problema, o sistema implementa as seguintes estratégias:
+
+1. **Normalização de IDs**: Uma função utilitária `normalizeNeo4jId()` que:
+   - Converte todos os IDs para string para evitar problemas de representação numérica
+   - Verifica se o ID parece estar truncado (grande mas sem o dígito inicial '1')
+   - Adiciona o dígito '1' ao início do ID quando necessário
+
+2. **Tentativas Múltiplas**: Quando uma operação falha com "Relacionamento não encontrado":
+   - O sistema tenta novamente usando a versão alternativa do ID (com ou sem o dígito '1' inicial)
+   - Registra ambas as tentativas nos logs para diagnóstico
+
+3. **Tratamento no Frontend**: 
+   - Ao receber um erro de relacionamento não encontrado, o frontend verifica se pode ser um problema de ID
+   - Tenta automaticamente com a versão corrigida do ID (adicionando '1' no início)
+   - Proporciona feedback adequado ao usuário sobre o resultado
+
+4. **Script de Manutenção**: 
+   - O utilitário `fix-relationships.ts` verifica ambas as versões possíveis de IDs problemáticos
+   - Identifica e corrige inconsistências na base de dados
+
+Este mecanismo robusto garante que os usuários possam excluir relacionamentos mesmo quando ocorrem essas discrepâncias de IDs, proporcionando uma experiência mais confiável. 

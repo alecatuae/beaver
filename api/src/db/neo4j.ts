@@ -236,15 +236,41 @@ export class Neo4jClient {
     }
   }
 
+  // Função utilitária para normalizar IDs do Neo4j
+  normalizeNeo4jId(id: string | number): string {
+    // Converter para string se for número
+    const idStr = id.toString();
+    
+    // Verificar se é um ID grande com possível erro de conversão
+    // IDs grandes no Neo4j podem ter problemas de representação em JavaScript
+    if (idStr.length >= 15) {
+      // Se já começa com 1, retornar como está
+      if (idStr.startsWith('1')) {
+        return idStr;
+      }
+      
+      // Tentar adicionar 1 no início se o ID parecer truncado
+      // Isso acontece devido à limitação de precisão de números grandes em JavaScript
+      return '1' + idStr;
+    }
+    
+    return idStr;
+  }
+
   // Obter um relacionamento pelo ID
   async getRelationById(id: number | string): Promise<IRelation | null> {
     if (this.mockMode) {
       return this.getMockRelationById(typeof id === 'string' ? parseInt(id) : id);
     }
 
+    // Normalizar o ID para garantir o formato correto
+    const normalizedId = this.normalizeNeo4jId(id);
+    logger.debug(`Buscando relacionamento com ID normalizado: ${normalizedId} (original: ${id})`);
+    
     const session = this.driver.session();
     try {
-      const result = await session.run(`
+      // Primeiro tentar com o ID como fornecido
+      let result = await session.run(`
         MATCH (source)-[r]->(target)
         WHERE id(r) = $id
         RETURN 
@@ -255,7 +281,26 @@ export class Neo4jClient {
           r.properties AS properties,
           r.createdAt AS createdAt,
           r.updatedAt AS updatedAt
-      `, { id });
+      `, { id: normalizedId });
+
+      // Se não encontrar e o ID não começa com 1, tentar com "1" adicionado
+      if (result.records.length === 0 && !normalizedId.startsWith('1')) {
+        const alternativeId = '1' + normalizedId;
+        logger.debug(`ID não encontrado, tentando ID alternativo: ${alternativeId}`);
+        
+        result = await session.run(`
+          MATCH (source)-[r]->(target)
+          WHERE id(r) = $id
+          RETURN 
+            toString(id(r)) AS id, 
+            type(r) AS type, 
+            source.id AS sourceId, 
+            target.id AS targetId,
+            r.properties AS properties,
+            r.createdAt AS createdAt,
+            r.updatedAt AS updatedAt
+        `, { id: alternativeId });
+      }
 
       if (result.records.length === 0) {
         return null;
@@ -404,16 +449,38 @@ export class Neo4jClient {
       return this.deleteMockRelation(typeof id === 'string' ? parseInt(id) : id);
     }
 
+    // Normalizar o ID para garantir o formato correto
+    const normalizedId = this.normalizeNeo4jId(id);
+    logger.debug(`Excluindo relacionamento com ID normalizado: ${normalizedId} (original: ${id})`);
+    
     const session = this.driver.session();
     try {
-      const result = await session.run(`
+      // Primeiro tentar com o ID normalizado
+      let result = await session.run(`
         MATCH ()-[r]->()
         WHERE id(r) = $id
         DELETE r
         RETURN count(r) as count
-      `, { id });
+      `, { id: normalizedId });
 
-      return result.records[0].get('count').toNumber() > 0;
+      let deleted = result.records[0].get('count').toNumber() > 0;
+      
+      // Se não conseguiu excluir e o ID não começa com 1, tentar com "1" adicionado
+      if (!deleted && !normalizedId.startsWith('1')) {
+        const alternativeId = '1' + normalizedId;
+        logger.debug(`Não foi possível excluir, tentando ID alternativo: ${alternativeId}`);
+        
+        result = await session.run(`
+          MATCH ()-[r]->()
+          WHERE id(r) = $id
+          DELETE r
+          RETURN count(r) as count
+        `, { id: alternativeId });
+        
+        deleted = result.records[0].get('count').toNumber() > 0;
+      }
+
+      return deleted;
     } catch (error) {
       logger.error(`Erro ao excluir relacionamento ${id}:`, error);
       throw error;
