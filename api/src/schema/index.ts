@@ -12,7 +12,7 @@ import { adrResolvers } from '../resolvers/adrResolvers';
 import { glossaryResolvers } from '../resolvers/glossaryResolvers';
 
 // Cria um builder para o schema
-const builder = new SchemaBuilder<{
+export const builder = new SchemaBuilder<{
   Context: Context;
   PrismaTypes: {
     prisma: PrismaClient;
@@ -74,4 +74,7 @@ adrResolvers(builder);
 glossaryResolvers(builder);
 
 // Constrói e exporta o schema
-export const schema = builder.toSchema(); 
+export const schema = builder.toSchema();
+
+// Exportar o builder como padrão para facilitar importações
+export default builder; 

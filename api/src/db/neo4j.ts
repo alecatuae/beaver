@@ -1,8 +1,20 @@
-import { Driver, Session, Record, QueryResult } from 'neo4j-driver';
+import { Driver, Session, Record as Neo4jRecord } from 'neo4j-driver';
 import { logger } from '../utils/logger';
+
+// Interface dos relacionamentos
+export interface IRelation {
+  id: number;
+  sourceId: number;
+  targetId: number;
+  type: string;
+  properties?: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export class Neo4jClient {
   private driver: Driver;
+  private mockMode: boolean = false;
 
   constructor(driver: Driver) {
     this.driver = driver;
@@ -28,34 +40,30 @@ export class Neo4jClient {
    * @param params Parâmetros da consulta
    * @returns Resultado da consulta
    */
-  async run<T = any>(cypher: string, params?: any): Promise<T[]> {
-    const session: Session = this.driver.session();
-    
+  async run(query: string, params?: Record<string, any>): Promise<any> {
+    const session = this.driver.session();
     try {
-      const result: QueryResult = await session.run(cypher, params);
-      
-      return result.records.map((record) => {
-        const obj: any = {};
-        
-        record.keys.forEach((key) => {
-          const value = record.get(key);
-          
-          // Se for um nó Neo4j, extrai suas propriedades
-          if (value && typeof value === 'object' && 'properties' in value) {
-            obj[key] = value.properties;
-          } else {
-            obj[key] = value;
-          }
-        });
-        
-        return obj as T;
-      });
-    } catch (error) {
-      logger.error(`Erro ao executar consulta Cypher: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-      throw error;
+      const result = await session.run(query, params);
+      return result;
     } finally {
       await session.close();
     }
+  }
+
+  async getGraphData(depth: number = 2): Promise<any> {
+    const query = `
+      MATCH path = (n)-[*0..${depth}]->(m)
+      RETURN path
+    `;
+    return this.run(query);
+  }
+
+  async getComponentById(id: number): Promise<any> {
+    const query = `
+      MATCH (c:Component {id: $id})
+      RETURN c
+    `;
+    return this.run(query, { id });
   }
 
   /**
@@ -186,4 +194,316 @@ export class Neo4jClient {
 
     return this.run(query, { id });
   }
-} 
+
+  // Obter todos os relacionamentos
+  async getRelations(): Promise<IRelation[]> {
+    if (this.mockMode) {
+      return this.getMockRelations();
+    }
+
+    const session = this.driver.session();
+    try {
+      const result = await session.run(`
+        MATCH (source)-[r]->(target)
+        RETURN 
+          id(r) AS id, 
+          type(r) AS type, 
+          source.id AS sourceId, 
+          target.id AS targetId,
+          r.properties AS properties,
+          r.createdAt AS createdAt,
+          r.updatedAt AS updatedAt
+      `);
+
+      return result.records.map(record => {
+        return {
+          id: record.get('id').toNumber(),
+          type: record.get('type'),
+          sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+          targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+          properties: record.get('properties') || {},
+          createdAt: record.get('createdAt') ? new Date(record.get('createdAt')) : new Date(),
+          updatedAt: record.get('updatedAt') ? new Date(record.get('updatedAt')) : new Date()
+        };
+      });
+    } catch (error) {
+      logger.error('Erro ao obter relacionamentos:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // Obter um relacionamento pelo ID
+  async getRelationById(id: number): Promise<IRelation | null> {
+    if (this.mockMode) {
+      return this.getMockRelationById(id);
+    }
+
+    const session = this.driver.session();
+    try {
+      const result = await session.run(`
+        MATCH (source)-[r]->(target)
+        WHERE id(r) = $id
+        RETURN 
+          id(r) AS id, 
+          type(r) AS type, 
+          source.id AS sourceId, 
+          target.id AS targetId,
+          r.properties AS properties,
+          r.createdAt AS createdAt,
+          r.updatedAt AS updatedAt
+      `, { id });
+
+      if (result.records.length === 0) {
+        return null;
+      }
+
+      const record = result.records[0];
+      return {
+        id: record.get('id').toNumber(),
+        type: record.get('type'),
+        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+        properties: record.get('properties') || {},
+        createdAt: record.get('createdAt') ? new Date(record.get('createdAt')) : new Date(),
+        updatedAt: record.get('updatedAt') ? new Date(record.get('updatedAt')) : new Date()
+      };
+    } catch (error) {
+      logger.error(`Erro ao obter relacionamento com ID ${id}:`, error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // Criar um novo relacionamento
+  async createRelation(
+    sourceId: number,
+    targetId: number,
+    type: string,
+    properties: any = {}
+  ): Promise<IRelation> {
+    if (this.mockMode) {
+      return this.createMockRelation(sourceId, targetId, type, properties);
+    }
+
+    const session = this.driver.session();
+    try {
+      const now = new Date().toISOString();
+      const result = await session.run(`
+        MATCH (source:Component {id: $sourceId})
+        MATCH (target:Component {id: $targetId})
+        CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
+        RETURN 
+          id(r) AS id, 
+          type(r) AS type, 
+          source.id AS sourceId, 
+          target.id AS targetId,
+          r.properties AS properties,
+          r.createdAt AS createdAt,
+          r.updatedAt AS updatedAt
+      `, { sourceId, targetId, properties, now });
+
+      if (result.records.length === 0) {
+        throw new Error('Falha ao criar relacionamento');
+      }
+
+      const record = result.records[0];
+      return {
+        id: record.get('id').toNumber(),
+        type: record.get('type'),
+        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+        properties,
+        createdAt: new Date(now),
+        updatedAt: new Date(now)
+      };
+    } catch (error) {
+      logger.error('Erro ao criar relacionamento:', error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // Atualizar um relacionamento existente
+  async updateRelation(
+    id: number,
+    sourceId: number,
+    targetId: number,
+    type: string,
+    properties: any = {}
+  ): Promise<IRelation> {
+    if (this.mockMode) {
+      return this.updateMockRelation(id, sourceId, targetId, type, properties);
+    }
+
+    const session = this.driver.session();
+    try {
+      // Primeiro, excluímos o relacionamento existente
+      await session.run(`
+        MATCH ()-[r]->()
+        WHERE id(r) = $id
+        DELETE r
+      `, { id });
+
+      // Em seguida, criamos um novo relacionamento com os mesmos dados
+      const now = new Date().toISOString();
+      const result = await session.run(`
+        MATCH (source:Component {id: $sourceId})
+        MATCH (target:Component {id: $targetId})
+        CREATE (source)-[r:${type} {properties: $properties, createdAt: $createdAt, updatedAt: $now}]->(target)
+        RETURN 
+          id(r) AS id, 
+          type(r) AS type, 
+          source.id AS sourceId, 
+          target.id AS targetId,
+          r.properties AS properties,
+          r.createdAt AS createdAt,
+          r.updatedAt AS updatedAt
+      `, { 
+        sourceId, 
+        targetId, 
+        properties,
+        // Preservamos a data de criação original se existir
+        createdAt: (await this.getRelationById(id))?.createdAt.toISOString() || now,
+        now 
+      });
+
+      if (result.records.length === 0) {
+        throw new Error('Falha ao atualizar relacionamento');
+      }
+
+      const record = result.records[0];
+      return {
+        id: record.get('id').toNumber(),
+        type: record.get('type'),
+        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+        properties,
+        createdAt: new Date(record.get('createdAt')),
+        updatedAt: new Date(now)
+      };
+    } catch (error) {
+      logger.error(`Erro ao atualizar relacionamento ${id}:`, error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // Excluir um relacionamento
+  async deleteRelation(id: number): Promise<boolean> {
+    if (this.mockMode) {
+      return this.deleteMockRelation(id);
+    }
+
+    const session = this.driver.session();
+    try {
+      const result = await session.run(`
+        MATCH ()-[r]->()
+        WHERE id(r) = $id
+        DELETE r
+        RETURN count(r) as count
+      `, { id });
+
+      return result.records[0].get('count').toNumber() > 0;
+    } catch (error) {
+      logger.error(`Erro ao excluir relacionamento ${id}:`, error);
+      throw error;
+    } finally {
+      await session.close();
+    }
+  }
+
+  // --- Mock methods para testes e desenvolvimento ---
+  
+  private mockRelations: IRelation[] = [
+    {
+      id: 1,
+      sourceId: 1, // Frontend
+      targetId: 2, // API
+      type: 'CONNECTS_TO',
+      properties: { description: 'Frontend se conecta à API' },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      id: 2,
+      sourceId: 2, // API
+      targetId: 3, // Database
+      type: 'DEPENDS_ON',
+      properties: { description: 'API depende do Banco de Dados' },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  ];
+
+  private getMockRelations(): IRelation[] {
+    return this.mockRelations;
+  }
+
+  private getMockRelationById(id: number): IRelation | null {
+    return this.mockRelations.find(r => r.id === id) || null;
+  }
+
+  private createMockRelation(
+    sourceId: number,
+    targetId: number,
+    type: string,
+    properties: any = {}
+  ): IRelation {
+    const now = new Date();
+    const newRelation: IRelation = {
+      id: this.mockRelations.length + 1,
+      sourceId,
+      targetId,
+      type,
+      properties,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.mockRelations.push(newRelation);
+    return newRelation;
+  }
+
+  private updateMockRelation(
+    id: number,
+    sourceId: number,
+    targetId: number,
+    type: string,
+    properties: any = {}
+  ): IRelation {
+    const index = this.mockRelations.findIndex(r => r.id === id);
+    if (index === -1) {
+      throw new Error(`Relacionamento com ID ${id} não encontrado`);
+    }
+
+    const now = new Date();
+    const updatedRelation: IRelation = {
+      ...this.mockRelations[index],
+      sourceId,
+      targetId,
+      type,
+      properties,
+      updatedAt: now
+    };
+
+    this.mockRelations[index] = updatedRelation;
+    return updatedRelation;
+  }
+
+  private deleteMockRelation(id: number): boolean {
+    const initialLength = this.mockRelations.length;
+    this.mockRelations = this.mockRelations.filter(r => r.id !== id);
+    return initialLength > this.mockRelations.length;
+  }
+}
+
+// Exportando a classe Neo4jClient
+export default Neo4jClient;
+
+// Criando uma instância mock para desenvolvimento
+export const neo4jClient = new Neo4jClient(null as any); 
