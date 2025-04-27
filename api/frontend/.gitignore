@@ -12,17 +12,39 @@
 
 # testing
 /coverage
+/.nyc_output
+/cypress/screenshots
+/cypress/videos
+/playwright-report
+/test-results
+/tests/e2e/screenshots
+/tests/e2e/videos
 
 # next.js
 /.next/
 /out/
+.swc/
+# next.js cache
+.next/cache/
+**/.next/cache/
+# importante: garantir que TODOS os arquivos de cache do Next.js sejam ignorados
+.next/**/*
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
 *.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+.eslintcache
+tsconfig.tsbuildinfo
 
 # debug
 npm-debug.log*
@@ -30,8 +52,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.*
+!.env.example
+!.env.template
 
 # vercel
 .vercel
@@ -39,3 +64,33 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# PWA files
+**/public/sw.js
+**/public/workbox-*.js
+**/public/worker-*.js
+**/public/sw.js.map
+**/public/workbox-*.js.map
+**/public/worker-*.js.map
+
+# Sentry
+.sentryclirc
+.sentry-native/
+
+# storybook
+/storybook-static
+/storybook-build
+
+# Turborepo
+.turbo
+
+# Temp
+.tmp/
+*.tmp
+.cache/
+*.cache
+
+# Generated files
+/public/sitemap*.xml
+/public/robots.txt
+/public/feed.xml

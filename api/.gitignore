@@ -1,33 +1,45 @@
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# testing
+# Testing
 /coverage
+/.nyc_output
+/test-results
 
-# production
+# Production
 /build
 /dist
 
-# misc
-.DS_Store
+# Environment and secrets
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 !.env.example
+!.env.template
+/.env.local
+/.env.development.local
+/.env.test.local
+/.env.production.local
 
-# logs
+# Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs
-*.log
+.pnpm-debug.log*
 
 # Prisma
 /prisma/migrations/*.sql
+/prisma/dev.db
+/prisma/dev.db-journal
 
 # TypeScript
 *.tsbuildinfo
@@ -39,7 +51,11 @@ logs
 
 # IDE
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 *.sublime-*
 *.swp
 *.swo
@@ -47,4 +63,17 @@ logs
 # Temp files
 .temp
 .tmp
-*.tmp 
+*.tmp
+.turbo
+.eslintcache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# API documentation
+/api-docs/dist
+/api-docs/build
+
+# Debug
+.clinic/ 

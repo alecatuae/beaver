@@ -4,26 +4,54 @@
 /grafana/data/
 /loki/data/
 /tempo/data/
+/victoria-metrics/data/
+/alertmanager/data/
 
 # Logs
 *.log
 logs/
+/logs
 
 # Config overrides
 *.override.yml
 *.override.yaml
 *.local.yml
 *.local.yaml
+*/**/.env
+*/**/.env.*
+!*/**/.env.example
 
-# Grafana runtime files
+# Grafana
 /grafana/plugins/
 /grafana/provisioning/datasources/local/
 /grafana/provisioning/dashboards/local/
+/grafana/provisioning/notifiers/local/
+/grafana/provisioning/access-control/local/
+/grafana/provisioning/plugins/local/
 
-# Prometheus runtime files
+# Prometheus
 /prometheus/rules/local/
+/prometheus/targets/local/
+
+# Certificates and secrets
+**/certs/
+**/secrets/
+!**/secrets/.gitkeep
 
 # Miscellaneous
 .DS_Store
 .env
-*.tmp 
+.env.*
+!.env.example
+*.tmp
+.cache
+*.cache
+
+# Temporary dashboard edits
+/grafana/dashboards_dev/
+
+# Victoria Metrics
+/victoria-metrics/backups/
+
+# Node modules for any custom exporters
+**/node_modules/ 
