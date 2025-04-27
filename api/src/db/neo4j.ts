@@ -14,7 +14,7 @@ export interface IRelation {
 
 export class Neo4jClient {
   private driver: Driver;
-  private mockMode: boolean = false;
+  public mockMode: boolean = false;
 
   constructor(driver: Driver) {
     this.driver = driver;
@@ -508,7 +508,4 @@ export class Neo4jClient {
 }
 
 // Exportando a classe Neo4jClient
-export default Neo4jClient;
-
-// Não criar instância aqui, isso será feito no context.ts
-export let neo4jClient: Neo4jClient; 
+export default Neo4jClient; 

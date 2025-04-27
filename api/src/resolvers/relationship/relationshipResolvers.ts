@@ -1,6 +1,6 @@
 import { builder } from '../../schema';
 import { prisma } from '../../prisma';
-import { neo4jClient } from '../../db/neo4j';
+import { neo4jClient } from '../../context';
 import { logger } from '../../utils/logger';
 
 // Definição do tipo Relation para GraphQL

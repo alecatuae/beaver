@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { driver, auth } from 'neo4j-driver';
-import { Neo4jClient, neo4jClient } from './db/neo4j';
+import Neo4jClient from './db/neo4j';
 import { verifyToken } from './utils/auth';
 import { logger } from './utils/logger';
 
@@ -8,15 +8,22 @@ import { logger } from './utils/logger';
 const prisma = new PrismaClient();
 
 // Classe Mock para Neo4j - temporária para desenvolver sem o banco Neo4j
-class MockNeo4jClient {
-  async verifyConnectivity() {
-    logger.info('Mock: Simulando conexão com Neo4j');
-    return true;
+class MockNeo4jClient extends Neo4jClient {
+  constructor() {
+    // Passa um driver falso para o construtor da classe pai
+    // @ts-ignore - Ignorando a tipagem para criar um mock
+    super(null);
+    this.mockMode = true;
   }
 
-  async close() {
+  async verifyConnectivity(): Promise<void> {
+    logger.info('Mock: Simulando conexão com Neo4j');
+    // Método void, sem retorno
+  }
+
+  async close(): Promise<void> {
     logger.info('Mock: Simulando fechamento de conexão com Neo4j');
-    return true;
+    // Método void, sem retorno
   }
 
   async run(cypher: string, params?: any) {
@@ -148,7 +155,9 @@ class MockNeo4jClient {
 }
 
 // Inicialização do Neo4j (versão sem await no top-level)
-let neo4j = new MockNeo4jClient(); // Começa com o mock como fallback
+// Inicialmente criamos uma instância do Neo4jClient com mockMode=true
+let neo4j = new MockNeo4jClient();
+export let neo4jClient = neo4j;
 
 // Função para inicializar a conexão com o Neo4j
 async function initNeo4j() {
@@ -164,6 +173,7 @@ async function initNeo4j() {
     
     // Cria o cliente Neo4j usando o driver real
     const realNeo4j = new Neo4jClient(neo4jDriver);
+    realNeo4j.mockMode = false;
     
     // Testa a conexão
     logger.info('Tentando conectar ao Neo4j...');
@@ -171,7 +181,7 @@ async function initNeo4j() {
     logger.info('Conexão com Neo4j estabelecida com sucesso!');
     
     // Substitui a instância mock pela real
-    neo4j = realNeo4j;
+    neo4j = realNeo4j as any; // Usando type assertion para contornar a verificação de tipos
     neo4jClient = realNeo4j;
     
     return realNeo4j;
@@ -180,7 +190,8 @@ async function initNeo4j() {
     logger.warn(`Falha ao conectar com Neo4j: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     logger.warn('Usando MockNeo4jClient como fallback');
     
-    // Atualiza a referência exportada
+    // Garante que estamos usando o cliente com mockMode=true
+    neo4j.mockMode = true;
     neo4jClient = neo4j;
     
     return neo4j;

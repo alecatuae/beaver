@@ -7,6 +7,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 ### Added
+- Criação do documento `docs/fluxo_exclusao_relacionamento.md` detalhando o fluxo completo de dados para exclusão de relacionamentos, incluindo verificação da existência do relacionamento no Neo4j antes da exclusão
 - Criação do documento `docs/neo4j_best_practices.md` detalhando boas práticas para trabalhar com Neo4j no projeto Beaver, incluindo diretrizes para operações com nós e relacionamentos
 - Criação do documento `docs/neo4j_relationship_requirements.md` com especificações técnicas detalhadas sobre os requisitos para criação de relacionamentos no Neo4j
 - Atualização do documento `docs/fluxo_criacao_relacionamento.md` com adição de seção sobre requisitos e boas práticas para criação de relacionamentos no Neo4j
@@ -75,6 +76,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Corrigido erro de sintaxe no resolver 'relations' (substituindo t.list por t.field com array type)
 - Resolvido conflito de porta na inicialização da API, garantindo que o servidor possa iniciar corretamente
 - Implementado fallback para simular conexão Neo4j quando o banco de dados não está disponível
+- Corrigido problema na consulta de relacionamentos do Neo4j que impedia a exibição dos dados na interface
+- Implementado endpoint `/status` para diagnóstico de conexões com bancos de dados (MariaDB e Neo4j)
+- Refatorada a inicialização do cliente Neo4j para garantir que a aplicação funcione mesmo com falha na conexão
+- Corrigidos tipos de dados para IDs de relacionamentos para suportar strings no lugar de números inteiros
 
 ## [0.3.0] - 2023-11-18
 

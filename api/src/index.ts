@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { schema } from './schema';
 import { createContext } from './context';
 import { logger } from './utils/logger';
+import statusRoutes from './routes/status';
 
 // Carrega as variáveis de ambiente
 dotenv.config();
@@ -38,9 +39,13 @@ async function startServer() {
     }),
   );
 
+  // Rotas da API REST
+  app.use('/status', cors<cors.CorsRequest>(), statusRoutes);
+
   // Inicializa o servidor HTTP
   await new Promise<void>((resolve) => httpServer.listen({ port: PORT }, resolve));
   logger.info(`🚀 Servidor pronto em http://localhost:${PORT}/graphql`);
+  logger.info(`📊 Status da API disponível em http://localhost:${PORT}/status`);
 }
 
 startServer().catch((err) => {
