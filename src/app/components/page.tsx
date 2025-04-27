@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,10 @@ export default function ComponentsPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12); // Número inicial de componentes visíveis
+  const [hasMore, setHasMore] = useState(true); // Indica se há mais componentes para carregar
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastComponentRef = useRef<HTMLDivElement | null>(null);
 
   // Consulta GraphQL para buscar componentes
   const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
@@ -203,6 +207,59 @@ export default function ComponentsPage() {
     });
   };
 
+  /**
+   * Manipulador de interseção para detecção de rolagem
+   * Quando o último elemento se torna visível, carrega mais componentes
+   */
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const [entry] = entries;
+    if (entry.isIntersecting && hasMore) {
+      setVisibleCount(prev => {
+        const newCount = prev + 8; // Incrementa 8 componentes por vez
+        if (newCount >= filteredComponents.length) {
+          setHasMore(false);
+        }
+        return newCount;
+      });
+    }
+  }, [hasMore, filteredComponents.length]);
+
+  // Configuração do observador de interseção para rolagem infinita
+  useEffect(() => {
+    if (observer.current) {
+      observer.current.disconnect();
+    }
+
+    observer.current = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '20px',
+      threshold: 0.1
+    });
+
+    if (lastComponentRef.current) {
+      observer.current.observe(lastComponentRef.current);
+    }
+
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [handleObserver, filteredComponents.length]);
+
+  // Resetar visibleCount quando os filtros mudam
+  useEffect(() => {
+    setVisibleCount(12);
+    setHasMore(true);
+  }, [searchTerm, statusFilter]);
+
+  // Função para definir a referência do último componente
+  const setLastComponentRef = (el: HTMLDivElement | null, index: number) => {
+    if (index === Math.min(visibleCount - 1, filteredComponents.length - 1)) {
+      lastComponentRef.current = el;
+    }
+  };
+
   // Renderizar mensagem de carregamento se necessário
   if (loading && !data) {
     return (
@@ -307,15 +364,16 @@ export default function ComponentsPage() {
         </div>
 
         {/* Grid de componentes */}
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredComponents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground col-span-full">
               Nenhum componente encontrado.
             </div>
           ) : (
-            filteredComponents.map((component: ComponentType) => (
+            filteredComponents.slice(0, visibleCount).map((component: ComponentType, index: number) => (
               <div 
-                key={component.id} 
+                key={component.id}
+                ref={(el) => setLastComponentRef(el, index)}
                 className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors h-[180px] flex flex-col"
                 onClick={() => handleComponentClick(component)}
               >
@@ -347,6 +405,12 @@ export default function ComponentsPage() {
                 </div>
               </div>
             ))
+          )}
+          {/* Indicador de carregamento */}
+          {hasMore && filteredComponents.length > 0 && (
+            <div className="col-span-full flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
           )}
         </div>
 

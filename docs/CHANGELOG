@@ -12,6 +12,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Método `deleteNode` adicionado à classe Neo4jClient para facilitar a exclusão de nós e suas relações no Neo4j
 - Script `scripts/restart-app.sh` para facilitar a reinicialização da aplicação em caso de problemas
 - Contador de caracteres no campo de descrição do formulário de componentes, com limite máximo de 256 caracteres para conformidade com o esquema do banco de dados
+- Implementação de rolagem infinita na página de componentes, carregando inicialmente 12 componentes e adicionando mais 8 conforme o usuário rola para baixo, melhorando o desempenho e a experiência do usuário
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto

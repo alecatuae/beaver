@@ -346,6 +346,13 @@ Our design follows these core principles:
 - **Component Loading**: Inline indicators for specific content areas
 - **Button Loading**: State change or spinner within button during action processing
 - **Skeleton Screens**: Gray placeholder elements during content loading
+- **Infinite Scroll Loading**:
+  - Small centered spinner at the bottom of the list
+  - Automatic loading of additional content when user reaches bottom of viewport
+  - Initial batch of 12 items for immediate display
+  - Subsequent batches of 8 items to maintain performance
+  - Clear loading indicator using border animation
+  - Non-intrusive design that doesn't block continuing to view loaded content
 
 ### Responsive Design
 
