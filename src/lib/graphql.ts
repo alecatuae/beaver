@@ -129,6 +129,72 @@ export const CREATE_RELATION = gql`
   }
 `;
 
+export const GET_RELATIONS = gql`
+  query GetRelations {
+    relations {
+      id
+      sourceId
+      targetId
+      type
+      properties
+      source {
+        id
+        name
+        status
+      }
+      target {
+        id
+        name
+        status
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const GET_RELATION = gql`
+  query GetRelation($id: Int!) {
+    relation(id: $id) {
+      id
+      sourceId
+      targetId
+      type
+      properties
+      source {
+        id
+        name
+        status
+      }
+      target {
+        id
+        name
+        status
+      }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_RELATION = gql`
+  mutation UpdateRelation($id: Int!, $input: RelationInput!) {
+    updateRelation(id: $id, input: $input) {
+      id
+      sourceId
+      targetId
+      type
+      properties
+    }
+  }
+`;
+
+export const DELETE_RELATION = gql`
+  mutation DeleteRelation($id: Int!) {
+    deleteRelation(id: $id)
+  }
+`;
+
 // Tipos para trabalhar com componentes
 export enum ComponentStatus {
   ACTIVE = 'ACTIVE',
@@ -157,6 +223,19 @@ export interface RelationInput {
   targetId: number;
   type: string;
   properties?: Record<string, any>;
+  description?: string;
+}
+
+export interface RelationType {
+  id: number;
+  sourceId: number;
+  targetId: number;
+  type: string;
+  properties?: Record<string, any>;
+  source?: ComponentType;
+  target?: ComponentType;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GraphData {

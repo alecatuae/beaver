@@ -15,6 +15,27 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Implementação de rolagem infinita na página de componentes, carregando inicialmente 12 componentes e adicionando mais 8 conforme o usuário rola para baixo, melhorando o desempenho e a experiência do usuário
 - Adicionado diálogo de confirmação para todas as operações de exclusão, evitando exclusões acidentais e melhorando a experiência do usuário
 - Implementado recurso de ordenação na lista de componentes, permitindo ordenar por nome, data de criação e status, com indicação visual da ordem atual
+- Desenvolvida nova seção de Gerenciamento de Relacionamentos com funcionalidade CRUD completa para criação, leitura, atualização e exclusão de relações entre componentes na arquitetura, incluindo validação de formulários, filtros por tipo de relacionamento, ordenação personalizada e confirmação de exclusão
+- Campo de busca por nome em componentes
+- Truncamento de texto para descrições longas em cards de componentes
+- Limitador de caracteres (256) para campo de descrição no formulário de componentes
+- Altura fixa (180px) para cards de componentes para melhor consistência visual
+- Exibição inteligente de tags com limite de 3 tags visíveis e contador
+- Formato de data compacto em cards de componentes
+- Cards de relacionamento com altura fixa (160px) para apresentação visual consistente
+- Badges coloridos por tipo de relacionamento para identificação visual rápida
+- Indicadores direcionais claros entre componentes de origem e destino
+- Melhorias na interface de criação/edição de relacionamentos com validação aprimorada
+- Layout responsivo com tamanho fixo para cards de relacionamentos (180px de altura)
+- Truncamento inteligente de nomes e descrições nos cards de relacionamentos
+- Formato de data compacto para exibição nos cards
+- Indicadores de status coloridos para componentes de origem e destino
+- Implementado limite de caracteres no campo de descrição de componentes (máximo 500 caracteres)
+- Atualização automática da lista de componentes após criar, editar ou excluir
+- Layout aprimorado para cards de componentes e relacionamentos com tamanho fixo (180px de altura)
+- Truncamento inteligente para nomes longos e descrições em cards de componentes e relacionamentos
+- Exibição compacta de data para cards de componentes e relacionamentos (formato dd/MM/yyyy)
+- Limitação de tags exibidas em cards de componentes (máximo de 3 tags visíveis)
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto

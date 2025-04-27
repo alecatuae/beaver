@@ -95,6 +95,17 @@
     - Persistent sorting state during session
     - Clear UI with dropdown menu for sort options
 
+A interface de gerenciamento de componentes oferece uma experiência intuitiva para criar, visualizar, editar e excluir componentes no sistema. Principais características incluem:
+
+- Layout responsivo baseado em cards com altura fixa de componentes (180px) para apresentação visual consistente
+- Truncamento inteligente para nomes e descrições longas
+- Exibição de tags limitada a três, com contador para tags adicionais
+- Formato de data compacto
+- Indicação de status com badges coloridos
+- Formulário de criação/edição validado com contador de caracteres para descrições (limite de 256 caracteres)
+- Pesquisa em tempo real por nome, descrição ou tags
+- Paginação infinita para melhor desempenho com grandes conjuntos de dados
+
 ### Relationship Management
 - **Description**: Page for managing relationships between existing components in the architecture graph.
 - **Features**:
@@ -138,6 +149,21 @@
   - Editing a relationship updates the corresponding graph edge in real-time.
   - Deleting a relationship removes the corresponding edge immediately from the graph without requiring full reload.
 
+A funcionalidade de gerenciamento de relacionamentos permite definir e gerenciar conexões entre componentes no sistema. Características principais incluem:
+
+- Interface completa para CRUD (Criar, Ler, Atualizar, Excluir) de relacionamentos
+- Cards de relacionamento com altura fixa (160px) para visualização consistente
+- Badges coloridos por tipo de relacionamento para identificação visual rápida
+- Indicador direcional claro entre componentes de origem e destino
+- Formulário de criação/edição com:
+  - Seleção facilitada de componentes com campo de busca
+  - Escolha intuitiva de tipos de relacionamento com indicadores visuais
+  - Campo de descrição opcional (limite de 256 caracteres)
+  - Validação completa de formulários
+- Filtragem de relacionamentos por tipo e componentes envolvidos
+- Confirmação de exclusão para prevenir remoções acidentais
+- Atualização em tempo real após ações do usuário (criar, editar, excluir)
+- Integração completa com o banco de dados de grafos Neo4j para persistência de relacionamentos
 
 ### Team Management
 - **Description**: Manage teams within the organization.

@@ -1,0 +1,634 @@
+"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AppLayout } from '@/components/layout/app-layout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogDescription 
+} from '@/components/ui/dialog';
+import { 
+  Search, 
+  Plus, 
+  Filter, 
+  Download, 
+  ArrowUpDown,
+  SortAsc,
+  SortDesc,
+  ArrowRight
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { useQuery, useMutation } from '@apollo/client';
+import { 
+  GET_RELATIONS,
+  GET_RELATION,
+  CREATE_RELATION,
+  UPDATE_RELATION,
+  DELETE_RELATION,
+  GET_COMPONENTS,
+  ComponentType,
+  RelationType,
+  RelationInput,
+  ComponentStatus
+} from '@/lib/graphql';
+import RelationshipForm from './form-relationship';
+
+// Tipos de relacionamentos pré-definidos
+export enum RelationshipType {
+  CONNECTS_TO = "CONNECTS_TO",
+  DEPENDS_ON = "DEPENDS_ON",
+  PROVIDES_DATA_TO = "PROVIDES_DATA_TO",
+  CONSUMES_DATA_FROM = "CONSUMES_DATA_FROM",
+  CALLS = "CALLS",
+  EXTENDS = "EXTENDS",
+  IMPLEMENTS = "IMPLEMENTS",
+  PROTECTS = "PROTECTS",
+  MONITORS = "MONITORS",
+  STORES_DATA_IN = "STORES_DATA_IN"
+}
+
+export default function RelationshipsPage() {
+  // Estados para filtros e busca
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<RelationshipType | 'all'>('all');
+  const [selectedRelationship, setSelectedRelationship] = useState<RelationType | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastRelationshipRef = useRef<HTMLDivElement | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [relationshipToDelete, setRelationshipToDelete] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<'source' | 'target' | 'type' | 'date'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Consulta GraphQL para buscar relacionamentos
+  const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
+    fetchPolicy: 'network-only',
+    onError: (error) => {
+      console.error('Erro na consulta GraphQL:', error);
+    }
+  });
+
+  // Consulta para buscar componentes (necessários para o formulário)
+  const { data: componentsData } = useQuery(GET_COMPONENTS, {
+    variables: { status: null },
+    fetchPolicy: 'cache-first'
+  });
+
+  // Efeito para atualização automática da lista de relacionamentos
+  useEffect(() => {
+    if (!isFormOpen) {
+      // Atualiza a lista após fechar o modal
+      setTimeout(() => refetch(), 300);
+    }
+  }, [isFormOpen, refetch]);
+
+  // Mutations GraphQL
+  const [createRelation] = useMutation(CREATE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento criado com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao criar relacionamento:", error);
+    }
+  });
+
+  const [updateRelation] = useMutation(UPDATE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento atualizado com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar relacionamento:", error);
+    }
+  });
+
+  const [deleteRelation] = useMutation(DELETE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento excluído com sucesso");
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao excluir relacionamento:", error);
+    }
+  });
+
+  // Transforma os dados da API para o formato esperado pela interface
+  const relationships = data?.relations?.map((relation: any) => ({
+    ...relation,
+    created_at: new Date(relation.createdAt),
+    updated_at: new Date(relation.updatedAt)
+  })) || [];
+
+  // Função para filtrar relacionamentos com base na busca e filtro de tipo
+  const filteredRelationships = relationships.filter((relationship: RelationType) => {
+    const sourceNameMatch = relationship.source?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const targetNameMatch = relationship.target?.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const typeMatch = relationship.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const descriptionMatch = relationship.properties?.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesSearch = sourceNameMatch || targetNameMatch || typeMatch || descriptionMatch;
+    const matchesTypeFilter = typeFilter === 'all' || relationship.type === typeFilter;
+    
+    return matchesSearch && matchesTypeFilter;
+  });
+
+  // Função para ordenar relacionamentos
+  const sortRelationships = (relationships: RelationType[]) => {
+    return [...relationships].sort((a, b) => {
+      if (sortBy === 'source') {
+        const sourceNameA = a.source?.name || '';
+        const sourceNameB = b.source?.name || '';
+        return sortDirection === 'asc' 
+          ? sourceNameA.localeCompare(sourceNameB) 
+          : sourceNameB.localeCompare(sourceNameA);
+      } else if (sortBy === 'target') {
+        const targetNameA = a.target?.name || '';
+        const targetNameB = b.target?.name || '';
+        return sortDirection === 'asc'
+          ? targetNameA.localeCompare(targetNameB)
+          : targetNameB.localeCompare(targetNameA);
+      } else if (sortBy === 'type') {
+        return sortDirection === 'asc'
+          ? a.type.localeCompare(b.type)
+          : b.type.localeCompare(a.type);
+      } else if (sortBy === 'date') {
+        return sortDirection === 'asc'
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return 0;
+    });
+  };
+
+  // Função para alternar a ordenação
+  const toggleSort = (field: 'source' | 'target' | 'type' | 'date') => {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Aplicar ordenação aos relacionamentos filtrados
+  const sortedRelationships = sortRelationships(filteredRelationships);
+
+  // Manipulador de interseção para detecção de rolagem
+  const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
+    const [entry] = entries;
+    if (entry.isIntersecting && hasMore) {
+      setVisibleCount(prev => {
+        const newCount = prev + 8; // Incrementa 8 relacionamentos por vez
+        if (newCount >= sortedRelationships.length) {
+          setHasMore(false);
+        }
+        return newCount;
+      });
+    }
+  }, [hasMore, sortedRelationships.length]);
+
+  // Configuração do observador de interseção para rolagem infinita
+  useEffect(() => {
+    if (observer.current) {
+      observer.current.disconnect();
+    }
+
+    observer.current = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '20px',
+      threshold: 0.1
+    });
+
+    if (lastRelationshipRef.current) {
+      observer.current.observe(lastRelationshipRef.current);
+    }
+
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [handleObserver, sortedRelationships.length]);
+
+  // Resetar visibleCount quando os filtros mudam
+  useEffect(() => {
+    setVisibleCount(12);
+    setHasMore(true);
+  }, [searchTerm, typeFilter]);
+
+  // Função para definir a referência do último componente
+  const setLastRelationshipRef = (el: HTMLDivElement | null, index: number) => {
+    if (index === Math.min(visibleCount - 1, sortedRelationships.length - 1)) {
+      lastRelationshipRef.current = el;
+    }
+  };
+
+  // Manipuladores de ações
+  const handleTypeFilterChange = (type: RelationshipType | 'all') => {
+    setTypeFilter(type);
+  };
+
+  const handleRelationshipClick = (relationship: RelationType) => {
+    setSelectedRelationship(relationship);
+    setShowDetails(true);
+  };
+
+  // Função para abrir formulário de relacionamento (em modo de criação)
+  const openNewRelationshipForm = () => {
+    setIsEditMode(false);
+    setSelectedRelationship(null);
+    setIsFormOpen(true);
+  };
+
+  // Função para abrir formulário de relacionamento (em modo de edição)
+  const openEditRelationshipForm = (relationship: RelationType) => {
+    setIsEditMode(true);
+    setSelectedRelationship(relationship);
+    setShowDetails(false);
+    setIsFormOpen(true);
+  };
+
+  // Função para iniciar o processo de exclusão
+  const confirmDeleteRelationship = (id: number) => {
+    setRelationshipToDelete(id);
+    setShowDeleteConfirm(true);
+    setShowDetails(false);
+  };
+
+  // Função para excluir relacionamento após confirmação
+  const handleConfirmedDelete = () => {
+    if (relationshipToDelete === null) return;
+    
+    deleteRelation({
+      variables: { id: relationshipToDelete },
+      onCompleted: () => {
+        setShowDeleteConfirm(false);
+        setRelationshipToDelete(null);
+        setTimeout(() => refetch(), 300);
+      }
+    });
+  };
+
+  // Função para salvar relacionamento (criar ou atualizar)
+  const handleSaveRelationship = (relationshipData: RelationInput) => {
+    if (isEditMode && selectedRelationship) {
+      // Atualizar relacionamento existente
+      updateRelation({
+        variables: {
+          id: selectedRelationship.id,
+          input: relationshipData
+        }
+      });
+    } else {
+      // Criar novo relacionamento
+      createRelation({
+        variables: {
+          input: relationshipData
+        }
+      });
+    }
+    
+    setIsFormOpen(false);
+  };
+
+  // Renderizar mensagem de carregamento se necessário
+  if (loading && !data) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-96">
+          <p className="text-lg">Carregando relacionamentos...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Renderizar mensagem de erro se necessário
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-96 flex-col gap-4">
+          <p className="text-lg text-destructive">Erro ao carregar os relacionamentos</p>
+          <p className="text-sm text-muted-foreground">
+            {error.message}
+          </p>
+          <Button onClick={() => refetch()}>Tentar novamente</Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  return (
+    <AppLayout>
+      <div className="pb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Gerenciamento de Relacionamentos</h1>
+          <Button 
+            className="flex items-center gap-1"
+            onClick={openNewRelationshipForm}
+          >
+            <Plus size={16} className="mr-1" />
+            Novo Relacionamento
+          </Button>
+        </div>
+
+        {/* Área de busca e filtros */}
+        <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+            <Input
+              type="text"
+              placeholder="Buscar relacionamentos..."
+              className="w-full pl-10 pr-4 py-2 border rounded-md focus:ring-1 focus:ring-primary focus:border-primary bg-background"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <Filter size={16} />
+                  Filtrar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem 
+                  onClick={() => handleTypeFilterChange('all')}
+                  className={typeFilter === 'all' ? 'bg-muted' : ''}
+                >
+                  Todos os tipos
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {Object.values(RelationshipType).map(type => (
+                  <DropdownMenuItem 
+                    key={type}
+                    onClick={() => handleTypeFilterChange(type)}
+                    className={typeFilter === type ? 'bg-muted' : ''}
+                  >
+                    {type.replace(/_/g, ' ')}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <ArrowUpDown size={16} />
+                  Ordenar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => toggleSort('source')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Componente Origem</span>
+                    {sortBy === 'source' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('target')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Componente Destino</span>
+                    {sortBy === 'target' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('type')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Tipo de Relacionamento</span>
+                    {sortBy === 'type' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('date')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Data de criação</span>
+                    {sortBy === 'date' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="outline">
+              <Download size={16} />
+            </Button>
+          </div>
+        </div>
+
+        {/* Grid de relacionamentos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sortedRelationships.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground col-span-full">
+              Nenhum relacionamento encontrado.
+            </div>
+          ) : (
+            sortedRelationships.slice(0, visibleCount).map((relationship: RelationType, index: number) => (
+              <div 
+                key={relationship.id}
+                ref={(el) => setLastRelationshipRef(el, index)}
+                className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors h-[180px] flex flex-col"
+                onClick={() => handleRelationshipClick(relationship)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-lg font-medium truncate max-w-[70%]">
+                    {relationship.source?.name || 'Desconhecido'}
+                  </h3>
+                </div>
+                <div className="flex items-center text-muted-foreground mb-4">
+                  <ArrowRight size={16} className="mx-1" />
+                  <div className="truncate max-w-[70%]">
+                    {relationship.target?.name || 'Desconhecido'}
+                  </div>
+                </div>
+                <div className="flex-grow">
+                  <span className="inline-block px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+                    {relationship.type.replace(/_/g, ' ')}
+                  </span>
+                  {relationship.properties?.description && (
+                    <p className="text-muted-foreground text-sm mt-2 line-clamp-2">
+                      {relationship.properties.description}
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-between items-center mt-auto">
+                  <div className="flex items-center">
+                    <span className={`w-2 h-2 rounded-full mr-2 ${
+                      relationship.source?.status === ComponentStatus.ACTIVE ? 'bg-success' :
+                      relationship.source?.status === ComponentStatus.INACTIVE ? 'bg-warning' : 'bg-destructive'
+                    }`}></span>
+                    <span className={`w-2 h-2 rounded-full mr-2 ${
+                      relationship.target?.status === ComponentStatus.ACTIVE ? 'bg-success' :
+                      relationship.target?.status === ComponentStatus.INACTIVE ? 'bg-warning' : 'bg-destructive'
+                    }`}></span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {format(new Date(relationship.createdAt), "dd/MM/yyyy")}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+          {/* Indicador de carregamento */}
+          {hasMore && sortedRelationships.length > 0 && (
+            <div className="col-span-full flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal de detalhes do relacionamento */}
+        {showDetails && selectedRelationship && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-card rounded-lg border shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Detalhes do Relacionamento</h2>
+                  <span className="mt-2 inline-block px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+                    {selectedRelationship.type.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowDetails(false)} 
+                  >
+                    ✕
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Componente Origem</h3>
+                  <p className="text-foreground">{selectedRelationship.source?.name}</p>
+                  <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${
+                    selectedRelationship.source?.status === ComponentStatus.ACTIVE 
+                      ? 'bg-success text-success-foreground' :
+                    selectedRelationship.source?.status === ComponentStatus.INACTIVE 
+                      ? 'bg-warning text-warning-foreground' : 
+                      'bg-destructive text-destructive-foreground'
+                  }`}>
+                    {selectedRelationship.source?.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                     selectedRelationship.source?.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Componente Destino</h3>
+                  <p className="text-foreground">{selectedRelationship.target?.name}</p>
+                  <span className={`mt-1 inline-block px-2 py-1 text-xs rounded-full ${
+                    selectedRelationship.target?.status === ComponentStatus.ACTIVE 
+                      ? 'bg-success text-success-foreground' :
+                    selectedRelationship.target?.status === ComponentStatus.INACTIVE 
+                      ? 'bg-warning text-warning-foreground' : 
+                      'bg-destructive text-destructive-foreground'
+                  }`}>
+                    {selectedRelationship.target?.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                     selectedRelationship.target?.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                  </span>
+                </div>
+
+                {selectedRelationship.properties?.description && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
+                    <p className="text-foreground">{selectedRelationship.properties.description}</p>
+                  </div>
+                )}
+
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Detalhes</h3>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="text-sm text-muted-foreground">ID:</div>
+                    <div className="text-sm">{selectedRelationship.id}</div>
+                    <div className="text-sm text-muted-foreground">Tipo:</div>
+                    <div className="text-sm capitalize">{selectedRelationship.type.replace(/_/g, ' ')}</div>
+                    <div className="text-sm text-muted-foreground">Data de Criação:</div>
+                    <div className="text-sm">{format(new Date(selectedRelationship.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
+                    <div className="text-sm text-muted-foreground">Última Atualização:</div>
+                    <div className="text-sm">{format(new Date(selectedRelationship.updatedAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t flex justify-end gap-4">
+                <Button 
+                  variant="outline"
+                  onClick={() => openEditRelationshipForm(selectedRelationship)}
+                >
+                  Editar
+                </Button>
+                <Button 
+                  variant="default"
+                  onClick={() => confirmDeleteRelationship(selectedRelationship.id)}
+                >
+                  Excluir
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal do formulário de relacionamento */}
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {isEditMode ? 'Editar Relacionamento' : 'Novo Relacionamento'}
+              </DialogTitle>
+            </DialogHeader>
+            <RelationshipForm
+              initialData={selectedRelationship || undefined}
+              components={componentsData?.components || []}
+              onSubmit={handleSaveRelationship}
+              onCancel={() => setIsFormOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de confirmação de exclusão */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription className="pt-2">
+                Tem certeza de que deseja excluir este relacionamento? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+                Cancelar
+              </Button>
+              <Button variant="default" onClick={handleConfirmedDelete}>
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+} 

@@ -184,29 +184,65 @@ Our design follows these core principles:
 
 ### Component Cards
 
-- **Dimensions**:
-  - Fixed height: 180px
-  - Flexible width based on container
-  - Padding: 16px (1rem)
+#### Dimensions
+- **Fixed Height**: 180px for consistency across all cards
+- **Flexible Width**: Responsively adjusts based on grid layout
+- **Padding**: 16px internal spacing for content
 
-- **Layout**:
-  - Flexbox-based with column direction
-  - Header: Component name (truncated if needed) with status tag
-  - Body: Description text limited to 2 lines with ellipsis
-  - Footer: Tags (max 3 visible with counter) and creation date
+#### Layout
+- **Structure**: Flex column with header, body, and footer sections
+- **Header**: Component name (truncated to 70% of width if too long) and status badge
+- **Body**: Description with 2-line clamp for consistent appearance
+- **Footer**: Tags (max 3 displayed) and creation date
 
-- **Text Handling**:
-  - Component name: Truncate with ellipsis if exceeds 70% of card width
-  - Description: Line clamp to 2 lines with ellipsis
-  - Tags: Truncate individual tags if longer than container
-  - Date format: Compact format (DD/MM/YYYY)
+#### Text Handling
+- **Component Name**: Truncate with ellipsis if exceeds available width
+- **Description**: Line clamp at 2 lines with ellipsis for overflow
+- **Tags**: Show first 3 tags with +N indicator for additional tags
+- **Date**: Display in compact dd/MM/yyyy format
 
-- **Visual Design**:
-  - Border radius: 8px (rounded-lg)
-  - Shadow: Subtle shadow for depth
-  - Hover state: Primary color border highlight
-  - Tags: Maximum 3 visible with counter for additional
-  - Status indicators: Color-coded pills (Active: green, Inactive: amber, Deprecated: red)
+#### Visual Design
+- **Border Radius**: 8px for rounded corners
+- **Shadow**: Subtle elevation on hover
+- **Hover State**: Slight scale increase (1.02) for interactive feedback
+- **Status Indicator**: Color-coded badge (green for active, yellow for deprecated, red for inactive)
+
+### Relationship Management
+
+#### Card Design
+- **Fixed Height**: 160px for consistency across all relationship cards
+- **Flexible Width**: Responsively adjusts based on grid layout
+- **Padding**: 16px internal spacing for content
+
+#### Layout
+- **Structure**: Flex column with header, body, and footer sections
+- **Header**: Relationship type badge with prominent visual distinction
+- **Body**: Source and target components with directional indicator (→)
+- **Footer**: Description (if available) and creation date
+
+#### Text Handling
+- **Relationship Type**: Displayed as a colored badge based on type category
+- **Component Names**: Truncate with ellipsis if exceeds available width
+- **Description**: Line clamp at 2 lines with ellipsis for overflow
+- **Date**: Display in compact dd/MM/yyyy format
+
+#### Visual Design
+- **Border Radius**: 8px for rounded corners
+- **Shadow**: Subtle elevation on hover
+- **Hover State**: Slight scale increase (1.02) for interactive feedback
+- **Type Indicators**: Color-coded by category:
+  - **DEPENDS_ON**: Blue (#3b82f6)
+  - **COMMUNICATES_WITH**: Green (#10b981)
+  - **EXTENDS**: Purple (#8b5cf6)
+  - **IMPLEMENTS**: Teal (#14b8a6)
+  - **CONTAINS**: Orange (#f59e0b)
+  - **USES**: Indigo (#6366f1)
+
+#### Form Guidelines
+- **Source/Target Selection**: Dropdown with search functionality for easy component selection
+- **Type Selection**: Radio buttons or dropdown with color indicators matching the type badges
+- **Description**: Optional field with 256 character limit and counter
+- **Validation**: Clear error messages for required fields and invalid selections
 
 ### Details Panel
 
