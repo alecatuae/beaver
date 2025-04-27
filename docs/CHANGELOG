@@ -36,6 +36,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Truncamento inteligente para nomes longos e descrições em cards de componentes e relacionamentos
 - Exibição compacta de data para cards de componentes e relacionamentos (formato dd/MM/yyyy)
 - Limitação de tags exibidas em cards de componentes (máximo de 3 tags visíveis)
+- Menu de navegação aprimorado: renomeado "Components" para "Components Management" com submenus para "Components" e "Relationship"
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
@@ -49,6 +50,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Redesenhados os cards de componentes com altura fixa (180px) para apresentação visual simétrica e consistente, incluindo truncamento inteligente de texto, limitação de tags visíveis e formato de data compacto
 - Corrigido o estilo dos dropdowns para garantir fundo sólido (não transparente) em todos os menus suspensos, melhorando a legibilidade e consistência visual em ambos os temas (claro e escuro)
 - Alterada a cor dos botões de ação em destaque para utilizar a cor primária roxa (var(--primary)), garantindo consistência visual e aderência ao guia de estilo da aplicação
+- Aprimorado o alinhamento do menu lateral para garantir consistência visual entre itens com e sem submenu, aplicando layout flexível e espaçamento uniforme
+- Corrigido o alinhamento e a margem do texto nas opções do menu lateral, adicionando truncamento para textos longos e garantindo espaçamento consistente entre os elementos
 
 ## [0.3.0] - 2023-11-18
 

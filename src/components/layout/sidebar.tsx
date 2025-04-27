@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -18,16 +18,26 @@ import {
   ChevronLeft,
   Moon,
   Sun,
+  ChevronDown,
+  ChevronUp,
+  Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
 
 // Definição de tipos para os itens de navegação
-type NavItem = {
+type NavSubItem = {
   href: string;
   label: string;
   icon: React.ReactNode;
+};
+
+type NavItem = {
+  href?: string;
+  label: string;
+  icon: React.ReactNode;
   activeColor?: string;
+  subItems?: NavSubItem[];
 };
 
 type SidebarProps = {
@@ -38,6 +48,14 @@ type SidebarProps = {
 export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const [expandedMenus, setExpandedMenus] = useState<{[key: string]: boolean}>({});
+
+  const toggleSubmenu = (label: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
 
   // Itens de navegação do Beaver
   const navItems: NavItem[] = [
@@ -72,10 +90,21 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
       activeColor: 'text-primary',
     },
     {
-      href: '/components',
-      label: 'Components',
+      label: 'Components Management',
       icon: <Box size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/components',
+          label: 'Components',
+          icon: <Box size={16} />,
+        },
+        {
+          href: '/relationships',
+          label: 'Relationship',
+          icon: <Network size={16} />,
+        }
+      ]
     },
     {
       href: '/team-management',
@@ -130,38 +159,118 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
       </Button>
 
       {/* Itens de navegação */}
-      <nav className="flex flex-col gap-1 px-2 py-4">
+      <nav className="flex flex-col gap-1 px-2 py-4 overflow-y-auto max-h-[calc(100vh-120px)]">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const hasSubItems = item.subItems && item.subItems.length > 0;
+          const isParentActive = hasSubItems && item.subItems?.some(subItem => pathname === subItem.href);
+          const isActive = pathname === item.href || isParentActive;
+          const isSubmenuExpanded = expandedMenus[item.label];
+          
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                {
-                  "bg-white/10 text-white": isActive,
-                  "text-white/70 hover:bg-white/5 hover:text-white": !isActive,
-                  "justify-center": !isExpanded,
-                  "justify-start": isExpanded,
-                }
+            <div key={item.label}>
+              {hasSubItems ? (
+                <div>
+                  <button
+                    onClick={() => isExpanded && toggleSubmenu(item.label)}
+                    className={cn(
+                      "w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                      {
+                        "bg-white/10 text-white": isParentActive,
+                        "text-white/70 hover:bg-white/5 hover:text-white": !isParentActive,
+                        "justify-center": !isExpanded,
+                        "justify-between": isExpanded,
+                      }
+                    )}
+                  >
+                    <div className="flex items-center min-w-0">
+                      <span className={cn(
+                        "transition-all flex-shrink-0",
+                        isParentActive ? item.activeColor : ""
+                      )}>
+                        {item.icon}
+                      </span>
+                      {isExpanded && (
+                        <span className="ml-3 transition-opacity truncate">
+                          {item.label}
+                        </span>
+                      )}
+                    </div>
+                    {isExpanded && (
+                      <span className="flex-shrink-0 ml-2">
+                        {isSubmenuExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {isExpanded && isSubmenuExpanded && (
+                    <div className="pl-5 mt-1 overflow-hidden transition-all duration-300 ease-in-out space-y-1">
+                      {item.subItems?.map(subItem => {
+                        const isSubActive = pathname === subItem.href;
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={cn(
+                              "flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                              {
+                                "bg-white/10 text-white": isSubActive,
+                                "text-white/70 hover:bg-white/5 hover:text-white": !isSubActive,
+                                "justify-between": true,
+                              }
+                            )}
+                          >
+                            <div className="flex items-center min-w-0">
+                              <span className={cn(
+                                "transition-all flex-shrink-0",
+                                isSubActive ? item.activeColor : ""
+                              )}>
+                                {subItem.icon}
+                              </span>
+                              <span className="ml-3 transition-opacity truncate">
+                                {subItem.label}
+                              </span>
+                            </div>
+                            {isSubActive && (
+                              <div className="w-1 h-4 bg-primary rounded-full flex-shrink-0 ml-2" />
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={item.href || '#'}
+                  className={cn(
+                    "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    {
+                      "bg-white/10 text-white": isActive,
+                      "text-white/70 hover:bg-white/5 hover:text-white": !isActive,
+                      "justify-center": !isExpanded,
+                      "justify-between": isExpanded,
+                    }
+                  )}
+                >
+                  <div className="flex items-center min-w-0">
+                    <span className={cn(
+                      "transition-all flex-shrink-0",
+                      isActive ? item.activeColor : ""
+                    )}>
+                      {item.icon}
+                    </span>
+                    {isExpanded && (
+                      <span className="ml-3 transition-opacity truncate">
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
+                  {isActive && isExpanded && (
+                    <div className="w-1 h-4 bg-primary rounded-full flex-shrink-0 ml-2" />
+                  )}
+                </Link>
               )}
-            >
-              <span className={cn(
-                "transition-all",
-                isActive ? item.activeColor : ""
-              )}>
-                {item.icon}
-              </span>
-              {isExpanded && (
-                <span className="ml-3 transition-opacity">
-                  {item.label}
-                </span>
-              )}
-              {isActive && isExpanded && (
-                <div className="ml-auto w-1 h-4 bg-primary rounded-full" />
-              )}
-            </Link>
+            </div>
           );
         })}
       </nav>
