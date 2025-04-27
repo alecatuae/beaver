@@ -17,6 +17,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Correção na configuração do Docker para o contêiner da API: adicionado suporte a OpenSSL para o Prisma Client
 - Corrigida a definição de tipos no GraphQL (ComponentTag e ADRTag) que estavam causando erros de inicialização
 - Melhoria na configuração de volumes do Docker para evitar problemas com os módulos do Node.js
+- Revisão do padrão de layout na página de Componentes: removidos botões redundantes de Editar e Excluir da parte superior e botão de Fechar na parte inferior do modal de detalhes
+- Melhorado o espaçamento entre botões de ação (gap-4) no modal de detalhes de componentes para melhor alinhamento com as diretrizes de UI/UX
 
 ## [0.3.0] - 2023-11-18
 

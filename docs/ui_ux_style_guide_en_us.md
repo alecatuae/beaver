@@ -191,11 +191,15 @@ Our design follows these core principles:
   - Component metadata in key-value format
   - Clear section headings
   - Compact presentation of detailed information
+  - Modal actions (buttons) should be placed at the bottom with consistent spacing (gap-4)
+  - Avoid duplicate action buttons (Edit/Delete) in different parts of the same modal
 
 - **Interactions**:
   - Expand/collapse sections
   - Quick filters for information types
   - Direct relationship to selected content in main area
+  - Close button should be positioned in the top-right corner as an icon (✕) without label
+  - Action buttons at the bottom should follow platform-wide color and style conventions
 
 ### Footer
 
