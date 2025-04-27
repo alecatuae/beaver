@@ -1,23 +1,10 @@
-import builder from '../../schema';
+import { builder } from '../../schema';
 import { prisma } from '../../prisma';
 import { neo4jClient } from '../../db/neo4j';
 import { logger } from '../../utils/logger';
 
-// Definição do tipo de entrada para relacionamento
-builder.inputType('RelationInput', {
-  fields: (t) => ({
-    sourceId: t.int({ required: true }),
-    targetId: t.int({ required: true }),
-    type: t.string({ required: true }),
-    properties: t.field({
-      type: 'JSON',
-      required: false,
-    }),
-  }),
-});
-
 // Definição do tipo Relation para GraphQL
-const RelationType = builder.objectType('Relation', {
+export const RelationType = builder.objectType('Relation', {
   fields: (t) => ({
     id: t.exposeInt('id'),
     sourceId: t.exposeInt('sourceId'),
@@ -98,21 +85,22 @@ builder.mutationField('createRelation', (t) =>
   t.field({
     type: RelationType,
     args: {
-      input: t.arg({ type: 'RelationInput', required: true }),
+      input: t.arg({
+        type: 'RelationInput',
+        required: true,
+      }),
     },
     resolve: async (_, { input }) => {
       try {
-        // Verificar se os componentes existem
-        const sourceComponent = await prisma.component.findUnique({
-          where: { id: input.sourceId },
-        });
-        
-        const targetComponent = await prisma.component.findUnique({
-          where: { id: input.targetId },
-        });
-        
-        if (!sourceComponent || !targetComponent) {
-          throw new Error('Componente de origem ou destino não encontrado');
+        // Verificar se os componentes existem no Neo4j
+        const existInNeo4j = await neo4jClient.run(`
+          MATCH (source:Component {id: $sourceId})
+          MATCH (target:Component {id: $targetId})
+          RETURN count(source) > 0 AND count(target) > 0 as exist
+        `, { sourceId: input.sourceId, targetId: input.targetId });
+
+        if (!existInNeo4j.records[0].get('exist')) {
+          throw new Error('Componente não encontrado no Neo4j');
         }
         
         // Criar relacionamento no Neo4j
@@ -123,7 +111,7 @@ builder.mutationField('createRelation', (t) =>
           input.properties || {}
         );
         
-        logger.info(`Relacionamento criado: ${sourceComponent.name} -> ${targetComponent.name}`);
+        logger.info(`Relacionamento criado: ${input.sourceId} -> ${input.targetId}`);
         return result;
       } catch (error) {
         logger.error('Erro ao criar relacionamento:', error);
@@ -139,7 +127,10 @@ builder.mutationField('updateRelation', (t) =>
     type: RelationType,
     args: {
       id: t.arg.int({ required: true }),
-      input: t.arg({ type: 'RelationInput', required: true }),
+      input: t.arg({
+        type: 'RelationInput',
+        required: true,
+      }),
     },
     resolve: async (_, { id, input }) => {
       try {
@@ -149,17 +140,15 @@ builder.mutationField('updateRelation', (t) =>
           throw new Error(`Relacionamento com ID ${id} não encontrado`);
         }
         
-        // Verificar se os componentes existem
-        const sourceComponent = await prisma.component.findUnique({
-          where: { id: input.sourceId },
-        });
-        
-        const targetComponent = await prisma.component.findUnique({
-          where: { id: input.targetId },
-        });
-        
-        if (!sourceComponent || !targetComponent) {
-          throw new Error('Componente de origem ou destino não encontrado');
+        // Verificar se os componentes existem no Neo4j
+        const existInNeo4j = await neo4jClient.run(`
+          MATCH (source:Component {id: $sourceId})
+          MATCH (target:Component {id: $targetId})
+          RETURN count(source) > 0 AND count(target) > 0 as exist
+        `, { sourceId: input.sourceId, targetId: input.targetId });
+
+        if (!existInNeo4j.records[0].get('exist')) {
+          throw new Error('Componente não encontrado no Neo4j');
         }
         
         // Atualizar relacionamento no Neo4j
@@ -208,5 +197,3 @@ builder.mutationField('deleteRelation', (t) =>
     },
   })
 );
-
-export default RelationType;

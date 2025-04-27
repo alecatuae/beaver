@@ -7,6 +7,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 ### Added
+- Criação do documento `docs/fluxo_consulta_relacionamento.md` detalhando o fluxo completo de dados na consulta de relacionamentos, destacando a interação entre Neo4j e MariaDB
+- Criação do documento `docs/fluxo_consulta_componente.md` detalhando o fluxo completo de dados na consulta de componentes, com foco no uso do MariaDB para dados principais
+- Criação do documento `docs/fluxo_criacao_relacionamento.md` detalhando o fluxo completo de dados na criação de relacionamentos entre componentes, com ênfase na persistência exclusiva no Neo4j
+- Criação do documento `docs/fluxo_criacao_componente.md` detalhando o fluxo completo de dados na criação de componentes, desde o frontend até a persistência dual em MariaDB e Neo4j
 - Script `scripts/update-app.sh` para facilitar a atualização e reinicialização dos contêineres de frontend e backend
 - Implementação completa da operação de exclusão de componentes (`deleteComponent`) com persistência síncrona nos bancos de dados MariaDB e Neo4j
 - Método `deleteNode` adicionado à classe Neo4jClient para facilitar a exclusão de nós e suas relações no Neo4j

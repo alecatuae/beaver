@@ -204,15 +204,15 @@ export class Neo4jClient {
     const session = this.driver.session();
     try {
       const result = await session.run(`
-        MATCH (source)-[r]->(target)
+        MATCH (source:Component)-[r]->(target:Component)
         RETURN 
           id(r) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
           r.properties AS properties,
-          r.createdAt AS createdAt,
-          r.updatedAt AS updatedAt
+          COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+          COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
       `);
 
       return result.records.map(record => {
@@ -222,8 +222,8 @@ export class Neo4jClient {
           sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
           targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
           properties: record.get('properties') || {},
-          createdAt: record.get('createdAt') ? new Date(record.get('createdAt')) : new Date(),
-          updatedAt: record.get('updatedAt') ? new Date(record.get('updatedAt')) : new Date()
+          createdAt: new Date(record.get('createdAt')),
+          updatedAt: new Date(record.get('updatedAt'))
         };
       });
     } catch (error) {
@@ -505,5 +505,5 @@ export class Neo4jClient {
 // Exportando a classe Neo4jClient
 export default Neo4jClient;
 
-// Criando uma instância mock para desenvolvimento
-export const neo4jClient = new Neo4jClient(null as any); 
+// Não criar instância aqui, isso será feito no context.ts
+export let neo4jClient: Neo4jClient; 

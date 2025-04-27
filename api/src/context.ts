@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { driver, auth } from 'neo4j-driver';
-import { Neo4jClient } from './db/neo4j';
+import { Neo4jClient, neo4jClient } from './db/neo4j';
 import { verifyToken } from './utils/auth';
 import { logger } from './utils/logger';
 
@@ -76,11 +76,123 @@ class MockNeo4jClient {
     logger.info(`Mock: Simulando exclusão de nó ${label} com id ${id}`);
     return true;
   }
+
+  // Implementar todos os métodos utilizados em neo4jClient
+  async getRelations() {
+    logger.info('Mock: Simulando obtenção de relacionamentos');
+    return [
+      {
+        id: 1,
+        sourceId: 1,
+        targetId: 2,
+        type: 'DEPENDS_ON',
+        properties: { description: 'Frontend depende da API' },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 2,
+        sourceId: 2,
+        targetId: 3,
+        type: 'CONNECTS_TO',
+        properties: { description: 'API se conecta ao Database' },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+  }
+
+  async getRelationById(id: number) {
+    logger.info(`Mock: Simulando obtenção de relacionamento com ID ${id}`);
+    return {
+      id,
+      sourceId: 1,
+      targetId: 2,
+      type: 'DEPENDS_ON',
+      properties: { description: 'Relacionamento de exemplo' },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async createRelation(sourceId: number, targetId: number, type: string, properties: any = {}) {
+    logger.info(`Mock: Simulando criação de relacionamento ${type} entre ${sourceId} e ${targetId}`);
+    return {
+      id: Date.now(),
+      sourceId,
+      targetId,
+      type,
+      properties,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async updateRelation(id: number, sourceId: number, targetId: number, type: string, properties: any = {}) {
+    logger.info(`Mock: Simulando atualização de relacionamento ${id}`);
+    return {
+      id,
+      sourceId,
+      targetId,
+      type,
+      properties,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+
+  async deleteRelation(id: number) {
+    logger.info(`Mock: Simulando exclusão de relacionamento ${id}`);
+    return true;
+  }
 }
 
-// Usar o Mock Neo4j Client em vez do real
-logger.warn('Usando MockNeo4jClient devido a problemas de conexão com Neo4j');
-const neo4j = new MockNeo4jClient();
+// Inicialização do Neo4j (versão sem await no top-level)
+let neo4j = new MockNeo4jClient(); // Começa com o mock como fallback
+
+// Função para inicializar a conexão com o Neo4j
+async function initNeo4j() {
+  try {
+    // Tenta criar uma conexão real com o Neo4j
+    const neo4jDriver = driver(
+      process.env.NEO4J_URL || 'bolt://neo4j:7687',
+      auth.basic(
+        process.env.NEO4J_USER || 'neo4j',
+        process.env.NEO4J_PASSWORD || 'beaver12345'
+      )
+    );
+    
+    // Cria o cliente Neo4j usando o driver real
+    const realNeo4j = new Neo4jClient(neo4jDriver);
+    
+    // Testa a conexão
+    logger.info('Tentando conectar ao Neo4j...');
+    await neo4jDriver.verifyConnectivity();
+    logger.info('Conexão com Neo4j estabelecida com sucesso!');
+    
+    // Substitui a instância mock pela real
+    neo4j = realNeo4j;
+    neo4jClient = realNeo4j;
+    
+    return realNeo4j;
+  } catch (error) {
+    // Se a conexão falhar, mantém o mock
+    logger.warn(`Falha ao conectar com Neo4j: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    logger.warn('Usando MockNeo4jClient como fallback');
+    
+    // Atualiza a referência exportada
+    neo4jClient = neo4j;
+    
+    return neo4j;
+  }
+}
+
+// Chama a inicialização, mas não espera por ela no top-level
+initNeo4j().then(() => {
+  logger.info('Inicialização do Neo4j concluída');
+}).catch(error => {
+  logger.error(`Erro na inicialização do Neo4j: ${error}`);
+});
 
 // Tipo do contexto
 export interface Context {

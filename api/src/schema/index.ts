@@ -5,12 +5,6 @@ import { Neo4jClient } from '../db/neo4j';
 import { Context } from '../context';
 import { prisma } from '../prisma';
 
-// Importando os resolvers
-import { userResolvers } from '../resolvers/userResolvers';
-import { componentResolvers } from '../resolvers/componentResolvers';
-import { adrResolvers } from '../resolvers/adrResolvers';
-import { glossaryResolvers } from '../resolvers/glossaryResolvers';
-
 // Cria um builder para o schema
 export const builder = new SchemaBuilder<{
   Context: Context;
@@ -67,11 +61,34 @@ builder.mutationType({
   }),
 });
 
+// Importando os módulos de resolvers
+import { componentResolvers } from '../resolvers/componentResolvers';
+import { userResolvers } from '../resolvers/userResolvers';
+import { adrResolvers } from '../resolvers/adrResolvers';
+import { glossaryResolvers } from '../resolvers/glossaryResolvers';
+
 // Registra os resolvers
-userResolvers(builder);
 componentResolvers(builder);
+userResolvers(builder);
 adrResolvers(builder);
 glossaryResolvers(builder);
+
+// Definição do tipo RelationInput que é usado em vários resolvers
+builder.inputType('RelationInput', {
+  fields: (t) => ({
+    sourceId: t.int({ required: true }),
+    targetId: t.int({ required: true }),
+    type: t.string({ required: true }),
+    properties: t.field({
+      type: 'JSON',
+      required: false,
+    }),
+  }),
+});
+
+// Registra os resolvers de relacionamentos
+// Importa diretamente para evitar conflitos de inicialização
+import '../resolvers/relationship/relationshipResolvers';
 
 // Constrói e exporta o schema
 export const schema = builder.toSchema();

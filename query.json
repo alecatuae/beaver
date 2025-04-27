@@ -1,0 +1,1 @@
+{"query": "query { relations { id sourceId targetId type } }"}
