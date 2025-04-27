@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/select';
 import { ComponentType, RelationType, RelationInput } from '@/lib/graphql';
 import { RelationshipType } from './page';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { InfoIcon } from 'lucide-react';
 
 // Interface para o formulário de relacionamento
 interface RelationshipFormProps {
@@ -35,6 +37,7 @@ export default function RelationshipForm({
   const [type, setType] = useState<string>(initialData.type || RelationshipType.CONNECTS_TO);
   const [description, setDescription] = useState<string>(initialData.properties?.description || '');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [showNeo4jWarning, setShowNeo4jWarning] = useState<boolean>(false);
 
   // Contador de caracteres restantes
   const remainingChars = 256 - description.length;
@@ -46,6 +49,15 @@ export default function RelationshipForm({
       setDescription(value);
     }
   };
+
+  // Efeito para exibir aviso de verificação no Neo4j quando componentes são selecionados
+  useEffect(() => {
+    if (sourceId && targetId) {
+      setShowNeo4jWarning(true);
+    } else {
+      setShowNeo4jWarning(false);
+    }
+  }, [sourceId, targetId]);
 
   // Manipulador de submit
   const handleSubmit = (e: React.FormEvent) => {
@@ -96,6 +108,15 @@ export default function RelationshipForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
+        {showNeo4jWarning && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <InfoIcon className="h-4 w-4 text-blue-500" />
+            <AlertDescription className="text-sm text-blue-700">
+              Antes de criar o relacionamento, o sistema verificará se ambos os componentes existem no Neo4j.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div>
           <Label htmlFor="sourceId" className="text-sm font-medium">
             Componente de Origem

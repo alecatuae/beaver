@@ -7,6 +7,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 ### Added
+- Criação do componente UI `Alert` para exibição de notificações e avisos no sistema
 - Criação do documento `docs/fluxo_exclusao_relacionamento.md` detalhando o fluxo completo de dados para exclusão de relacionamentos, incluindo verificação da existência do relacionamento no Neo4j antes da exclusão
 - Criação do documento `docs/neo4j_best_practices.md` detalhando boas práticas para trabalhar com Neo4j no projeto Beaver, incluindo diretrizes para operações com nós e relacionamentos
 - Criação do documento `docs/neo4j_relationship_requirements.md` com especificações técnicas detalhadas sobre os requisitos para criação de relacionamentos no Neo4j
@@ -48,6 +49,9 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Menu de navegação aprimorado: renomeado "Components" para "Components Management" com submenus para "Components" e "Relationship"
 - Implementados resolvers GraphQL para consulta de relacionamentos (relations e relation)
 - Implementado MockNeo4jClient para permitir desenvolvimento sem Neo4j disponível
+- Aviso no formulário de criação de relacionamentos informando que os componentes serão verificados no Neo4j
+- Tratamento de erro aprimorado ao criar relacionamentos quando componentes não existem no Neo4j
+- Alerta visual mostrando mensagem de erro específica quando a criação de relacionamento falha por componentes não encontrados
 
 ### Changed
 - Modificada a interface IRelation para suportar IDs como string ou number, corrigindo erro de representação de inteiros grandes
@@ -144,4 +148,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Impact Workflow (Fluxo de impacto)
 - Implementação de navegação entre páginas
 - Estrutura básica do projeto seguindo as boas práticas do Next.js
-- Documentação inicial no README.md 
+- Documentação inicial no README.md
+
+## [1.0.0] - 2023-XX-XX
+
+### Adicionado
+- Implementação inicial do sistema Beaver
+- Interface de usuário com Next.js e TailwindCSS
+- API GraphQL com Apollo Server e Pothos
+- Integração com Neo4j para armazenamento de relacionamentos
+- Integração com MariaDB para armazenamento de componentes 

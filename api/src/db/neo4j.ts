@@ -237,9 +237,9 @@ export class Neo4jClient {
   }
 
   // Obter um relacionamento pelo ID
-  async getRelationById(id: number): Promise<IRelation | null> {
+  async getRelationById(id: number | string): Promise<IRelation | null> {
     if (this.mockMode) {
-      return this.getMockRelationById(id);
+      return this.getMockRelationById(typeof id === 'string' ? parseInt(id) : id);
     }
 
     const session = this.driver.session();

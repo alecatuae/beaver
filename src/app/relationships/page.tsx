@@ -73,9 +73,11 @@ export default function RelationshipsPage() {
   const observer = useRef<IntersectionObserver | null>(null);
   const lastRelationshipRef = useRef<HTMLDivElement | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [relationshipToDelete, setRelationshipToDelete] = useState<number | null>(null);
+  const [relationshipToDelete, setRelationshipToDelete] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'source' | 'target' | 'type' | 'date'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
 
   // Consulta GraphQL para buscar relacionamentos
   const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
@@ -103,30 +105,54 @@ export default function RelationshipsPage() {
   const [createRelation] = useMutation(CREATE_RELATION, {
     onCompleted: () => {
       console.log("Relacionamento criado com sucesso");
+      setErrorMessage(null);
+      setShowErrorAlert(false);
       refetch();
     },
     onError: (error) => {
       console.error("Erro ao criar relacionamento:", error);
+      const message = error.message;
+      
+      if (message.includes('Componente não encontrado no Neo4j')) {
+        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de criar o relacionamento.');
+      } else {
+        setErrorMessage('Ocorreu um erro ao criar o relacionamento: ' + message);
+      }
+      setShowErrorAlert(true);
     }
   });
 
   const [updateRelation] = useMutation(UPDATE_RELATION, {
     onCompleted: () => {
       console.log("Relacionamento atualizado com sucesso");
+      setErrorMessage(null);
+      setShowErrorAlert(false);
       refetch();
     },
     onError: (error) => {
       console.error("Erro ao atualizar relacionamento:", error);
+      const message = error.message;
+      
+      if (message.includes('Componente não encontrado no Neo4j')) {
+        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de atualizar o relacionamento.');
+      } else {
+        setErrorMessage('Ocorreu um erro ao atualizar o relacionamento: ' + message);
+      }
+      setShowErrorAlert(true);
     }
   });
 
   const [deleteRelation] = useMutation(DELETE_RELATION, {
     onCompleted: () => {
       console.log("Relacionamento excluído com sucesso");
+      setShowDeleteConfirm(false);
+      setRelationshipToDelete(null);
       refetch();
     },
     onError: (error) => {
       console.error("Erro ao excluir relacionamento:", error);
+      setErrorMessage(`Erro ao excluir relacionamento: ${error.message}`);
+      setShowErrorAlert(true);
     }
   });
 
@@ -267,7 +293,7 @@ export default function RelationshipsPage() {
   };
 
   // Função para iniciar o processo de exclusão
-  const confirmDeleteRelationship = (id: number) => {
+  const confirmDeleteRelationship = (id: string) => {
     setRelationshipToDelete(id);
     setShowDeleteConfirm(true);
     setShowDetails(false);
@@ -277,18 +303,18 @@ export default function RelationshipsPage() {
   const handleConfirmedDelete = () => {
     if (relationshipToDelete === null) return;
     
+    console.log("Tentando excluir relacionamento com ID:", relationshipToDelete);
+    
     deleteRelation({
-      variables: { id: relationshipToDelete },
-      onCompleted: () => {
-        setShowDeleteConfirm(false);
-        setRelationshipToDelete(null);
-        setTimeout(() => refetch(), 300);
-      }
+      variables: { id: relationshipToDelete }
     });
   };
 
   // Função para salvar relacionamento (criar ou atualizar)
   const handleSaveRelationship = (relationshipData: RelationInput) => {
+    setErrorMessage(null);
+    setShowErrorAlert(false);
+    
     if (isEditMode && selectedRelationship) {
       // Atualizar relacionamento existente
       updateRelation({
@@ -338,6 +364,35 @@ export default function RelationshipsPage() {
   return (
     <AppLayout>
       <div className="pb-8">
+        {showErrorAlert && errorMessage && (
+          <div className="mb-6 bg-destructive/10 border border-destructive rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-destructive" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-destructive">{errorMessage}</p>
+              </div>
+              <div className="ml-auto pl-3">
+                <div className="-mx-1.5 -my-1.5">
+                  <button
+                    type="button"
+                    className="inline-flex rounded-md p-1.5 text-destructive hover:bg-destructive/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-destructive"
+                    onClick={() => setShowErrorAlert(false)}
+                  >
+                    <span className="sr-only">Fechar</span>
+                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-semibold">Gerenciamento de Relacionamentos</h1>
           <Button 

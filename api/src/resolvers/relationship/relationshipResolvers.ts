@@ -102,7 +102,91 @@ builder.mutationField('createRelation', (t) =>
         `, { sourceId: input.sourceId, targetId: input.targetId });
 
         if (!existInNeo4j.records[0].get('exist')) {
-          throw new Error('Componente não encontrado no Neo4j');
+          logger.info(`Componentes não encontrados no Neo4j. Verificando quais componentes estão faltando...`);
+          
+          // Tentar encontrar qual componente está faltando
+          const sourceExistsResult = await neo4jClient.run(`
+            MATCH (source:Component {id: $sourceId})
+            RETURN count(source) > 0 as exist
+          `, { sourceId: input.sourceId });
+          
+          const targetExistsResult = await neo4jClient.run(`
+            MATCH (target:Component {id: $targetId})
+            RETURN count(target) > 0 as exist
+          `, { targetId: input.targetId });
+          
+          const sourceExists = sourceExistsResult.records[0].get('exist');
+          const targetExists = targetExistsResult.records[0].get('exist');
+          
+          // Buscar os componentes no MariaDB se necessário
+          if (!sourceExists || !targetExists) {
+            // Buscar dados do componente de origem no MariaDB
+            logger.info(`Buscando dados dos componentes no MariaDB`);
+            
+            // Usar SQL direto para evitar problemas com enums
+            const componentsData = await prisma.$queryRaw`
+              SELECT id, name, description 
+              FROM Component 
+              WHERE id IN (${input.sourceId}, ${input.targetId})
+            `;
+            
+            // Converter para um objeto mais fácil de usar
+            const componentsMap = new Map();
+            for (const comp of componentsData as any[]) {
+              componentsMap.set(comp.id, {
+                name: comp.name,
+                description: comp.description || ''
+              });
+            }
+            
+            // Verificar se encontrou os componentes
+            if (!componentsMap.has(input.sourceId)) {
+              throw new Error(`Componente de origem com ID ${input.sourceId} não encontrado no MariaDB`);
+            }
+            
+            if (!componentsMap.has(input.targetId)) {
+              throw new Error(`Componente de destino com ID ${input.targetId} não encontrado no MariaDB`);
+            }
+            
+            // Sincronizar componentes com Neo4j
+            if (!sourceExists) {
+              const sourceComponent = componentsMap.get(input.sourceId);
+              logger.info(`Sincronizando componente de origem (ID: ${input.sourceId}) com Neo4j`);
+              await neo4jClient.run(`
+                MERGE (c:Component {id: $id})
+                ON CREATE SET 
+                  c.name = $name,
+                  c.description = $description,
+                  c.valid_from = datetime(),
+                  c.valid_to = datetime('9999-12-31T23:59:59Z')
+                RETURN c
+              `, {
+                id: input.sourceId,
+                name: sourceComponent.name,
+                description: sourceComponent.description
+              });
+            }
+            
+            if (!targetExists) {
+              const targetComponent = componentsMap.get(input.targetId);
+              logger.info(`Sincronizando componente de destino (ID: ${input.targetId}) com Neo4j`);
+              await neo4jClient.run(`
+                MERGE (c:Component {id: $id})
+                ON CREATE SET 
+                  c.name = $name,
+                  c.description = $description,
+                  c.valid_from = datetime(),
+                  c.valid_to = datetime('9999-12-31T23:59:59Z')
+                RETURN c
+              `, {
+                id: input.targetId,
+                name: targetComponent.name,
+                description: targetComponent.description
+              });
+            }
+            
+            logger.info(`Componentes sincronizados com Neo4j`);
+          }
         }
         
         // Criar relacionamento no Neo4j
@@ -150,7 +234,91 @@ builder.mutationField('updateRelation', (t) =>
         `, { sourceId: input.sourceId, targetId: input.targetId });
 
         if (!existInNeo4j.records[0].get('exist')) {
-          throw new Error('Componente não encontrado no Neo4j');
+          logger.info(`Componentes não encontrados no Neo4j. Verificando quais componentes estão faltando...`);
+          
+          // Tentar encontrar qual componente está faltando
+          const sourceExistsResult = await neo4jClient.run(`
+            MATCH (source:Component {id: $sourceId})
+            RETURN count(source) > 0 as exist
+          `, { sourceId: input.sourceId });
+          
+          const targetExistsResult = await neo4jClient.run(`
+            MATCH (target:Component {id: $targetId})
+            RETURN count(target) > 0 as exist
+          `, { targetId: input.targetId });
+          
+          const sourceExists = sourceExistsResult.records[0].get('exist');
+          const targetExists = targetExistsResult.records[0].get('exist');
+          
+          // Buscar os componentes no MariaDB se necessário
+          if (!sourceExists || !targetExists) {
+            // Buscar dados do componente de origem no MariaDB
+            logger.info(`Buscando dados dos componentes no MariaDB`);
+            
+            // Usar SQL direto para evitar problemas com enums
+            const componentsData = await prisma.$queryRaw`
+              SELECT id, name, description 
+              FROM Component 
+              WHERE id IN (${input.sourceId}, ${input.targetId})
+            `;
+            
+            // Converter para um objeto mais fácil de usar
+            const componentsMap = new Map();
+            for (const comp of componentsData as any[]) {
+              componentsMap.set(comp.id, {
+                name: comp.name,
+                description: comp.description || ''
+              });
+            }
+            
+            // Verificar se encontrou os componentes
+            if (!componentsMap.has(input.sourceId)) {
+              throw new Error(`Componente de origem com ID ${input.sourceId} não encontrado no MariaDB`);
+            }
+            
+            if (!componentsMap.has(input.targetId)) {
+              throw new Error(`Componente de destino com ID ${input.targetId} não encontrado no MariaDB`);
+            }
+            
+            // Sincronizar componentes com Neo4j
+            if (!sourceExists) {
+              const sourceComponent = componentsMap.get(input.sourceId);
+              logger.info(`Sincronizando componente de origem (ID: ${input.sourceId}) com Neo4j`);
+              await neo4jClient.run(`
+                MERGE (c:Component {id: $id})
+                ON CREATE SET 
+                  c.name = $name,
+                  c.description = $description,
+                  c.valid_from = datetime(),
+                  c.valid_to = datetime('9999-12-31T23:59:59Z')
+                RETURN c
+              `, {
+                id: input.sourceId,
+                name: sourceComponent.name,
+                description: sourceComponent.description
+              });
+            }
+            
+            if (!targetExists) {
+              const targetComponent = componentsMap.get(input.targetId);
+              logger.info(`Sincronizando componente de destino (ID: ${input.targetId}) com Neo4j`);
+              await neo4jClient.run(`
+                MERGE (c:Component {id: $id})
+                ON CREATE SET 
+                  c.name = $name,
+                  c.description = $description,
+                  c.valid_from = datetime(),
+                  c.valid_to = datetime('9999-12-31T23:59:59Z')
+                RETURN c
+              `, {
+                id: input.targetId,
+                name: targetComponent.name,
+                description: targetComponent.description
+              });
+            }
+            
+            logger.info(`Componentes sincronizados com Neo4j`);
+          }
         }
         
         // Atualizar relacionamento no Neo4j
@@ -181,16 +349,24 @@ builder.mutationField('deleteRelation', (t) =>
     },
     resolve: async (_, { id }) => {
       try {
+        logger.info(`Tentando excluir relacionamento com ID: ${id}`);
+        
         // Verificar se o relacionamento existe
         const existingRelation = await neo4jClient.getRelationById(id);
         if (!existingRelation) {
+          logger.error(`Relacionamento com ID ${id} não encontrado`);
           throw new Error(`Relacionamento com ID ${id} não encontrado`);
         }
         
         // Excluir relacionamento do Neo4j
-        await neo4jClient.deleteRelation(id);
+        const deleted = await neo4jClient.deleteRelation(id);
         
-        logger.info(`Relacionamento excluído: ${id}`);
+        if (!deleted) {
+          logger.error(`Falha ao excluir relacionamento com ID ${id}`);
+          throw new Error(`Falha ao excluir relacionamento com ID ${id}`);
+        }
+        
+        logger.info(`Relacionamento excluído com sucesso: ${id}`);
         return true;
       } catch (error) {
         logger.error(`Erro ao excluir relacionamento ${id}:`, error);
