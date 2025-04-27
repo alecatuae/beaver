@@ -544,4 +544,261 @@ export const componentResolvers = (builder: any) => {
       },
     })
   );
+
+  // Query para buscar relacionamentos
+  builder.queryField('relations', (t: any) =>
+    t.field({
+      type: [ComponentRelation],
+      resolve: async (_root: any, _args: any, ctx: any) => {
+        try {
+          // Busca todos os relacionamentos no Neo4j
+          const query = `
+            MATCH (source:Component)-[r]->(target:Component)
+            RETURN 
+              id(r) as id, 
+              type(r) as type, 
+              source.id as sourceId, 
+              target.id as targetId, 
+              source.name as sourceName,
+              target.name as targetName,
+              properties(r) as properties,
+              toString(datetime()) as createdAt,
+              toString(datetime()) as updatedAt
+          `;
+          
+          const relationships = await ctx.neo4j.run(query);
+          
+          // Busca informações adicionais de componentes do MariaDB
+          const sourceIds = relationships.map((rel: any) => rel.sourceId);
+          const targetIds = relationships.map((rel: any) => rel.targetId);
+          const allIds = [...new Set([...sourceIds, ...targetIds])];
+          
+          const componentsMap = new Map();
+          
+          if (allIds.length > 0) {
+            // Busca informações dos componentes
+            const components = await ctx.prisma.component.findMany({
+              where: {
+                id: {
+                  in: allIds
+                }
+              }
+            });
+            
+            // Cria um mapa para acesso mais rápido
+            components.forEach((comp: any) => {
+              componentsMap.set(comp.id, comp);
+            });
+          }
+          
+          // Monta os objetos de relacionamento com todas as informações
+          return relationships.map((rel: any) => {
+            const sourceComponent = componentsMap.get(rel.sourceId);
+            const targetComponent = componentsMap.get(rel.targetId);
+            
+            return {
+              id: rel.id.toString(),
+              sourceId: rel.sourceId,
+              targetId: rel.targetId,
+              type: rel.type,
+              properties: rel.properties || {},
+              source: sourceComponent ? {
+                id: sourceComponent.id,
+                name: sourceComponent.name,
+                status: sourceComponent.status
+              } : null,
+              target: targetComponent ? {
+                id: targetComponent.id,
+                name: targetComponent.name,
+                status: targetComponent.status
+              } : null,
+              createdAt: rel.createdAt,
+              updatedAt: rel.updatedAt
+            };
+          });
+        } catch (error: any) {
+          console.error('Erro ao buscar relacionamentos:', error);
+          throw new Error(`Falha ao buscar relacionamentos: ${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Query para buscar um relacionamento específico
+  builder.queryField('relation', (t: any) => 
+    t.field({
+      type: ComponentRelation,
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (_root: any, args: any, ctx: any) => {
+        try {
+          const { id } = args;
+          
+          // Busca o relacionamento pelo ID
+          const query = `
+            MATCH (source:Component)-[r]->(target:Component)
+            WHERE id(r) = $id
+            RETURN 
+              id(r) as id, 
+              type(r) as type, 
+              source.id as sourceId, 
+              target.id as targetId, 
+              source.name as sourceName,
+              target.name as targetName,
+              properties(r) as properties,
+              toString(datetime()) as createdAt,
+              toString(datetime()) as updatedAt
+          `;
+          
+          const results = await ctx.neo4j.run(query, { id });
+          
+          if (results.length === 0) {
+            throw new Error(`Relacionamento com ID ${id} não encontrado`);
+          }
+          
+          const rel = results[0];
+          
+          // Busca informações adicionais dos componentes do MariaDB
+          const sourceComponent = await ctx.prisma.component.findUnique({
+            where: { id: rel.sourceId }
+          });
+          
+          const targetComponent = await ctx.prisma.component.findUnique({
+            where: { id: rel.targetId }
+          });
+          
+          return {
+            id: rel.id.toString(),
+            sourceId: rel.sourceId,
+            targetId: rel.targetId,
+            type: rel.type,
+            properties: rel.properties || {},
+            source: sourceComponent ? {
+              id: sourceComponent.id,
+              name: sourceComponent.name,
+              status: sourceComponent.status
+            } : null,
+            target: targetComponent ? {
+              id: targetComponent.id,
+              name: targetComponent.name,
+              status: targetComponent.status
+            } : null,
+            createdAt: rel.createdAt,
+            updatedAt: rel.updatedAt
+          };
+        } catch (error: any) {
+          console.error(`Erro ao buscar relacionamento:`, error);
+          throw new Error(`Falha ao buscar relacionamento: ${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Mutation para atualizar relacionamento
+  builder.mutationField('updateRelation', (t: any) =>
+    t.field({
+      type: ComponentRelation,
+      args: {
+        id: t.arg.int({ required: true }),
+        input: t.arg({ type: RelationInput, required: true }),
+      },
+      resolve: async (_root: any, args: any, ctx: any) => {
+        try {
+          const { id } = args;
+          const { sourceId, targetId, type, properties } = args.input;
+          
+          // Verifica se os componentes existem
+          const source = await ctx.prisma.component.findUnique({
+            where: { id: sourceId },
+          });
+          
+          const target = await ctx.prisma.component.findUnique({
+            where: { id: targetId },
+          });
+          
+          if (!source || !target) {
+            throw new Error('Componente não encontrado');
+          }
+          
+          // Atualiza o relacionamento no Neo4j
+          const query = `
+            MATCH (source:Component {id: $sourceId})-[r]->(target:Component {id: $targetId})
+            WHERE id(r) = $id
+            SET r = $properties
+            RETURN 
+              id(r) as id, 
+              type(r) as type, 
+              source.id as sourceId, 
+              target.id as targetId, 
+              properties(r) as properties,
+              toString(datetime()) as updatedAt
+          `;
+          
+          const results = await ctx.neo4j.run(query, { 
+            id, 
+            sourceId, 
+            targetId,
+            properties: properties || {}  
+          });
+          
+          if (results.length === 0) {
+            throw new Error('Relacionamento não encontrado para atualização');
+          }
+          
+          const rel = results[0];
+          
+          logger.info(`Relacionamento atualizado: ${source.name} -> ${target.name} (${type})`);
+          
+          return {
+            id: rel.id.toString(),
+            sourceId,
+            targetId,
+            type,
+            properties: properties || {},
+            updatedAt: rel.updatedAt
+          };
+        } catch (error: any) {
+          console.error('Erro ao atualizar relacionamento:', error);
+          throw new Error(`Falha ao atualizar relacionamento: ${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Mutation para excluir relacionamento
+  builder.mutationField('deleteRelation', (t: any) =>
+    t.boolean({
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (_root: any, args: any, ctx: any) => {
+        try {
+          const { id } = args;
+          
+          // Exclui o relacionamento no Neo4j
+          const query = `
+            MATCH ()-[r]->()
+            WHERE id(r) = $id
+            DELETE r
+            RETURN count(r) as deleted
+          `;
+          
+          const result = await ctx.neo4j.run(query, { id });
+          const deleted = result[0]?.deleted.low || 0;
+          
+          if (deleted === 0) {
+            throw new Error(`Relacionamento com ID ${id} não encontrado`);
+          }
+          
+          logger.info(`Relacionamento excluído: ID ${id}`);
+          
+          return true;
+        } catch (error: any) {
+          console.error('Erro ao excluir relacionamento:', error);
+          throw new Error(`Falha ao excluir relacionamento: ${error.message}`);
+        }
+      },
+    })
+  );
 }; 

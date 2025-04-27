@@ -32,6 +32,7 @@ const builder = new SchemaBuilder<{
   prisma: {
     client: prisma,
   },
+  notStrict: 'Pothos may not work correctly when strict mode is not enabled in tsconfig.json',
 });
 
 // Define o escalar Date

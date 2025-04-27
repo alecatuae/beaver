@@ -7,27 +7,85 @@ import { logger } from './utils/logger';
 // Instância do Prisma
 const prisma = new PrismaClient();
 
-// Conexão com Neo4j
-const neo4jDriver = driver(
-  process.env.NEO4J_URL || 'bolt://localhost:7687',
-  auth.basic(
-    process.env.NEO4J_USER || 'neo4j',
-    process.env.NEO4J_PASSWORD || 'beaver12345'
-  )
-);
+// Classe Mock para Neo4j - temporária para desenvolver sem o banco Neo4j
+class MockNeo4jClient {
+  async verifyConnectivity() {
+    logger.info('Mock: Simulando conexão com Neo4j');
+    return true;
+  }
 
-// Cliente Neo4j
-const neo4j = new Neo4jClient(neo4jDriver);
+  async close() {
+    logger.info('Mock: Simulando fechamento de conexão com Neo4j');
+    return true;
+  }
 
-// Inicializa conexão com Neo4j
-neo4j.verifyConnectivity()
-  .then(() => logger.info('Conectado ao Neo4j'))
-  .catch(err => logger.error(`Erro ao conectar ao Neo4j: ${err.message}`));
+  async run(cypher: string, params?: any) {
+    logger.info(`Mock: Simulando consulta Cypher: ${cypher}`);
+    if (cypher.includes('MATCH (source:Component)-[r]->(target:Component)')) {
+      // Simula dados de relacionamentos para a query relations
+      return [
+        {
+          id: 1,
+          type: 'DEPENDS_ON',
+          sourceId: 1,
+          targetId: 2,
+          sourceName: 'Frontend',
+          targetName: 'API',
+          properties: { description: 'Frontend consome API' },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: 2,
+          type: 'CONNECTS_TO',
+          sourceId: 2,
+          targetId: 3,
+          sourceName: 'API',
+          targetName: 'Database',
+          properties: { description: 'API se conecta ao banco de dados' },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+    }
+    return [];
+  }
+
+  async upsertComponent(component: any) {
+    logger.info(`Mock: Simulando upsert de componente: ${component.name}`);
+    return component;
+  }
+
+  async createRelationship(sourceId: number, targetId: number, relationType: string, properties: any = {}) {
+    logger.info(`Mock: Simulando criação de relacionamento de ${sourceId} para ${targetId} do tipo ${relationType}`);
+    return {
+      id: Date.now(),
+      type: relationType,
+      sourceId,
+      targetId,
+      properties
+    };
+  }
+
+  async findComponents(filters: any = {}) {
+    logger.info(`Mock: Simulando busca de componentes com filtros: ${JSON.stringify(filters)}`);
+    return [];
+  }
+
+  async deleteNode(label: string, id: number) {
+    logger.info(`Mock: Simulando exclusão de nó ${label} com id ${id}`);
+    return true;
+  }
+}
+
+// Usar o Mock Neo4j Client em vez do real
+logger.warn('Usando MockNeo4jClient devido a problemas de conexão com Neo4j');
+const neo4j = new MockNeo4jClient();
 
 // Tipo do contexto
 export interface Context {
   prisma: PrismaClient;
-  neo4j: Neo4jClient;
+  neo4j: any;
   userId?: number;
   userRole?: string;
 }

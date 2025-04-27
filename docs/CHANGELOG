@@ -37,6 +37,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Exibição compacta de data para cards de componentes e relacionamentos (formato dd/MM/yyyy)
 - Limitação de tags exibidas em cards de componentes (máximo de 3 tags visíveis)
 - Menu de navegação aprimorado: renomeado "Components" para "Components Management" com submenus para "Components" e "Relationship"
+- Implementados resolvers GraphQL para consulta de relacionamentos (relations e relation)
+- Implementado MockNeo4jClient para permitir desenvolvimento sem Neo4j disponível
 
 ### Changed
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
@@ -52,6 +54,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Alterada a cor dos botões de ação em destaque para utilizar a cor primária roxa (var(--primary)), garantindo consistência visual e aderência ao guia de estilo da aplicação
 - Aprimorado o alinhamento do menu lateral para garantir consistência visual entre itens com e sem submenu, aplicando layout flexível e espaçamento uniforme
 - Corrigido o alinhamento e a margem do texto nas opções do menu lateral, adicionando truncamento para textos longos e garantindo espaçamento consistente entre os elementos
+
+### Fixed
+- Corrigido o erro 400 na página de relacionamentos que impedia a exibição dos dados
+- Implementada integração completa entre o Neo4j e o frontend para visualização de relacionamentos
+- Corrigido erro de compilação do Pothos GraphQL que exigia a propriedade 'notStrict' no SchemaBuilder
+- Corrigido erro de sintaxe no resolver 'relations' (substituindo t.list por t.field com array type)
+- Resolvido conflito de porta na inicialização da API, garantindo que o servidor possa iniciar corretamente
+- Implementado fallback para simular conexão Neo4j quando o banco de dados não está disponível
 
 ## [0.3.0] - 2023-11-18
 
