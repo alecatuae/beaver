@@ -23,11 +23,13 @@ import {
   UPDATE_COMPONENT, 
   DELETE_COMPONENT,
   CHECK_COMPONENT_RELATIONS,
+  GET_RELATIONS,
   ComponentStatus,
   ComponentType,
   ComponentInput
 } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
+import { useApolloClient } from '@apollo/client';
 
 export default function ComponentsPage() {
   // Estados para filtros e busca
@@ -45,6 +47,9 @@ export default function ComponentsPage() {
   const [componentToDelete, setComponentToDelete] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Obter cliente Apollo para manipulação de cache
+  const client = useApolloClient();
 
   // Consulta GraphQL para buscar componentes
   const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
@@ -109,12 +114,41 @@ export default function ComponentsPage() {
     }
   });
 
-  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(CHECK_COMPONENT_RELATIONS, {
+  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(GET_RELATIONS, {
     fetchPolicy: 'network-only',
     onError: (error) => {
       console.error("Erro ao verificar relacionamentos do componente:", error);
     }
   });
+
+  // Estado para armazenar se o componente selecionado tem relacionamentos
+  const [hasRelations, setHasRelations] = useState<boolean | null>(null);
+
+  // Efeito para recarregar relacionamentos quando o modal de detalhes é aberto
+  useEffect(() => {
+    if (showDetails && selectedComponent) {
+      // Limpar cache da consulta anterior para forçar nova requisição
+      client.cache.evict({ fieldName: 'relations' });
+      client.cache.gc();
+
+      // Verificar se o componente tem relacionamentos
+      checkComponentRelations({
+        fetchPolicy: 'network-only',
+        onCompleted: (data) => {
+          if (data && data.relations) {
+            // Verificar se algum relacionamento envolve este componente
+            const hasComponentRelations = data.relations.some(
+              (relation: any) => 
+                relation.sourceId === selectedComponent.id || 
+                relation.targetId === selectedComponent.id
+            );
+            setHasRelations(hasComponentRelations);
+            console.log(`[useEffect] Componente ${selectedComponent.name} (ID: ${selectedComponent.id}) tem relacionamentos: ${hasComponentRelations}`);
+          }
+        }
+      });
+    }
+  }, [showDetails, selectedComponent, checkComponentRelations]);
 
   // Transforma os dados da API para o formato esperado pela interface
   const components = data?.components?.map((component: any) => ({
@@ -186,6 +220,26 @@ export default function ComponentsPage() {
   const handleComponentClick = (component: ComponentType) => {
     setSelectedComponent(component);
     setShowDetails(true);
+    setHasRelations(false); // Definir como false por padrão (mostrará "NÃO" enquanto carrega)
+
+    // Limpar cache da consulta anterior para forçar nova requisição
+    client.cache.evict({ fieldName: 'relations' });
+    client.cache.gc();
+
+    // Verificar se o componente tem relacionamentos
+    checkComponentRelations({
+      fetchPolicy: 'network-only', // Garantir que busque sempre do servidor
+      onCompleted: (data) => {
+        if (data && data.relations) {
+          // Verificar se algum relacionamento envolve este componente
+          const hasComponentRelations = data.relations.some(
+            (relation: any) => relation.sourceId === component.id || relation.targetId === component.id
+          );
+          setHasRelations(hasComponentRelations);
+          console.log(`Componente ${component.name} (ID: ${component.id}) tem relacionamentos: ${hasComponentRelations}`);
+        }
+      }
+    });
   };
 
   const getStatusColor = (status: ComponentStatus) => {
@@ -564,8 +618,6 @@ export default function ComponentsPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <div className="text-sm text-muted-foreground">ID:</div>
                     <div className="text-sm">{selectedComponent.id}</div>
-                    <div className="text-sm text-muted-foreground">Status:</div>
-                    <div className="text-sm capitalize">{selectedComponent.status}</div>
                     <div className="text-sm text-muted-foreground">Data de Criação:</div>
                     <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
                   </div>
@@ -573,7 +625,20 @@ export default function ComponentsPage() {
 
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>
-                  <p className="text-sm text-muted-foreground italic">Nenhum relacionamento configurado.</p>
+                  {relationsLoading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                      <p className="text-sm text-muted-foreground">Verificando...</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium">
+                      {hasRelations ? (
+                        <span className="text-success">SIM</span>
+                      ) : (
+                        <span className="text-destructive">NÃO</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
 

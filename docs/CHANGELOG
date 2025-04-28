@@ -171,3 +171,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - API GraphQL com Apollo Server e Pothos
 - Integração com Neo4j para armazenamento de relacionamentos
 - Integração com MariaDB para armazenamento de componentes 
+
+## [Não lançado]
+
+### Adicionado
+- Componente toast para notificações do sistema
+- Script de debug para relacionamentos no Neo4j
+
+### Alterado
+- Melhorada a visualização de relacionamentos na tela de detalhes do componente, mostrando "SIM" ou "NÃO" em vez da mensagem estática
+- Aprimorado o sistema de verificação de relacionamentos para garantir atualização em tempo real ao abrir detalhes de componentes
+- Implementada limpeza de cache do Apollo Client para assegurar dados atualizados de relacionamentos
+- Ajustes no formulário de relacionamentos para melhor experiência do usuário
+
+### Corrigido
+- Correção do problema de exclusão de relacionamentos com IDs longos
+- Melhorado o manipulador de exclusão para tentar diferentes formatos de ID
+- Corrigido problema na detecção de relacionamentos de componentes usando consulta GraphQL apropriada
+- Adicionado caso especial para o ID "115292260411847772" 
