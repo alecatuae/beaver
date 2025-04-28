@@ -10,6 +10,7 @@ This document outlines the data schema for the MariaDB database used in the Beav
 - **ADR**: Architectural Decision Records with status and decision details.
 - **RoadmapItem**: Tracks items on the development roadmap.
 - **Log**: Records system and user activity logs.
+- **Category**: Stores all possible categories for components, including name, description, and an image (PNG or SVG, max 256x256px).
 
 ## Enums
 - **Role**: Defines user roles within the application.
@@ -23,6 +24,15 @@ This document outlines the data schema for the MariaDB database used in the Beav
 - **ComponentTag**: Tags associated with components.
 - **RelationshipTag**: Tags for relationships between components.
 - **ADRTag**: Tags specific to ADRs.
+
+### Category Table
+- **id**: Unique identifier for each category
+- **name**: Name of the category
+- **description**: Description of the category
+- **image**: Binary image data (only PNG or SVG, up to 256x256px)
+- **created_at**: Timestamp of category creation
+
+**Restriction:** Only PNG or SVG images up to 256x256px should be stored in `image`.
 
 ## Conclusion
 This schema provides a comprehensive overview of the data structure for the MariaDB database, ensuring it supports the application's needs effectively. For more detailed information, refer to the `Architecture_v1.2_en_us.md` document. 

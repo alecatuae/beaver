@@ -26,7 +26,9 @@ CREATE TABLE Category (
     id INT AUTO_INCREMENT PRIMARY KEY,  -- Unique identifier for each category
     name VARCHAR(255) NOT NULL,        -- Name of the category
     description TEXT,                  -- Description of the category
+    image LONGBLOB,                    -- Binary image data (PNG or SVG, max 256x256px)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of category creation
+    -- Restriction: Only PNG or SVG images up to 256x256px should be stored in image
 );
 
 -- Table: Component
