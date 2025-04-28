@@ -126,23 +126,6 @@ export default function ComponentsPage() {
     }) || []
   })) || [];
 
-  // Verificar relacionamentos para cada componente
-  const [componentRelations, setComponentRelations] = useState<{[key: number]: boolean}>({});
-
-  // Função para verificar se um componente tem relacionamentos
-  const checkRelationsForComponent = async (componentId: number) => {
-    try {
-      const result = await checkComponentRelations({
-        variables: { id: componentId }
-      });
-      
-      return result.data?.componentRelations?.hasRelations || false;
-    } catch (error) {
-      console.error(`Erro ao verificar relacionamentos para componente ${componentId}:`, error);
-      return false;
-    }
-  };
-
   // Função para filtrar componentes com base na busca
   const filteredComponents = components.filter((component: ComponentType) => {
     const matchesSearch = component.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -179,25 +162,6 @@ export default function ComponentsPage() {
 
   // Aplicar ordenação aos componentes filtrados
   const sortedComponents = sortComponents(filteredComponents);
-
-  // Verificar relacionamentos para os componentes visíveis
-  useEffect(() => {
-    const checkVisibleComponentsRelations = async () => {
-      const visibleComponentIds = sortedComponents.slice(0, visibleCount).map(c => c.id);
-      const newRelationsMap: {[key: number]: boolean} = {...componentRelations};
-      
-      for (const componentId of visibleComponentIds) {
-        if (newRelationsMap[componentId] === undefined) {
-          newRelationsMap[componentId] = await checkRelationsForComponent(componentId);
-        }
-      }
-      
-      setComponentRelations(newRelationsMap);
-    };
-    
-    checkVisibleComponentsRelations();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleCount, sortedComponents, checkComponentRelations]);
 
   // Função para alternar a ordenação
   const toggleSort = (field: 'name' | 'date' | 'status') => {
@@ -276,34 +240,10 @@ export default function ComponentsPage() {
 
   // Função para iniciar o processo de exclusão
   const confirmDeleteComponent = async (id: number) => {
-    try {
-      // Verificar se o componente tem relacionamentos
-      const result = await checkComponentRelations({
-        variables: { id }
-      });
-      
-      if (result.data?.componentRelations?.hasRelations) {
-        // Componente tem relacionamentos, exibir mensagem de erro
-        toast({
-          title: "Não é possível excluir",
-          description: `Este componente está presente em ${result.data.componentRelations.count} relacionamento(s) e não pode ser excluído. Remova os relacionamentos primeiro.`,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Se não tem relacionamentos, prosseguir com a confirmação
-      setComponentToDelete(id);
-      setShowDeleteConfirm(true);
-      setShowDetails(false); // Fechar o modal de detalhes
-    } catch (error) {
-      console.error("Erro ao verificar relacionamentos:", error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao verificar se o componente pode ser excluído.",
-        variant: "destructive"
-      });
-    }
+    // Versão simplificada sem verificação de relacionamentos
+    setComponentToDelete(id);
+    setShowDeleteConfirm(true);
+    setShowDetails(false); // Fechar o modal de detalhes
   };
 
   // Função para excluir componente após confirmação
@@ -378,20 +318,11 @@ export default function ComponentsPage() {
     }
   };
 
-  // Quando o componente é selecionado para visualização, verificar relacionamentos
-  useEffect(() => {
-    if (selectedComponent) {
-      const checkSelectedComponentRelations = async () => {
-        const hasRelations = await checkRelationsForComponent(selectedComponent.id);
-        setSelectedComponent(prev => 
-          prev ? {...prev, hasRelations} : null
-        );
-      };
-      
-      checkSelectedComponentRelations();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedComponent?.id, checkComponentRelations]);
+  // Simplificar a função, mantendo retorno para não quebrar referências
+  const checkRelationsForComponent = async (componentId: number) => {
+    // Função simplificada que apenas retorna false
+    return false;
+  };
 
   // Renderizar mensagem de carregamento se necessário
   if (loading && !data) {
@@ -555,11 +486,6 @@ export default function ComponentsPage() {
                       {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
                        component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
                     </span>
-                    {componentRelations[component.id] && (
-                      <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center" title="Tem relacionamentos">
-                        <LinkIcon size={14} className="text-primary" />
-                      </span>
-                    )}
                   </div>
                 </div>
                 <p className="text-muted-foreground text-sm mb-4 line-clamp-2 flex-grow">{component.description}</p>
@@ -644,15 +570,6 @@ export default function ComponentsPage() {
                     <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
                   </div>
                 </div>
-
-                {selectedComponent.hasRelations && (
-                  <div>
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm">
-                      <LinkIcon size={14} />
-                      <span>Componente utilizado em relacionamentos</span>
-                    </span>
-                  </div>
-                )}
 
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>

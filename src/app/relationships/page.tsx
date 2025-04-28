@@ -61,6 +61,9 @@ export enum RelationshipType {
   STORES_DATA_IN = "STORES_DATA_IN"
 }
 
+// Logs de depuração para verificar se a página está sendo carregada
+console.log("Página de relacionamentos está sendo carregada");
+
 export default function RelationshipsPage() {
   // Estados para filtros e busca
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,69 +96,6 @@ export default function RelationshipsPage() {
   const { data: componentsData } = useQuery(GET_COMPONENTS, {
     variables: { status: null },
     fetchPolicy: 'cache-first'
-  });
-
-  // Efeito para atualização automática da lista de relacionamentos
-  useEffect(() => {
-    if (!isFormOpen) {
-      // Atualiza a lista após fechar o modal
-      setTimeout(() => refetch(), 300);
-    }
-  }, [isFormOpen, refetch]);
-
-  // Mutations GraphQL
-  const [createRelation] = useMutation(CREATE_RELATION, {
-    onCompleted: () => {
-      console.log("Relacionamento criado com sucesso");
-      setErrorMessage(null);
-      setShowErrorAlert(false);
-      refetch();
-    },
-    onError: (error) => {
-      console.error("Erro ao criar relacionamento:", error);
-      const message = error.message;
-      
-      if (message.includes('Componente não encontrado no Neo4j')) {
-        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de criar o relacionamento.');
-      } else {
-        setErrorMessage('Ocorreu um erro ao criar o relacionamento: ' + message);
-      }
-      setShowErrorAlert(true);
-    }
-  });
-
-  const [updateRelation] = useMutation(UPDATE_RELATION, {
-    onCompleted: () => {
-      console.log("Relacionamento atualizado com sucesso");
-      setErrorMessage(null);
-      setShowErrorAlert(false);
-      refetch();
-    },
-    onError: (error) => {
-      console.error("Erro ao atualizar relacionamento:", error);
-      const message = error.message;
-      
-      if (message.includes('Componente não encontrado no Neo4j')) {
-        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de atualizar o relacionamento.');
-      } else {
-        setErrorMessage('Ocorreu um erro ao atualizar o relacionamento: ' + message);
-      }
-      setShowErrorAlert(true);
-    }
-  });
-
-  const [deleteRelation] = useMutation(DELETE_RELATION, {
-    onCompleted: () => {
-      console.log("Relacionamento excluído com sucesso");
-      setShowDeleteConfirm(false);
-      setRelationshipToDelete(null);
-      refetch();
-    },
-    onError: (error) => {
-      console.error("Erro ao excluir relacionamento:", error);
-      setErrorMessage(`Erro ao excluir relacionamento: ${error.message}`);
-      setShowErrorAlert(true);
-    }
   });
 
   // Transforma os dados da API para o formato esperado pela interface
@@ -206,6 +146,9 @@ export default function RelationshipsPage() {
     });
   };
 
+  // Aplicar ordenação aos relacionamentos filtrados
+  const sortedRelationships = sortRelationships(filteredRelationships);
+
   // Função para alternar a ordenação
   const toggleSort = (field: 'source' | 'target' | 'type' | 'date') => {
     if (sortBy === field) {
@@ -216,12 +159,11 @@ export default function RelationshipsPage() {
     }
   };
 
-  // Aplicar ordenação aos relacionamentos filtrados
-  const sortedRelationships = sortRelationships(filteredRelationships);
-
   // Manipulador de interseção para detecção de rolagem
   const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
     const [entry] = entries;
+    if (!entry) return;
+    
     if (entry.isIntersecting && hasMore) {
       setVisibleCount(prev => {
         const newCount = prev + 8; // Incrementa 8 relacionamentos por vez
@@ -254,7 +196,7 @@ export default function RelationshipsPage() {
         observer.current.disconnect();
       }
     };
-  }, [handleObserver, sortedRelationships.length]);
+  }, [handleObserver]);
 
   // Resetar visibleCount quando os filtros mudam
   useEffect(() => {
@@ -366,31 +308,88 @@ export default function RelationshipsPage() {
     setIsFormOpen(false);
   };
 
-  // Renderizar mensagem de carregamento se necessário
-  if (loading && !data) {
+  // Mutations GraphQL
+  const [createRelation] = useMutation(CREATE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento criado com sucesso");
+      setErrorMessage(null);
+      setShowErrorAlert(false);
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao criar relacionamento:", error);
+      const message = error.message;
+      
+      if (message.includes('Componente não encontrado no Neo4j')) {
+        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de criar o relacionamento.');
+      } else {
+        setErrorMessage('Ocorreu um erro ao criar o relacionamento: ' + message);
+      }
+      setShowErrorAlert(true);
+    }
+  });
+
+  const [updateRelation] = useMutation(UPDATE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento atualizado com sucesso");
+      setErrorMessage(null);
+      setShowErrorAlert(false);
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao atualizar relacionamento:", error);
+      const message = error.message;
+      
+      if (message.includes('Componente não encontrado no Neo4j')) {
+        setErrorMessage('Um ou ambos os componentes não foram encontrados no Neo4j. Verifique se os componentes existem antes de atualizar o relacionamento.');
+      } else {
+        setErrorMessage('Ocorreu um erro ao atualizar o relacionamento: ' + message);
+      }
+      setShowErrorAlert(true);
+    }
+  });
+
+  const [deleteRelation] = useMutation(DELETE_RELATION, {
+    onCompleted: () => {
+      console.log("Relacionamento excluído com sucesso");
+      setShowDeleteConfirm(false);
+      setRelationshipToDelete(null);
+      refetch();
+    },
+    onError: (error) => {
+      console.error("Erro ao excluir relacionamento:", error);
+      setErrorMessage(`Erro ao excluir relacionamento: ${error.message}`);
+      setShowErrorAlert(true);
+    }
+  });
+
+  // Verificação básica para evitar renderização antes de estar pronto
+  if (loading) {
     return (
       <AppLayout>
-        <div className="flex justify-center items-center h-96">
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
           <p className="text-lg">Carregando relacionamentos...</p>
         </div>
       </AppLayout>
     );
   }
 
-  // Renderizar mensagem de erro se necessário
   if (error) {
     return (
       <AppLayout>
-        <div className="flex justify-center items-center h-96 flex-col gap-4">
-          <p className="text-lg text-destructive">Erro ao carregar os relacionamentos</p>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-center h-[70vh] gap-4">
+          <p className="text-xl text-destructive font-semibold">Erro ao carregar relacionamentos</p>
+          <p className="text-sm text-muted-foreground max-w-md text-center">
             {error.message}
           </p>
-          <Button onClick={() => refetch()}>Tentar novamente</Button>
+          <Button onClick={() => refetch()} className="mt-4">Tentar novamente</Button>
         </div>
       </AppLayout>
     );
   }
+
+  console.log("Renderizando página de relacionamentos com dados:", data);
 
   return (
     <AppLayout>
