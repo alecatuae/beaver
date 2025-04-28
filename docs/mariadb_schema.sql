@@ -20,6 +20,15 @@ CREATE TABLE Team (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of team creation
 );
 
+-- Table: Category
+-- Stores all possible categories for components.
+CREATE TABLE Category (
+    id INT AUTO_INCREMENT PRIMARY KEY,  -- Unique identifier for each category
+    name VARCHAR(255) NOT NULL,        -- Name of the category
+    description TEXT,                  -- Description of the category
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of category creation
+);
+
 -- Table: Component
 -- Represents software components with associated metadata.
 CREATE TABLE Component (
@@ -27,7 +36,9 @@ CREATE TABLE Component (
     name VARCHAR(255) NOT NULL,        -- Name of the component
     description TEXT,                  -- Description of the component
     status ENUM('active', 'inactive', 'deprecated') NOT NULL, -- Current status of the component
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Timestamp of component creation
+    category_id INT,                   -- Category of the component (FK)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Timestamp of component creation
+    FOREIGN KEY (category_id) REFERENCES Category(id)
 );
 
 -- Table: ADR
