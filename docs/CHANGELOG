@@ -73,6 +73,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Modificação das operações CRUD de componentes para suportar o relacionamento com categorias
 - Criação de testes para verificar o funcionamento correto do relacionamento entre componentes e categorias
 - Atualizado o seed.ts para incluir as 18 categorias predefinidas durante a inicialização do banco de dados
+- Implementação completa do módulo de gerenciamento de categorias
+  - Interface de usuário para listagem, criação, edição e exclusão de categorias
+  - Formulário de categoria com suporte a upload de imagem
+  - Validação de campos obrigatórios e limites de tamanho
+  - Resolvers GraphQL para operações CRUD de categorias
+  - Tratamento de erro para evitar exclusão de categorias com componentes associados
+  - Criação do tipo CategoryInput para uso nas operações de criação/atualização de categorias
 
 ### Changed
 - Alterada toda a representação interna de IDs de relacionamentos para usar exclusivamente strings, eliminando problemas com números inteiros grandes no Neo4j

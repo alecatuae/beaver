@@ -269,4 +269,75 @@ export interface GraphData {
     label: string;
     properties?: Record<string, any>;
   }>;
+}
+
+// Queries para categorias
+export const GET_CATEGORIES = gql`
+  query GetCategories {
+    categories {
+      id
+      name
+      description
+      image
+      createdAt
+    }
+  }
+`;
+
+export const GET_CATEGORY = gql`
+  query GetCategory($id: Int!) {
+    category(id: $id) {
+      id
+      name
+      description
+      image
+      createdAt
+    }
+  }
+`;
+
+// Mutations para categorias
+export const CREATE_CATEGORY = gql`
+  mutation CreateCategory($input: CategoryInput!) {
+    createCategory(input: $input) {
+      id
+      name
+      description
+      image
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_CATEGORY = gql`
+  mutation UpdateCategory($id: Int!, $input: CategoryInput!) {
+    updateCategory(id: $id, input: $input) {
+      id
+      name
+      description
+      image
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_CATEGORY = gql`
+  mutation DeleteCategory($id: Int!) {
+    deleteCategory(id: $id)
+  }
+`;
+
+// Tipos para trabalhar com categorias
+export interface CategoryType {
+  id: number;
+  name: string;
+  description?: string;
+  image?: string;
+  createdAt: Date;
+}
+
+export interface CategoryInput {
+  name: string;
+  description?: string;
+  image?: string;
 } 

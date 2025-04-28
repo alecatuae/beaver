@@ -3,6 +3,7 @@ import { componentResolvers } from './componentResolvers';
 import { userResolvers } from './userResolvers';
 import { adrResolvers } from './adrResolvers';
 import { glossaryResolvers } from './glossaryResolvers';
+import { categoryResolvers } from './categoryResolvers';
 import { Builder } from '@pothos/core';
 import { RelationType } from './relationship/relationshipResolvers';
 
@@ -19,6 +20,9 @@ export function registerResolvers(builder: Builder) {
   
   // Registra os resolvers de glossário
   glossaryResolvers(builder);
+  
+  // Registra os resolvers de categorias
+  categoryResolvers(builder);
   
   // Não precisamos chamar registerRelationshipResolvers() pois os resolvers já são definidos no arquivo
   // e exportados como RelationType
