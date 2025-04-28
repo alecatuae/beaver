@@ -294,6 +294,16 @@ export default function ComponentsPage() {
 
   // Função para iniciar o processo de exclusão
   const confirmDeleteComponent = async (id: number) => {
+    // Verificar se o componente tem relacionamentos antes de permitir a exclusão
+    if (hasRelations) {
+      toast({
+        title: "Operação não permitida",
+        description: "Não é possível excluir um componente que possui relacionamentos. Remova os relacionamentos primeiro.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     // Versão simplificada sem verificação de relacionamentos
     setComponentToDelete(id);
     setShowDeleteConfirm(true);
@@ -631,30 +641,43 @@ export default function ComponentsPage() {
                       <p className="text-sm text-muted-foreground">Verificando...</p>
                     </div>
                   ) : (
-                    <p className="text-sm font-medium">
+                    <p className="text-sm">
                       {hasRelations ? (
-                        <span className="text-success">SIM</span>
+                        <span className="px-2 py-1 text-xs rounded-full bg-destructive text-destructive-foreground font-medium">
+                          SIM
+                        </span>
                       ) : (
-                        <span className="text-destructive">NÃO</span>
+                        <span className="px-2 py-1 text-xs rounded-full bg-warning text-warning-foreground font-medium">
+                          NÃO
+                        </span>
                       )}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="mt-6 pt-4 border-t flex justify-end gap-4">
-                <Button 
-                  variant="outline"
-                  onClick={() => openEditComponentForm(selectedComponent)}
-                >
-                  Editar
-                </Button>
-                <Button 
-                  variant="default"
-                  onClick={() => confirmDeleteComponent(selectedComponent.id)}
-                >
-                  Excluir
-                </Button>
+              <div className="mt-6 pt-4 border-t flex flex-col gap-4">
+                {hasRelations && (
+                  <div className="text-sm text-amber-500 italic">
+                    Este componente possui relacionamentos. Remova todos os relacionamentos antes de excluí-lo.
+                  </div>
+                )}
+                <div className="flex justify-end gap-4">
+                  <Button 
+                    variant="outline"
+                    onClick={() => openEditComponentForm(selectedComponent)}
+                  >
+                    Editar
+                  </Button>
+                  <Button 
+                    variant="default"
+                    onClick={() => confirmDeleteComponent(selectedComponent.id)}
+                    disabled={hasRelations}
+                    title={hasRelations ? "Não é possível excluir um componente com relacionamentos" : "Excluir componente"}
+                  >
+                    Excluir
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

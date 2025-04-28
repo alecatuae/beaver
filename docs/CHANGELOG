@@ -177,11 +177,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### Adicionado
 - Componente toast para notificações do sistema
 - Script de debug para relacionamentos no Neo4j
+- Proteção contra exclusão de componentes que possuem relacionamentos
+- Aviso visual explicando por que não é possível excluir componentes relacionados 
 
 ### Alterado
 - Melhorada a visualização de relacionamentos na tela de detalhes do componente, mostrando "SIM" ou "NÃO" em vez da mensagem estática
+- Atualizado o estilo visual dos indicadores de relacionamento: "SIM" em vermelho e "NÃO" em amarelo, seguindo o padrão visual dos status
 - Aprimorado o sistema de verificação de relacionamentos para garantir atualização em tempo real ao abrir detalhes de componentes
 - Implementada limpeza de cache do Apollo Client para assegurar dados atualizados de relacionamentos
+- Botão "Excluir" desabilitado automaticamente quando o componente possui relacionamentos
 - Ajustes no formulário de relacionamentos para melhor experiência do usuário
 
 ### Corrigido
