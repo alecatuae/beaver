@@ -77,14 +77,6 @@ CREATE TABLE ComponentTag (
     FOREIGN KEY (component_id) REFERENCES Component(id) -- Foreign key linking to Component table
 );
 
--- Table: RelationshipTag
--- Tags for relationships between components.
-CREATE TABLE RelationshipTag (
-    id INT AUTO_INCREMENT PRIMARY KEY,  -- Unique identifier for each relationship tag
-    relationship_id INT,               -- ID of the associated relationship
-    tag VARCHAR(255) NOT NULL          -- Tag for the relationship
-);
-
 -- Table: ADRTag
 -- Tags specific to ADRs.
 CREATE TABLE ADRTag (

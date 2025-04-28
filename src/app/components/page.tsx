@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc } from 'lucide-react';
+import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc, Link as LinkIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,16 +16,18 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import ComponentForm from './form-component';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import { 
   GET_COMPONENTS, 
   CREATE_COMPONENT, 
   UPDATE_COMPONENT, 
-  DELETE_COMPONENT, 
+  DELETE_COMPONENT,
+  CHECK_COMPONENT_RELATIONS,
   ComponentStatus,
   ComponentType,
   ComponentInput
 } from '@/lib/graphql';
+import { toast } from '@/components/ui/use-toast';
 
 export default function ComponentsPage() {
   // Estados para filtros e busca
@@ -107,6 +109,13 @@ export default function ComponentsPage() {
     }
   });
 
+  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(CHECK_COMPONENT_RELATIONS, {
+    fetchPolicy: 'network-only',
+    onError: (error) => {
+      console.error("Erro ao verificar relacionamentos do componente:", error);
+    }
+  });
+
   // Transforma os dados da API para o formato esperado pela interface
   const components = data?.components?.map((component: any) => ({
     ...component,
@@ -116,6 +125,23 @@ export default function ComponentsPage() {
       return typeof tag === 'string' ? tag : (tag?.tag || '');
     }) || []
   })) || [];
+
+  // Verificar relacionamentos para cada componente
+  const [componentRelations, setComponentRelations] = useState<{[key: number]: boolean}>({});
+
+  // Função para verificar se um componente tem relacionamentos
+  const checkRelationsForComponent = async (componentId: number) => {
+    try {
+      const result = await checkComponentRelations({
+        variables: { id: componentId }
+      });
+      
+      return result.data?.componentRelations?.hasRelations || false;
+    } catch (error) {
+      console.error(`Erro ao verificar relacionamentos para componente ${componentId}:`, error);
+      return false;
+    }
+  };
 
   // Função para filtrar componentes com base na busca
   const filteredComponents = components.filter((component: ComponentType) => {
@@ -151,6 +177,28 @@ export default function ComponentsPage() {
     });
   };
 
+  // Aplicar ordenação aos componentes filtrados
+  const sortedComponents = sortComponents(filteredComponents);
+
+  // Verificar relacionamentos para os componentes visíveis
+  useEffect(() => {
+    const checkVisibleComponentsRelations = async () => {
+      const visibleComponentIds = sortedComponents.slice(0, visibleCount).map(c => c.id);
+      const newRelationsMap: {[key: number]: boolean} = {...componentRelations};
+      
+      for (const componentId of visibleComponentIds) {
+        if (newRelationsMap[componentId] === undefined) {
+          newRelationsMap[componentId] = await checkRelationsForComponent(componentId);
+        }
+      }
+      
+      setComponentRelations(newRelationsMap);
+    };
+    
+    checkVisibleComponentsRelations();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleCount, sortedComponents, checkComponentRelations]);
+
   // Função para alternar a ordenação
   const toggleSort = (field: 'name' | 'date' | 'status') => {
     if (sortBy === field) {
@@ -160,9 +208,6 @@ export default function ComponentsPage() {
       setSortDirection('asc');
     }
   };
-
-  // Aplicar ordenação aos componentes filtrados
-  const sortedComponents = sortComponents(filteredComponents);
 
   // Manipuladores de ações
   const handleStatusFilterChange = (status: ComponentStatus | 'all') => {
@@ -230,10 +275,35 @@ export default function ComponentsPage() {
   };
 
   // Função para iniciar o processo de exclusão
-  const confirmDeleteComponent = (id: number) => {
-    setComponentToDelete(id);
-    setShowDeleteConfirm(true);
-    setShowDetails(false); // Fechar o modal de detalhes
+  const confirmDeleteComponent = async (id: number) => {
+    try {
+      // Verificar se o componente tem relacionamentos
+      const result = await checkComponentRelations({
+        variables: { id }
+      });
+      
+      if (result.data?.componentRelations?.hasRelations) {
+        // Componente tem relacionamentos, exibir mensagem de erro
+        toast({
+          title: "Não é possível excluir",
+          description: `Este componente está presente em ${result.data.componentRelations.count} relacionamento(s) e não pode ser excluído. Remova os relacionamentos primeiro.`,
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Se não tem relacionamentos, prosseguir com a confirmação
+      setComponentToDelete(id);
+      setShowDeleteConfirm(true);
+      setShowDetails(false); // Fechar o modal de detalhes
+    } catch (error) {
+      console.error("Erro ao verificar relacionamentos:", error);
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao verificar se o componente pode ser excluído.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Função para excluir componente após confirmação
@@ -307,6 +377,21 @@ export default function ComponentsPage() {
       lastComponentRef.current = el;
     }
   };
+
+  // Quando o componente é selecionado para visualização, verificar relacionamentos
+  useEffect(() => {
+    if (selectedComponent) {
+      const checkSelectedComponentRelations = async () => {
+        const hasRelations = await checkRelationsForComponent(selectedComponent.id);
+        setSelectedComponent(prev => 
+          prev ? {...prev, hasRelations} : null
+        );
+      };
+      
+      checkSelectedComponentRelations();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedComponent?.id, checkComponentRelations]);
 
   // Renderizar mensagem de carregamento se necessário
   if (loading && !data) {
@@ -462,11 +547,20 @@ export default function ComponentsPage() {
                 onClick={() => handleComponentClick(component)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium truncate max-w-[70%]">{component.name}</h3>
-                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(component.status)}`}>
-                    {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
-                     component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
-                  </span>
+                  <h3 className="text-lg font-medium truncate max-w-[70%]">
+                    {component.name}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(component.status)}`}>
+                      {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                       component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                    </span>
+                    {componentRelations[component.id] && (
+                      <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center" title="Tem relacionamentos">
+                        <LinkIcon size={14} className="text-primary" />
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-muted-foreground text-sm mb-4 line-clamp-2 flex-grow">{component.description}</p>
                 <div className="flex flex-wrap items-center justify-between mt-auto">
@@ -550,6 +644,15 @@ export default function ComponentsPage() {
                     <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
                   </div>
                 </div>
+
+                {selectedComponent.hasRelations && (
+                  <div>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10 text-primary text-sm">
+                      <LinkIcon size={14} />
+                      <span>Componente utilizado em relacionamentos</span>
+                    </span>
+                  </div>
+                )}
 
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>

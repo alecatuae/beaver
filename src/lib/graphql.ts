@@ -181,10 +181,12 @@ export const UPDATE_RELATION = gql`
   mutation UpdateRelation($id: String!, $input: RelationInput!) {
     updateRelation(id: $id, input: $input) {
       id
+      type
       sourceId
       targetId
-      type
       properties
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -192,6 +194,16 @@ export const UPDATE_RELATION = gql`
 export const DELETE_RELATION = gql`
   mutation DeleteRelation($id: String!) {
     deleteRelation(id: $id)
+  }
+`;
+
+// Query para verificar se um componente tem relacionamentos
+export const CHECK_COMPONENT_RELATIONS = gql`
+  query CheckComponentRelations($id: Int!) {
+    componentRelations(id: $id) {
+      hasRelations
+      count
+    }
   }
 `;
 
@@ -209,6 +221,7 @@ export interface ComponentType {
   status: ComponentStatus;
   createdAt: Date;
   tags: string[];
+  hasRelations?: boolean;
 }
 
 export interface ComponentInput {
@@ -231,7 +244,9 @@ export interface RelationType {
   sourceId: number;
   targetId: number;
   type: string;
-  properties?: Record<string, any>;
+  properties?: {
+    description?: string;
+  };
   source?: ComponentType;
   target?: ComponentType;
   createdAt: string;

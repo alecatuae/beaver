@@ -1,18 +1,18 @@
 import * as neo4j from 'neo4j-driver';
 import type { Driver } from 'neo4j-driver';
 import * as dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
-
-// Interface para o tipo de componente
-interface Component {
-  id: number;
-  name: string;
-  description: string | null;
-}
+import { PrismaClient, Component } from '@prisma/client';
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
+/**
+ * Script para sincronizar componentes entre MariaDB e Neo4j
+ * 
+ * Este script garante que todos os componentes no MariaDB também existam no Neo4j,
+ * facilitando a criação de relacionamentos no Neo4j. A sincronização é unidirecional:
+ * MariaDB -> Neo4j, onde o MariaDB é considerado a fonte principal de dados.
+ */
 async function syncComponents() {
   console.log('Iniciando sincronização de componentes entre MariaDB e Neo4j...');
   
@@ -37,11 +37,16 @@ async function syncComponents() {
     const session = driver.session();
     
     try {
-      // Buscar todos os componentes do MariaDB usando SQL direto
+      // Buscar todos os componentes do MariaDB 
       console.log('Buscando componentes do MariaDB...');
-      const mariadbComponents = await prisma.$queryRaw<Component[]>`
-        SELECT id, name, description FROM Component WHERE status = 'ACTIVE'
-      `;
+      const mariadbComponents = await prisma.component.findMany({
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          status: true
+        }
+      });
       console.log(`Encontrados ${mariadbComponents.length} componentes no MariaDB`);
       
       // Buscar todos os componentes do Neo4j
@@ -65,18 +70,20 @@ async function syncComponents() {
       
       console.log(`Encontrados ${missingComponents.length} componentes no MariaDB que não existem no Neo4j`);
       
-      // Adicionar componentes faltantes ao Neo4j
+      // Sincronizar componentes faltantes para o Neo4j
       if (missingComponents.length > 0) {
-        console.log('Adicionando componentes faltantes ao Neo4j...');
+        console.log('Iniciando sincronização de componentes faltantes para o Neo4j...');
         
         for (const component of missingComponents) {
-          console.log(`Adicionando componente: ${component.id} - ${component.name}`);
+          console.log(`Sincronizando componente: ${component.id} - ${component.name}`);
           
+          // Criar o componente no Neo4j
           await session.run(`
             MERGE (c:Component {id: $id})
             ON CREATE SET 
               c.name = $name,
               c.description = $description,
+              c.status = $status,
               c.valid_from = datetime(),
               c.valid_to = datetime('9999-12-31T23:59:59Z')
             RETURN c
@@ -84,84 +91,72 @@ async function syncComponents() {
             id: component.id,
             name: component.name,
             description: component.description || '',
+            status: component.status.toString()
+          });
+          
+          console.log(`Componente ${component.id} sincronizado com sucesso`);
+        }
+        
+        console.log('Sincronização de componentes concluída com sucesso');
+      } else {
+        console.log('Todos os componentes já estão sincronizados com o Neo4j');
+      }
+      
+      // Verificar componentes que existem no Neo4j mas podem estar desatualizados no MariaDB
+      console.log('Verificando componentes que precisam ser atualizados no Neo4j...');
+      
+      const componentsToUpdate = mariadbComponents.filter(
+        comp => neo4jComponentIds.includes(comp.id)
+      );
+      
+      if (componentsToUpdate.length > 0) {
+        console.log(`Atualizando ${componentsToUpdate.length} componentes no Neo4j...`);
+        
+        for (const component of componentsToUpdate) {
+          await session.run(`
+            MATCH (c:Component {id: $id})
+            SET 
+              c.name = $name,
+              c.description = $description,
+              c.status = $status
+            RETURN c
+          `, {
+            id: component.id,
+            name: component.name,
+            description: component.description || '',
+            status: component.status.toString()
           });
         }
         
-        console.log('Componentes adicionados com sucesso!');
+        console.log('Atualização de componentes concluída com sucesso');
       }
       
-      // Verificar componentes que estão no Neo4j mas não no MariaDB
-      const extraComponents = neo4jComponentIds.filter(
-        id => !mariadbComponents.some(comp => comp.id === id)
-      );
+      // Validação final: verificar se todos os componentes do MariaDB existem no Neo4j
+      const finalCheckResult = await session.run(`
+        MATCH (c:Component)
+        RETURN count(c) as count
+      `);
       
-      console.log(`Encontrados ${extraComponents.length} componentes no Neo4j que não existem no MariaDB`);
+      const finalCount = finalCheckResult.records[0].get('count').toNumber();
+      console.log(`Verificação final: ${finalCount} componentes no Neo4j`);
       
-      if (extraComponents.length > 0) {
-        console.log('Lista de componentes extras no Neo4j:');
-        for (const id of extraComponents) {
-          const compInfo = await session.run(`
-            MATCH (c:Component {id: $id})
-            RETURN c.name AS name
-          `, { id });
-          
-          if (compInfo.records.length > 0) {
-            console.log(`ID: ${id}, Nome: ${compInfo.records[0].get('name')}`);
-          } else {
-            console.log(`ID: ${id}, Nome: Desconhecido`);
-          }
-        }
-        
-        // Atenção: Não excluímos automaticamente componentes extras para evitar perda de dados
-        console.log('ATENÇÃO: Componentes extras no Neo4j não foram excluídos automaticamente.');
+      if (finalCount >= mariadbComponents.length) {
+        console.log('✅ Sincronização concluída com sucesso! Todos os componentes do MariaDB existem no Neo4j.');
+      } else {
+        console.log('⚠️ Alguns componentes podem não ter sido sincronizados corretamente.');
       }
-      
-      // Verificar e corrigir informações desatualizadas
-      console.log('Verificando componentes desatualizados...');
-      let updatedCount = 0;
-      
-      for (const component of mariadbComponents) {
-        const neo4jComponentResult = await session.run(`
-          MATCH (c:Component {id: $id})
-          RETURN c.name AS name, c.description AS description
-        `, { id: component.id });
-        
-        if (neo4jComponentResult.records.length > 0) {
-          const neo4jName = neo4jComponentResult.records[0].get('name');
-          const neo4jDescription = neo4jComponentResult.records[0].get('description') || '';
-          
-          if (neo4jName !== component.name || neo4jDescription !== (component.description || '')) {
-            console.log(`Atualizando informações do componente: ${component.id} - ${component.name}`);
-            
-            await session.run(`
-              MATCH (c:Component {id: $id})
-              SET c.name = $name,
-                  c.description = $description,
-                  c.updatedAt = datetime()
-              RETURN c
-            `, {
-              id: component.id,
-              name: component.name,
-              description: component.description || '',
-            });
-            
-            updatedCount++;
-          }
-        }
-      }
-      
-      console.log(`${updatedCount} componentes atualizados no Neo4j`);
       
     } finally {
       await session.close();
-      await prisma.$disconnect();
     }
   } catch (error) {
-    console.error('Erro ao sincronizar componentes:', error);
+    console.error('Erro durante a sincronização:', error);
   } finally {
     if (driver) {
       await driver.close();
     }
+    
+    await prisma.$disconnect();
     console.log('Script de sincronização finalizado');
   }
 }

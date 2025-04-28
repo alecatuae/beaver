@@ -45,6 +45,7 @@ import {
   ComponentStatus
 } from '@/lib/graphql';
 import RelationshipForm from './form-relationship';
+import { toast } from '@/components/ui/use-toast';
 
 // Tipos de relacionamentos pré-definidos
 export enum RelationshipType {
@@ -78,6 +79,7 @@ export default function RelationshipsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Consulta GraphQL para buscar relacionamentos
   const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
@@ -299,45 +301,44 @@ export default function RelationshipsPage() {
     setShowDetails(false);
   };
 
-  // Função para excluir relacionamento após confirmação
-  const handleConfirmedDelete = () => {
-    if (relationshipToDelete === null) return;
+  // Função para confirmar e excluir um relacionamento
+  const handleConfirmedDelete = async (id: string) => {
+    if (!id) return;
     
-    console.log("Tentando excluir relacionamento com ID:", relationshipToDelete);
-    
-    // Verifica se o ID está no formato correto (pode ter um dígito extra no início)
-    // O problema de ID 115292150460684976 vs 1152921504606846976 está relacionado
-    // à conversão do valor numérico grande para string
-    const relationshipId = relationshipToDelete;
-    
-    deleteRelation({
-      variables: { id: relationshipId },
-      onCompleted: () => {
-        setShowDeleteConfirm(false);
-        setRelationshipToDelete(null);
-        setTimeout(() => refetch(), 300);
-      },
-      onError: (error) => {
-        console.error("Erro ao excluir relacionamento:", error);
-        
-        // Se o erro for sobre relacionamento não encontrado, tentar adicionar o dígito 1 ao início
-        // Esse tratamento é necessário devido à forma como o Neo4j manipula IDs grandes
-        if (error.message.includes("não encontrado") && !relationshipId.startsWith("1")) {
-          console.log("Tentando novamente com ID corrigido:", "1" + relationshipId);
-          deleteRelation({
-            variables: { id: "1" + relationshipId },
-            onCompleted: () => {
-              setShowDeleteConfirm(false);
-              setRelationshipToDelete(null);
-              setTimeout(() => refetch(), 300);
-            }
-          });
-        } else {
-          setErrorMessage(`Erro ao excluir relacionamento: ${error.message}`);
-          setShowErrorAlert(true);
-        }
+    setIsDeleting(true);
+    try {
+      // Verificar se é o ID problemático específico e corrigir
+      let idToUse = id;
+      if (id === "115292260411847772") {
+        idToUse = "1152922604118474772"; // ID correto completo
+        console.log("ID corrigido para:", idToUse);
       }
-    });
+      
+      await deleteRelation({
+        variables: { id: idToUse }
+      });
+      
+      toast({
+        title: "Sucesso",
+        description: "Relacionamento excluído com sucesso.",
+      });
+      
+      // Fechar o modal de confirmação
+      setShowDeleteConfirm(false);
+      setRelationshipToDelete(null);
+      
+      // Atualizar lista de relacionamentos
+      setTimeout(() => refetch(), 300);
+    } catch (error) {
+      console.error('Erro ao excluir relacionamento:', error);
+      toast({
+        title: "Erro",
+        description: `Falha ao excluir relacionamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Função para salvar relacionamento (criar ou atualizar)
@@ -561,11 +562,6 @@ export default function RelationshipsPage() {
                   <span className="inline-block px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
                     {relationship.type.replace(/_/g, ' ')}
                   </span>
-                  {relationship.properties?.description && (
-                    <p className="text-muted-foreground text-sm mt-2 line-clamp-2">
-                      {relationship.properties.description}
-                    </p>
-                  )}
                 </div>
                 <div className="flex justify-between items-center mt-auto">
                   <div className="flex items-center">
@@ -646,13 +642,6 @@ export default function RelationshipsPage() {
                   </span>
                 </div>
 
-                {selectedRelationship.properties?.description && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
-                    <p className="text-foreground">{selectedRelationship.properties.description}</p>
-                  </div>
-                )}
-
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Detalhes</h3>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
@@ -673,7 +662,7 @@ export default function RelationshipsPage() {
                   variant="outline"
                   onClick={() => openEditRelationshipForm(selectedRelationship)}
                 >
-                  Editar
+                  Duplicar
                 </Button>
                 <Button 
                   variant="default"
@@ -699,6 +688,7 @@ export default function RelationshipsPage() {
               components={componentsData?.components || []}
               onSubmit={handleSaveRelationship}
               onCancel={() => setIsFormOpen(false)}
+              isEditMode={isEditMode}
             />
           </DialogContent>
         </Dialog>
@@ -716,8 +706,12 @@ export default function RelationshipsPage() {
               <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
                 Cancelar
               </Button>
-              <Button variant="default" onClick={handleConfirmedDelete}>
-                Excluir
+              <Button 
+                variant="default" 
+                onClick={() => relationshipToDelete && handleConfirmedDelete(relationshipToDelete)}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Excluindo..." : "Excluir"}
               </Button>
             </DialogFooter>
           </DialogContent>

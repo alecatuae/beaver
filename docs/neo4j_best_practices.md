@@ -212,6 +212,20 @@ try {
 }
 ```
 
+# Comentários em Relacionamentos no Neo4j
+
+## É possível adicionar comentários?
+
+- Não é possível adicionar comentários tradicionais (`//` ou `#`) diretamente no Cypher.
+- Porém, é possível armazenar comentários como **propriedades** no relacionamento.
+
+## Exemplo de uso:
+
+```cypher
+MATCH (a:Component {name: "Frontend"}), (b:Component {name: "Backend"})
+CREATE (a)-[:DEPENDS_ON {comment: "Frontend needs Backend APIs to function properly"}]->(b)
+
+
 ## Considerações de Performance
 
 1. **Prefira Parâmetros**: Sempre use parâmetros em vez de concatenação de strings

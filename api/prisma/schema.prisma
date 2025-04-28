@@ -41,7 +41,7 @@ model User {
   email        String   @unique
   role         Role     @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
-  logs         Log[]
+  logs         Log[]    @relation()
 
   @@map("User")
 }
@@ -56,33 +56,33 @@ model Team {
 }
 
 model Component {
-  id          Int             @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   name        String
-  description String?         @db.Text
-  status      ComponentStatus @default(ACTIVE)
-  createdAt   DateTime        @default(now()) @map("created_at")
+  description String?        @db.Text
+  status      ComponentStatus
+  createdAt   DateTime       @default(now()) @map("created_at")
   tags        ComponentTag[]
 
   @@map("Component")
 }
 
 model ADR {
-  id        Int       @id @default(autoincrement())
-  title     String
-  decision  String    @db.Text
-  status    ADRStatus @default(PROPOSED)
-  createdAt DateTime  @default(now()) @map("created_at")
-  tags      ADRTag[]
+  id          Int       @id @default(autoincrement())
+  title       String
+  decision    String    @db.Text
+  status      ADRStatus
+  createdAt   DateTime  @default(now()) @map("created_at")
+  tags        ADRTag[]
 
   @@map("ADR")
 }
 
 model RoadmapItem {
-  id          Int         @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   title       String
-  description String?     @db.Text
+  description String?       @db.Text
   type        RoadmapType
-  createdAt   DateTime    @default(now()) @map("created_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
 
   @@map("RoadmapItem")
 }
@@ -112,14 +112,6 @@ model ComponentTag {
   component   Component? @relation(fields: [componentId], references: [id])
 
   @@map("ComponentTag")
-}
-
-model RelationshipTag {
-  id             Int    @id @default(autoincrement())
-  relationshipId Int?   @map("relationship_id")
-  tag            String
-
-  @@map("RelationshipTag")
 }
 
 model ADRTag {

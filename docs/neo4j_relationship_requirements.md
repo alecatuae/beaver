@@ -6,11 +6,13 @@ Este documento técnico detalha os requisitos específicos e implementações re
 
 No Neo4j, relacionamentos representam conexões significativas entre nós. Na arquitetura do Beaver, os relacionamentos representam as conexões entre componentes de software, infraestrutura e outros elementos de arquitetura.
 
+**Importante**: Os relacionamentos são gerenciados exclusivamente no Neo4j e não possuem representação no banco MariaDB. Somente os componentes têm integração entre MariaDB e Neo4j, seguindo a arquitetura definida para o sistema.
+
 ## Requisitos Fundamentais
 
 ### 1. Existência Prévia dos Nós
 
-**Descrição**: Os nós (componentes) de origem e destino devem existir no banco de dados antes de criar um relacionamento entre eles.
+**Descrição**: Os nós (componentes) de origem e destino devem existir no banco de dados Neo4j antes de criar um relacionamento entre eles.
 
 **Implementação no Beaver**:
 
@@ -204,6 +206,117 @@ interface IRelation {
 }
 ```
 
+## Operações de Relacionamentos
+
+Todas as operações CRUD (Criação, Leitura, Atualização e Exclusão) de relacionamentos são executadas exclusivamente no Neo4j através dos resolvers GraphQL, sem qualquer representação ou operação no MariaDB. Esta abordagem garante:
+
+1. **Consistência de Dados**: Mantém um único ponto de verdade para relacionamentos.
+2. **Performance Otimizada**: Operações de grafo são realizadas diretamente no banco específico para esse fim.
+3. **Separação Clara de Responsabilidades**: MariaDB gerencia apenas dados de componentes enquanto Neo4j gerencia relacionamentos.
+
+### Fluxo de Operações
+
+#### Criação
+A criação de relacionamentos segue estas etapas:
+1. O frontend envia a mutation `createRelation` com dados do relacionamento.
+2. O resolver verifica a existência dos componentes no Neo4j.
+3. O relacionamento é criado exclusivamente no Neo4j via `neo4jClient.createRelation()`.
+4. Nenhuma entrada é criada no MariaDB.
+
+#### Atualização
+A atualização é implementada através de:
+1. Exclusão do relacionamento existente.
+2. Criação de um novo relacionamento com os dados atualizados.
+3. Preservação da data de criação original.
+
+```typescript
+// Em neo4j.ts - método updateRelation
+async updateRelation(id: number, sourceId: number, targetId: number, type: string, properties: any = {}): Promise<IRelation> {
+  // ... validações ...
+  
+  const session = this.driver.session();
+  try {
+    // Primeiro, excluímos o relacionamento existente
+    await session.run(`
+      MATCH ()-[r]->()
+      WHERE id(r) = $id
+      DELETE r
+    `, { id });
+
+    // Em seguida, criamos um novo relacionamento com os dados atualizados
+    // ... resto do código ...
+  } 
+  // ... tratamento de erros ...
+}
+```
+
+#### Exclusão
+A exclusão é direta no Neo4j:
+
+```typescript
+// Em neo4j.ts - método deleteRelation
+async deleteRelation(id: number | string): Promise<boolean> {
+  // ... verificações ...
+  
+  try {
+    // Verificar existência do relacionamento
+    let findResult = await session.run(`
+      MATCH ()-[r]->()
+      WHERE toString(id(r)) = $id
+      RETURN r
+    `, { id: originalId });
+    
+    if (findResult.records.length > 0) {
+      // Exclusão direta no Neo4j
+      const result = await session.run(`
+        MATCH ()-[r]->()
+        WHERE toString(id(r)) = $id
+        DELETE r
+        RETURN count(r) as count
+      `, { id: originalId });
+      
+      // ... processamento do resultado ...
+    }
+  }
+  // ... tratamento de erros ...
+}
+```
+
+### Recuperação de Dados de Componentes
+
+Os dados dos componentes associados aos relacionamentos (origem e destino) são recuperados diretamente do Neo4j, sem consultar o MariaDB. Isso garante consistência e performance adequada na página de Gerenciamento de Relacionamentos.
+
+```typescript
+// No resolver de relacionamentos
+source: t.field({
+  type: 'Component',
+  nullable: true,
+  resolve: async (relation) => {
+    // Buscar informações do componente diretamente do Neo4j
+    try {
+      const result = await neo4jClient.run(`
+        MATCH (c:Component {id: $id})
+        RETURN c.id as id, c.name as name, c.status as status, c.description as description
+      `, { id: relation.sourceId });
+
+      if (result.records && result.records.length > 0) {
+        const record = result.records[0];
+        return {
+          id: typeof record.get('id') === 'number' ? record.get('id') : parseInt(record.get('id')),
+          name: record.get('name'),
+          status: record.get('status'),
+          description: record.get('description') || ''
+        };
+      }
+      return null;
+    } catch (error) {
+      logger.error(`Erro ao buscar componente (ID: ${relation.sourceId}) no Neo4j:`, error);
+      return null;
+    }
+  },
+}),
+```
+
 ## Exemplos Completos
 
 ### Criação de Relacionamento
@@ -271,4 +384,4 @@ async function createSecureRelation(sourceId: number, targetId: number, type: st
 
 ## Conclusão
 
-A correta implementação destes requisitos garante que o grafo de relacionamentos no Neo4j permaneça consistente, significativo e otimizado para consultas. Seguindo estas diretrizes, os desenvolvedores podem estender o sistema mantendo a integridade dos dados e o desempenho das operações. 
+A correta implementação destes requisitos garante que o grafo de relacionamentos no Neo4j permaneça consistente, significativo e otimizado para consultas. A arquitetura do sistema Beaver mantém os relacionamentos exclusivamente no Neo4j, sem referência no MariaDB, permitindo uma clara separação de responsabilidades entre os bancos de dados e facilitando a manutenção do sistema. 

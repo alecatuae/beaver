@@ -1,62 +1,33 @@
-# Fluxo de Criação de Relacionamentos no Beaver
-
-Este documento detalha o fluxo completo de dados para a criação de relacionamentos entre componentes no sistema Beaver.
+# Fluxo de Criação de Relacionamento
 
 ## Visão Geral
 
-O processo de criação de relacionamentos envolve múltiplas camadas do sistema:
-
-1. **Interface do Usuário**: Onde o usuário preenche um formulário com os dados do relacionamento
-2. **Comunicação GraphQL**: Que transmite os dados para o backend através da mutação `CREATE_RELATION`
-3. **Backend (API)**: Onde o resolver processa a requisição e realiza as operações necessárias
-4. **Banco de Dados**: Onde o relacionamento é persistido no Neo4j
-
-## Fluxograma
+Este documento descreve o fluxo completo de dados para criação de relacionamentos entre componentes no sistema Beaver, desde a interface do usuário até a persistência no banco de dados Neo4j.
 
 ```mermaid
-sequenceDiagram
-    participant User as Usuário
-    participant UI as Next.js UI
-    participant API as Apollo Server
-    participant MariaDB
-    participant Neo4j
-
-    User->>UI: Preenche formulário de relacionamento
-    UI->>API: Envia mutação CREATE_RELATION
-    API->>MariaDB: Verifica existência dos componentes
-    MariaDB-->>API: Retorna dados dos componentes
-    API->>Neo4j: Verifica existência dos componentes
-    
-    alt Componentes não existem no Neo4j
-        API->>MariaDB: Busca dados completos dos componentes
-        MariaDB-->>API: Retorna detalhes dos componentes
-        API->>Neo4j: Sincroniza componentes faltantes
-    end
-    
-    API->>Neo4j: Cria relacionamento
-    Neo4j-->>API: Retorna dados do relacionamento criado
-    API-->>UI: Retorna dados do relacionamento
-    UI-->>User: Exibe confirmação de sucesso
+flowchart TD
+    A[Interface Usuário] -->|Preenche formulário| B[Formulário Relacionamento]
+    B -->|Envia dados| C[GraphQL Mutation]
+    C -->|Processa| D[Resolver Backend]
+    D -->|Verifica componentes no Neo4j| E{Componentes existem?}
+    E -->|Não| F[Erro - Componentes não encontrados]
+    E -->|Sim| G[Criar Relacionamento no Neo4j]
+    G -->|Retorna| H[Dados do Relacionamento]
+    H -->|Atualiza UI| A
 ```
 
-## Detalhamento das Etapas
+## Interface do Usuário
 
-### 1. Interface do Usuário
+No frontend, o usuário preenche um formulário com os seguintes campos:
 
-Na interface, o usuário utiliza um formulário para criar o relacionamento, onde preenche:
+1. **Componente de origem** (obrigatório): Componente que será a origem do relacionamento.
+2. **Componente de destino** (obrigatório): Componente que será o destino do relacionamento.
+3. **Tipo de relacionamento** (obrigatório): O tipo de relacionamento entre os componentes.
+4. **Descrição** (opcional): Uma descrição textual do relacionamento.
 
-- **Componente de Origem**: O componente que será a origem do relacionamento
-- **Componente de Destino**: O componente que será o destino do relacionamento
-- **Tipo de Relacionamento**: A natureza da relação entre os componentes (ex: DEPENDS_ON, CONNECTS_TO)
-- **Descrição**: Explicação opcional sobre o relacionamento
+## Comunicação GraphQL
 
-O formulário realiza validações básicas:
-- Verifica se todos os campos obrigatórios foram preenchidos
-- Garante que origem e destino não são o mesmo componente
-
-### 2. Comunicação GraphQL
-
-Quando o usuário submete o formulário, o frontend envia uma mutação GraphQL `CREATE_RELATION` para a API:
+Após o preenchimento do formulário, a aplicação envia uma mutation GraphQL para o servidor:
 
 ```graphql
 mutation CreateRelation($input: RelationInput!) {
@@ -66,12 +37,6 @@ mutation CreateRelation($input: RelationInput!) {
     targetId
     type
     properties
-    source {
-      name
-    }
-    target {
-      name
-    }
     createdAt
     updatedAt
   }
@@ -79,123 +44,162 @@ mutation CreateRelation($input: RelationInput!) {
 ```
 
 Onde `RelationInput` contém:
+
 ```graphql
 {
-  sourceId: number;
-  targetId: number;
-  type: string;
-  properties: {
-    description: string;
-  }
+  sourceId: Int!
+  targetId: Int!
+  type: String!
+  properties: JSON
 }
 ```
 
-### 3. Backend Processing
+## Processamento Backend
 
-O resolver `createRelation` no backend processa a requisição através dos seguintes passos:
+### 1. Resolver GraphQL
 
-1. **Verificação de Componentes no MariaDB**:
-   - Busca os componentes de origem e destino no banco de dados principal (MariaDB)
-   - Verifica se ambos existem e são ativos
+No backend, o resolver `createRelation` processa a requisição:
 
-2. **Verificação de Componentes no Neo4j**:
-   - Verifica se os componentes de origem e destino existem no Neo4j usando a query Cypher:
-   ```cypher
-   MATCH (source:Component {id: $sourceId})
-   MATCH (target:Component {id: $targetId})
-   RETURN count(source) > 0 AND count(target) > 0 as exist
-   ```
-   - Se o resultado for `false`, identifica quais componentes específicos estão faltando:
-     ```cypher
-     MATCH (source:Component {id: $sourceId})
-     RETURN count(source) > 0 as exist
-     ```
-     ```cypher
-     MATCH (target:Component {id: $targetId})
-     RETURN count(target) > 0 as exist
-     ```
-   - Para os componentes não encontrados no Neo4j, busca seus dados completos no MariaDB:
-     ```sql
-     SELECT id, name, description 
-     FROM Component 
-     WHERE id IN ($sourceId, $targetId)
-     ```
-   - Cria os componentes faltantes no Neo4j usando MERGE para evitar duplicação:
-     ```cypher
-     MERGE (c:Component {id: $id})
-     ON CREATE SET 
-       c.name = $name,
-       c.description = $description,
-       c.valid_from = datetime(),
-       c.valid_to = datetime('9999-12-31T23:59:59Z')
-     RETURN c
-     ```
-   - Registra no log todas as etapas da sincronização
+```typescript
+// Mutation para criar um novo relacionamento
+builder.mutationField('createRelation', (t) =>
+  t.field({
+    type: RelationType,
+    args: {
+      input: t.arg({
+        type: 'RelationInput',
+        required: true,
+      }),
+    },
+    resolve: async (_, { input }) => {
+      try {
+        logger.info(`Iniciando criação de relacionamento: ${input.sourceId} -> ${input.targetId}`);
+        
+        // Verificar se os componentes existem no Neo4j
+        const componentsExist = await neo4jClient.run(`
+          MATCH (source:Component {id: $sourceId})
+          MATCH (target:Component {id: $targetId})
+          RETURN count(source) > 0 AS sourceExists, count(target) > 0 AS targetExists
+        `, { sourceId: input.sourceId, targetId: input.targetId });
+        
+        const sourceExists = componentsExist.records[0]?.get('sourceExists');
+        const targetExists = componentsExist.records[0]?.get('targetExists');
+        
+        // Se algum componente não existir no Neo4j, lançar erro
+        if (!sourceExists || !targetExists) {
+          logger.error(`Componentes não encontrados no Neo4j. SourceId: ${input.sourceId} existe: ${sourceExists}, TargetId: ${input.targetId} existe: ${targetExists}`);
+          
+          // Construir mensagem de erro detalhada
+          const errorMsg = [];
+          if (!sourceExists) errorMsg.push(`Componente de origem (ID: ${input.sourceId}) não existe no Neo4j`);
+          if (!targetExists) errorMsg.push(`Componente de destino (ID: ${input.targetId}) não existe no Neo4j`);
+          
+          // Sugerir executar script de sincronização
+          throw new Error(`${errorMsg.join('. ')}. Execute o script de sincronização para corrigir.`);
+        }
+        
+        // Criar relacionamento no Neo4j
+        const result = await neo4jClient.createRelation(
+          input.sourceId,
+          input.targetId,
+          input.type,
+          input.properties || {}
+        );
+        
+        logger.info(`Relacionamento criado com sucesso: ${input.sourceId} -> ${input.targetId}`);
+        return result;
+      } catch (error) {
+        logger.error(`Erro ao criar relacionamento:`, error);
+        throw error;
+      }
+    },
+  })
+);
+```
 
-3. **Criação do Relacionamento**:
-   - Após garantir que ambos os componentes existem no Neo4j, cria o relacionamento:
-   ```cypher
-   MATCH (source:Component {id: $sourceId})
-   MATCH (target:Component {id: $targetId})
-   CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
-   RETURN r
-   ```
+### 2. Verificação de Componentes no Neo4j
 
-4. **Retorno dos Dados**:
-   - Converte os dados retornados pelo Neo4j em um objeto compatível com GraphQL
-   - Retorna o objeto para o frontend
+Um passo crítico no processo é a verificação de que ambos os componentes (origem e destino) existem no Neo4j antes de criar o relacionamento. O sistema:
+
+1. Executa uma consulta Cypher para verificar se os componentes existem no Neo4j
+2. Se qualquer um dos componentes não existir:
+   - Registra um erro detalhado no log
+   - Constrói uma mensagem de erro específica
+   - Recomenda a execução do script de sincronização
+   - Lança uma exceção, interrompendo o processo
+
+Este passo de verificação é essencial para manter a integridade referencial no banco de dados de grafos, prevenindo a criação de relacionamentos "órfãos" (que apontam para componentes inexistentes).
+
+### 3. Criação do Relacionamento no Neo4j
+
+Se ambos os componentes existirem, o sistema procede com a criação do relacionamento:
+
+```typescript
+// No cliente Neo4j (neo4jClient.createRelation)
+const session = this.driver.session();
+try {
+  // Criar relacionamento
+  const result = await session.run(`
+    MATCH (source:Component {id: $sourceId})
+    MATCH (target:Component {id: $targetId})
+    CREATE (source)-[r:${this.normalizeRelationType(type)} $props]->(target)
+    SET r.id = randomUUID(),
+        r.createdAt = datetime(),
+        r.updatedAt = datetime()
+    RETURN r.id AS id, $sourceId AS sourceId, $targetId AS targetId, type(r) AS type, r.createdAt as createdAt, r.updatedAt as updatedAt, $props as properties
+  `, {
+    sourceId,
+    targetId,
+    props: properties || {}
+  });
+  
+  // Extrair e retornar dados do relacionamento criado
+  const record = result.records[0];
+  return {
+    id: record.get('id'),
+    sourceId: parseInt(record.get('sourceId')),
+    targetId: parseInt(record.get('targetId')),
+    type: record.get('type'),
+    properties: record.get('properties'),
+    createdAt: new Date(record.get('createdAt')),
+    updatedAt: new Date(record.get('updatedAt')),
+  };
+} finally {
+  await session.close();
+}
+```
 
 ### 4. Tipos de Relacionamentos Suportados
 
-O sistema suporta diversos tipos de relacionamentos entre componentes:
+Os tipos de relacionamentos suportados pelo sistema incluem:
 
-| Tipo              | Descrição                                             |
-|-------------------|-------------------------------------------------------|
-| CONNECTS_TO       | Indica que um componente se conecta a outro           |
-| DEPENDS_ON        | Indica que um componente depende de outro             |
-| PROVIDES_DATA_TO  | Indica que um componente fornece dados para outro     |
-| CONSUMES_DATA_FROM| Indica que um componente consome dados de outro       |
-| CALLS             | Indica que um componente chama outro                  |
-| EXTENDS           | Indica que um componente estende outro                |
-| IMPLEMENTS        | Indica que um componente implementa outro             |
-| PROTECTS          | Indica que um componente protege outro                |
-| MONITORS          | Indica que um componente monitora outro               |
-| STORES_DATA_IN    | Indica que um componente armazena dados em outro      |
+- `DEPENDS_ON`: Indica que um componente depende de outro
+- `COMMUNICATES_WITH`: Indica comunicação entre componentes
+- `PART_OF`: Indica que um componente é parte de outro
+- `IMPLEMENTS`: Indica que um componente implementa outro
+- `EXTENDS`: Indica que um componente estende outro
 
-## Sincronização entre MariaDB e Neo4j
+## Resposta para o Frontend
 
-Para garantir a integridade referencial e que todos os componentes estejam corretamente sincronizados entre o banco de dados principal (MariaDB) e o banco de grafos (Neo4j), o sistema implementa:
+Após a criação do relacionamento, os dados completos são enviados de volta para o frontend, incluindo:
 
-1. **Verificação Automática**: Durante a criação e atualização de relacionamentos, o sistema executa uma verificação em duas etapas:
-   - Primeiro verifica se os componentes existem no MariaDB (fonte principal)
-   - Em seguida, verifica se os mesmos componentes existem no Neo4j
+- ID único do relacionamento
+- IDs dos componentes de origem e destino
+- Tipo de relacionamento
+- Propriedades adicionais
+- Timestamps de criação e atualização
 
-2. **Sincronização sob Demanda**: O fluxo de sincronização é acionado automaticamente quando:
-   - Um componente existe no MariaDB mas não no Neo4j
-   - O sistema precisa identificar qual componente específico está faltando (origem, destino ou ambos)
-   - Os dados completos dos componentes faltantes são recuperados do MariaDB
-   - Os componentes são criados no Neo4j com todos os atributos necessários
+## Tratamento de Erros
 
-3. **Scripts de Manutenção**: Além da sincronização automática durante o fluxo de criação, existem scripts auxiliares para:
-   - `sync-components.ts`: Sincroniza todos os componentes do MariaDB para o Neo4j
-   - `fix-relationships.ts`: Identifica e corrige relacionamentos problemáticos no Neo4j, como:
-     - Relacionamentos órfãos (onde origem ou destino não existem)
-     - Componentes isolados (sem relacionamentos)
-     - Relacionamentos com IDs específicos que possam estar causando problemas
+Se ocorrer qualquer erro durante o processo, a mensagem detalhada é enviada para o frontend, permitindo que o usuário tome ações corretivas, como:
 
-## Manuseio de Erros
+1. Escolher componentes diferentes
+2. Executar o script de sincronização de componentes para garantir que todos os componentes existem no Neo4j
+3. Verificar a consistência de dados entre MariaDB e Neo4j
 
-O sistema implementa tratamento de erros em múltiplos níveis:
+## Considerações Adicionais
 
-1. **Validação no Frontend**:
-   - Campos obrigatórios não preenchidos
-   - Seleção do mesmo componente como origem e destino
-
-2. **Validação no Backend**:
-   - Componentes inexistentes no MariaDB
-   - Falha ao criar relacionamento no Neo4j
-   - Falha ao sincronizar componentes entre bancos
-
-3. **Feedback ao Usuário**:
-   - Mensagens claras sobre erros ocorridos
-   - Log detalhado de operações para troubleshooting 
+- O servidor mantém registros detalhados (logs) de todas as operações relacionadas à criação de relacionamentos
+- Todos os erros são registrados com detalhes suficientes para depuração
+- A verificação de componentes antes da criação do relacionamento é essencial para manter a integridade dos dados
+- Script de sincronização (`fix-relationships.ts`) está disponível para corrigir inconsistências entre MariaDB e Neo4j 

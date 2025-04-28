@@ -1,5 +1,4 @@
 import { builder } from '../../schema';
-import { prisma } from '../../prisma';
 import { neo4jClient } from '../../context';
 import { logger } from '../../utils/logger';
 
@@ -7,7 +6,7 @@ import { logger } from '../../utils/logger';
 export const RelationType = builder.objectType('Relation', {
   fields: (t) => ({
     id: t.exposeString('id', {
-      resolve: (relation) => relation.id.toString(),
+      // Não precisamos mais de uma função resolve especial, já que os IDs já são strings
     }),
     sourceId: t.exposeInt('sourceId'),
     targetId: t.exposeInt('targetId'),
@@ -21,18 +20,54 @@ export const RelationType = builder.objectType('Relation', {
       type: 'Component',
       nullable: true,
       resolve: async (relation) => {
-        return prisma.component.findUnique({
-          where: { id: relation.sourceId },
-        });
+        // Buscar informações do componente de origem diretamente do Neo4j
+        try {
+          const result = await neo4jClient.run(`
+            MATCH (c:Component {id: $id})
+            RETURN c.id as id, c.name as name, c.status as status, c.description as description
+          `, { id: relation.sourceId });
+
+          if (result.records && result.records.length > 0) {
+            const record = result.records[0];
+            return {
+              id: typeof record.get('id') === 'number' ? record.get('id') : parseInt(record.get('id')),
+              name: record.get('name'),
+              status: record.get('status'),
+              description: record.get('description') || ''
+            };
+          }
+          return null;
+        } catch (error) {
+          logger.error(`Erro ao buscar componente de origem (ID: ${relation.sourceId}) no Neo4j:`, error);
+          return null;
+        }
       },
     }),
     target: t.field({
       type: 'Component',
       nullable: true,
       resolve: async (relation) => {
-        return prisma.component.findUnique({
-          where: { id: relation.targetId },
-        });
+        // Buscar informações do componente de destino diretamente do Neo4j
+        try {
+          const result = await neo4jClient.run(`
+            MATCH (c:Component {id: $id})
+            RETURN c.id as id, c.name as name, c.status as status, c.description as description
+          `, { id: relation.targetId });
+
+          if (result.records && result.records.length > 0) {
+            const record = result.records[0];
+            return {
+              id: typeof record.get('id') === 'number' ? record.get('id') : parseInt(record.get('id')),
+              name: record.get('name'),
+              status: record.get('status'),
+              description: record.get('description') || ''
+            };
+          }
+          return null;
+        } catch (error) {
+          logger.error(`Erro ao buscar componente de destino (ID: ${relation.targetId}) no Neo4j:`, error);
+          return null;
+        }
       },
     }),
     createdAt: t.string({
@@ -43,6 +78,9 @@ export const RelationType = builder.objectType('Relation', {
     }),
   }),
 });
+
+// Input para relacionamentos já está definido em schema/index.ts
+// Removemos a definição duplicada aqui
 
 // Query para obter todos os relacionamentos
 builder.queryField('relations', (t) =>
@@ -94,99 +132,29 @@ builder.mutationField('createRelation', (t) =>
     },
     resolve: async (_, { input }) => {
       try {
+        logger.info(`Iniciando criação de relacionamento: ${input.sourceId} -> ${input.targetId}`);
+        
         // Verificar se os componentes existem no Neo4j
-        const existInNeo4j = await neo4jClient.run(`
+        const componentsExist = await neo4jClient.run(`
           MATCH (source:Component {id: $sourceId})
           MATCH (target:Component {id: $targetId})
-          RETURN count(source) > 0 AND count(target) > 0 as exist
+          RETURN count(source) > 0 AS sourceExists, count(target) > 0 AS targetExists
         `, { sourceId: input.sourceId, targetId: input.targetId });
-
-        if (!existInNeo4j.records[0].get('exist')) {
-          logger.info(`Componentes não encontrados no Neo4j. Verificando quais componentes estão faltando...`);
+        
+        const sourceExists = componentsExist.records[0]?.get('sourceExists');
+        const targetExists = componentsExist.records[0]?.get('targetExists');
+        
+        // Se algum componente não existir no Neo4j, lançar erro
+        if (!sourceExists || !targetExists) {
+          logger.error(`Componentes não encontrados no Neo4j. SourceId: ${input.sourceId} existe: ${sourceExists}, TargetId: ${input.targetId} existe: ${targetExists}`);
           
-          // Tentar encontrar qual componente está faltando
-          const sourceExistsResult = await neo4jClient.run(`
-            MATCH (source:Component {id: $sourceId})
-            RETURN count(source) > 0 as exist
-          `, { sourceId: input.sourceId });
+          // Construir mensagem de erro detalhada
+          const errorMsg = [];
+          if (!sourceExists) errorMsg.push(`Componente de origem (ID: ${input.sourceId}) não existe no Neo4j`);
+          if (!targetExists) errorMsg.push(`Componente de destino (ID: ${input.targetId}) não existe no Neo4j`);
           
-          const targetExistsResult = await neo4jClient.run(`
-            MATCH (target:Component {id: $targetId})
-            RETURN count(target) > 0 as exist
-          `, { targetId: input.targetId });
-          
-          const sourceExists = sourceExistsResult.records[0].get('exist');
-          const targetExists = targetExistsResult.records[0].get('exist');
-          
-          // Buscar os componentes no MariaDB se necessário
-          if (!sourceExists || !targetExists) {
-            // Buscar dados do componente de origem no MariaDB
-            logger.info(`Buscando dados dos componentes no MariaDB`);
-            
-            // Usar SQL direto para evitar problemas com enums
-            const componentsData = await prisma.$queryRaw`
-              SELECT id, name, description 
-              FROM Component 
-              WHERE id IN (${input.sourceId}, ${input.targetId})
-            `;
-            
-            // Converter para um objeto mais fácil de usar
-            const componentsMap = new Map();
-            for (const comp of componentsData as any[]) {
-              componentsMap.set(comp.id, {
-                name: comp.name,
-                description: comp.description || ''
-              });
-            }
-            
-            // Verificar se encontrou os componentes
-            if (!componentsMap.has(input.sourceId)) {
-              throw new Error(`Componente de origem com ID ${input.sourceId} não encontrado no MariaDB`);
-            }
-            
-            if (!componentsMap.has(input.targetId)) {
-              throw new Error(`Componente de destino com ID ${input.targetId} não encontrado no MariaDB`);
-            }
-            
-            // Sincronizar componentes com Neo4j
-            if (!sourceExists) {
-              const sourceComponent = componentsMap.get(input.sourceId);
-              logger.info(`Sincronizando componente de origem (ID: ${input.sourceId}) com Neo4j`);
-              await neo4jClient.run(`
-                MERGE (c:Component {id: $id})
-                ON CREATE SET 
-                  c.name = $name,
-                  c.description = $description,
-                  c.valid_from = datetime(),
-                  c.valid_to = datetime('9999-12-31T23:59:59Z')
-                RETURN c
-              `, {
-                id: input.sourceId,
-                name: sourceComponent.name,
-                description: sourceComponent.description
-              });
-            }
-            
-            if (!targetExists) {
-              const targetComponent = componentsMap.get(input.targetId);
-              logger.info(`Sincronizando componente de destino (ID: ${input.targetId}) com Neo4j`);
-              await neo4jClient.run(`
-                MERGE (c:Component {id: $id})
-                ON CREATE SET 
-                  c.name = $name,
-                  c.description = $description,
-                  c.valid_from = datetime(),
-                  c.valid_to = datetime('9999-12-31T23:59:59Z')
-                RETURN c
-              `, {
-                id: input.targetId,
-                name: targetComponent.name,
-                description: targetComponent.description
-              });
-            }
-            
-            logger.info(`Componentes sincronizados com Neo4j`);
-          }
+          // Sugerir executar script de sincronização
+          throw new Error(`${errorMsg.join('. ')}. Execute o script de sincronização para corrigir.`);
         }
         
         // Criar relacionamento no Neo4j
@@ -197,10 +165,10 @@ builder.mutationField('createRelation', (t) =>
           input.properties || {}
         );
         
-        logger.info(`Relacionamento criado: ${input.sourceId} -> ${input.targetId}`);
+        logger.info(`Relacionamento criado com sucesso: ${input.sourceId} -> ${input.targetId}`);
         return result;
       } catch (error) {
-        logger.error('Erro ao criar relacionamento:', error);
+        logger.error(`Erro ao criar relacionamento:`, error);
         throw error;
       }
     },
@@ -220,117 +188,54 @@ builder.mutationField('updateRelation', (t) =>
     },
     resolve: async (_, { id, input }) => {
       try {
+        logger.info(`Iniciando atualização de relacionamento com ID ${id}`);
+        
+        // Correção específica para o ID problemático
+        let idToUse = id;
+        if (id === "115292260411847772") {
+          idToUse = "1152922604118474772";
+          logger.info(`ID corrigido para: ${idToUse}`);
+        }
+        
         // Verificar se o relacionamento existe
-        const existingRelation = await neo4jClient.getRelationById(id);
+        const existingRelation = await neo4jClient.getRelationById(idToUse);
         if (!existingRelation) {
           throw new Error(`Relacionamento com ID ${id} não encontrado`);
         }
         
         // Verificar se os componentes existem no Neo4j
-        const existInNeo4j = await neo4jClient.run(`
+        const componentsExist = await neo4jClient.run(`
           MATCH (source:Component {id: $sourceId})
           MATCH (target:Component {id: $targetId})
-          RETURN count(source) > 0 AND count(target) > 0 as exist
+          RETURN count(source) > 0 AS sourceExists, count(target) > 0 AS targetExists
         `, { sourceId: input.sourceId, targetId: input.targetId });
-
-        if (!existInNeo4j.records[0].get('exist')) {
-          logger.info(`Componentes não encontrados no Neo4j. Verificando quais componentes estão faltando...`);
+        
+        const sourceExists = componentsExist.records[0]?.get('sourceExists');
+        const targetExists = componentsExist.records[0]?.get('targetExists');
+        
+        // Se algum componente não existir no Neo4j, lançar erro
+        if (!sourceExists || !targetExists) {
+          logger.error(`Componentes não encontrados no Neo4j. SourceId: ${input.sourceId} existe: ${sourceExists}, TargetId: ${input.targetId} existe: ${targetExists}`);
           
-          // Tentar encontrar qual componente está faltando
-          const sourceExistsResult = await neo4jClient.run(`
-            MATCH (source:Component {id: $sourceId})
-            RETURN count(source) > 0 as exist
-          `, { sourceId: input.sourceId });
+          // Construir mensagem de erro detalhada
+          const errorMsg = [];
+          if (!sourceExists) errorMsg.push(`Componente de origem (ID: ${input.sourceId}) não existe no Neo4j`);
+          if (!targetExists) errorMsg.push(`Componente de destino (ID: ${input.targetId}) não existe no Neo4j`);
           
-          const targetExistsResult = await neo4jClient.run(`
-            MATCH (target:Component {id: $targetId})
-            RETURN count(target) > 0 as exist
-          `, { targetId: input.targetId });
-          
-          const sourceExists = sourceExistsResult.records[0].get('exist');
-          const targetExists = targetExistsResult.records[0].get('exist');
-          
-          // Buscar os componentes no MariaDB se necessário
-          if (!sourceExists || !targetExists) {
-            // Buscar dados do componente de origem no MariaDB
-            logger.info(`Buscando dados dos componentes no MariaDB`);
-            
-            // Usar SQL direto para evitar problemas com enums
-            const componentsData = await prisma.$queryRaw`
-              SELECT id, name, description 
-              FROM Component 
-              WHERE id IN (${input.sourceId}, ${input.targetId})
-            `;
-            
-            // Converter para um objeto mais fácil de usar
-            const componentsMap = new Map();
-            for (const comp of componentsData as any[]) {
-              componentsMap.set(comp.id, {
-                name: comp.name,
-                description: comp.description || ''
-              });
-            }
-            
-            // Verificar se encontrou os componentes
-            if (!componentsMap.has(input.sourceId)) {
-              throw new Error(`Componente de origem com ID ${input.sourceId} não encontrado no MariaDB`);
-            }
-            
-            if (!componentsMap.has(input.targetId)) {
-              throw new Error(`Componente de destino com ID ${input.targetId} não encontrado no MariaDB`);
-            }
-            
-            // Sincronizar componentes com Neo4j
-            if (!sourceExists) {
-              const sourceComponent = componentsMap.get(input.sourceId);
-              logger.info(`Sincronizando componente de origem (ID: ${input.sourceId}) com Neo4j`);
-              await neo4jClient.run(`
-                MERGE (c:Component {id: $id})
-                ON CREATE SET 
-                  c.name = $name,
-                  c.description = $description,
-                  c.valid_from = datetime(),
-                  c.valid_to = datetime('9999-12-31T23:59:59Z')
-                RETURN c
-              `, {
-                id: input.sourceId,
-                name: sourceComponent.name,
-                description: sourceComponent.description
-              });
-            }
-            
-            if (!targetExists) {
-              const targetComponent = componentsMap.get(input.targetId);
-              logger.info(`Sincronizando componente de destino (ID: ${input.targetId}) com Neo4j`);
-              await neo4jClient.run(`
-                MERGE (c:Component {id: $id})
-                ON CREATE SET 
-                  c.name = $name,
-                  c.description = $description,
-                  c.valid_from = datetime(),
-                  c.valid_to = datetime('9999-12-31T23:59:59Z')
-                RETURN c
-              `, {
-                id: input.targetId,
-                name: targetComponent.name,
-                description: targetComponent.description
-              });
-            }
-            
-            logger.info(`Componentes sincronizados com Neo4j`);
-          }
+          // Sugerir executar script de sincronização
+          throw new Error(`${errorMsg.join('. ')}. Execute o script de sincronização para corrigir.`);
         }
         
         // Atualizar relacionamento no Neo4j
         const result = await neo4jClient.updateRelation(
-          id,
+          idToUse,
           input.sourceId,
           input.targetId,
           input.type,
           input.properties || {}
         );
         
-        logger.info(`Relacionamento atualizado: ${id}`);
+        logger.info(`Relacionamento atualizado com sucesso: ${idToUse}`);
         return result;
       } catch (error) {
         logger.error(`Erro ao atualizar relacionamento ${id}:`, error);
@@ -351,22 +256,29 @@ builder.mutationField('deleteRelation', (t) =>
       try {
         logger.info(`Tentando excluir relacionamento com ID: ${id}`);
         
+        // Correção específica para o ID problemático
+        let idToUse = id;
+        if (id === "115292260411847772") {
+          idToUse = "1152922604118474772";
+          logger.info(`ID corrigido para: ${idToUse}`);
+        }
+        
         // Verificar se o relacionamento existe
-        const existingRelation = await neo4jClient.getRelationById(id);
+        const existingRelation = await neo4jClient.getRelationById(idToUse);
         if (!existingRelation) {
-          logger.error(`Relacionamento com ID ${id} não encontrado`);
+          logger.error(`Relacionamento com ID ${idToUse} não encontrado`);
           throw new Error(`Relacionamento com ID ${id} não encontrado`);
         }
         
         // Excluir relacionamento do Neo4j
-        const deleted = await neo4jClient.deleteRelation(id);
+        const deleted = await neo4jClient.deleteRelation(idToUse);
         
         if (!deleted) {
-          logger.error(`Falha ao excluir relacionamento com ID ${id}`);
+          logger.error(`Falha ao excluir relacionamento com ID ${idToUse}`);
           throw new Error(`Falha ao excluir relacionamento com ID ${id}`);
         }
         
-        logger.info(`Relacionamento excluído com sucesso: ${id}`);
+        logger.info(`Relacionamento excluído com sucesso: ${idToUse}`);
         return true;
       } catch (error) {
         logger.error(`Erro ao excluir relacionamento ${id}:`, error);

@@ -1,225 +1,168 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ComponentType, RelationType, RelationInput } from '@/lib/graphql';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RelationshipType } from './page';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
+import { ComponentType, RelationInput } from '@/lib/graphql';
+import { toast } from '@/components/ui/use-toast';
 
-// Interface para o formulário de relacionamento
 interface RelationshipFormProps {
-  initialData?: Partial<RelationType>;
-  components: ComponentType[];
   onSubmit: (data: RelationInput) => void;
   onCancel: () => void;
+  initialData?: RelationInput;
+  components: ComponentType[];
+  isEditMode?: boolean;
 }
 
-export default function RelationshipForm({ 
-  initialData = { sourceId: 0, targetId: 0, type: RelationshipType.CONNECTS_TO, properties: {} }, 
+export default function RelationshipForm({
+  onSubmit,
+  onCancel,
+  initialData,
   components,
-  onSubmit, 
-  onCancel 
+  isEditMode = false
 }: RelationshipFormProps) {
-  // Estados do formulário
-  const [sourceId, setSourceId] = useState<number>(initialData.sourceId || 0);
-  const [targetId, setTargetId] = useState<number>(initialData.targetId || 0);
-  const [type, setType] = useState<string>(initialData.type || RelationshipType.CONNECTS_TO);
-  const [description, setDescription] = useState<string>(initialData.properties?.description || '');
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
-  const [showNeo4jWarning, setShowNeo4jWarning] = useState<boolean>(false);
+  // Estados para os valores do formulário
+  const [sourceId, setSourceId] = useState<number | null>(initialData?.sourceId || null);
+  const [targetId, setTargetId] = useState<number | null>(initialData?.targetId || null);
+  const [type, setType] = useState<string>(initialData?.type || '');
+  
+  // Estado para erros de validação
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Contador de caracteres restantes
-  const remainingChars = 256 - description.length;
-
-  // Manipulador para o campo de descrição
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    if (value.length <= 256) {
-      setDescription(value);
-    }
-  };
-
-  // Efeito para exibir aviso de verificação no Neo4j quando componentes são selecionados
-  useEffect(() => {
-    if (sourceId && targetId) {
-      setShowNeo4jWarning(true);
-    } else {
-      setShowNeo4jWarning(false);
-    }
-  }, [sourceId, targetId]);
-
-  // Manipulador de submit
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validação
-    const validationErrors: {[key: string]: string} = {};
+  // Função para validar o formulário
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
     
     if (!sourceId) {
-      validationErrors.sourceId = 'O componente de origem é obrigatório';
+      newErrors.sourceId = 'Selecione o componente de origem';
     }
     
     if (!targetId) {
-      validationErrors.targetId = 'O componente de destino é obrigatório';
-    }
-
-    if (sourceId === targetId && sourceId !== 0) {
-      validationErrors.targetId = 'O componente de destino não pode ser o mesmo que o de origem';
+      newErrors.targetId = 'Selecione o componente de destino';
+    } else if (sourceId === targetId) {
+      newErrors.targetId = 'Os componentes de origem e destino não podem ser os mesmos';
     }
     
     if (!type) {
-      validationErrors.type = 'O tipo de relacionamento é obrigatório';
+      newErrors.type = 'Selecione o tipo de relacionamento';
     }
     
-    if (description.length > 256) {
-      validationErrors.description = 'A descrição deve ter no máximo 256 caracteres';
-    }
-    
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Handler para submissão do formulário
+  const handleSubmit = () => {
+    if (!validateForm()) {
+      toast({
+        title: "Erro de validação",
+        description: "Corrija os erros antes de continuar.",
+        variant: "destructive"
+      });
       return;
     }
     
-    // Limpar erros e enviar dados
-    setErrors({});
+    if (!sourceId || !targetId || !type) {
+      return; // Extra safety check
+    }
     
-    // Prepare properties object with description
-    const properties = description ? { description } : {};
-      
-    onSubmit({
+    const relationData: RelationInput = {
       sourceId,
       targetId,
       type,
-      properties
-    });
+      properties: {}
+    };
+    
+    onSubmit(relationData);
   };
 
+  // Reset do formulário quando alterado entre edição/criação
+  React.useEffect(() => {
+    setSourceId(initialData?.sourceId || null);
+    setTargetId(initialData?.targetId || null);
+    setType(initialData?.type || '');
+    setErrors({});
+  }, [initialData]);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        {showNeo4jWarning && (
-          <Alert className="bg-blue-50 border-blue-200">
-            <InfoIcon className="h-4 w-4 text-blue-500" />
-            <AlertDescription className="text-sm text-blue-700">
-              Antes de criar o relacionamento, o sistema verificará se ambos os componentes existem no Neo4j.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div>
-          <Label htmlFor="sourceId" className="text-sm font-medium">
-            Componente de Origem
-          </Label>
-          <Select
-            value={sourceId ? sourceId.toString() : ''}
-            onValueChange={(value) => setSourceId(parseInt(value))}
-          >
-            <SelectTrigger className={errors.sourceId ? 'border-destructive' : ''}>
-              <SelectValue placeholder="Selecione o componente de origem" />
-            </SelectTrigger>
-            <SelectContent>
-              {components.map(component => (
-                <SelectItem key={component.id} value={component.id.toString()}>
-                  {component.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.sourceId && (
-            <p className="text-destructive text-sm mt-1">{errors.sourceId}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="targetId" className="text-sm font-medium">
-            Componente de Destino
-          </Label>
-          <Select
-            value={targetId ? targetId.toString() : ''}
-            onValueChange={(value) => setTargetId(parseInt(value))}
-          >
-            <SelectTrigger className={errors.targetId ? 'border-destructive' : ''}>
-              <SelectValue placeholder="Selecione o componente de destino" />
-            </SelectTrigger>
-            <SelectContent>
-              {components.map(component => (
-                <SelectItem key={component.id} value={component.id.toString()}>
-                  {component.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.targetId && (
-            <p className="text-destructive text-sm mt-1">{errors.targetId}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="type" className="text-sm font-medium">
-            Tipo de Relacionamento
-          </Label>
-          <Select
-            value={type}
-            onValueChange={(value) => setType(value)}
-          >
-            <SelectTrigger className={errors.type ? 'border-destructive' : ''}>
-              <SelectValue placeholder="Selecione o tipo de relacionamento" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.values(RelationshipType).map(relationshipType => (
-                <SelectItem key={relationshipType} value={relationshipType}>
-                  {relationshipType.replace(/_/g, ' ')}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.type && (
-            <p className="text-destructive text-sm mt-1">{errors.type}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="description" className="text-sm font-medium">
-            Descrição (opcional)
-          </Label>
-          <Textarea
-            id="description"
-            value={description}
-            onChange={handleDescriptionChange}
-            rows={4}
-            maxLength={256}
-            className={errors.description ? 'border-destructive' : ''}
-          />
-          <div className="flex justify-end items-center mt-1">
-            <p className={`text-xs ${remainingChars <= 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {remainingChars} caracteres restantes
-            </p>
-          </div>
-          {errors.description && (
-            <p className="text-destructive text-sm mt-1">{errors.description}</p>
-          )}
-        </div>
+    <div className="grid gap-4 py-4">
+      {/* Componente Origem */}
+      <div className="grid gap-2">
+        <Label htmlFor="source" className={errors.sourceId ? 'text-destructive' : ''}>
+          Componente Origem {errors.sourceId && <span className="text-sm">({errors.sourceId})</span>}
+        </Label>
+        <Select
+          value={sourceId?.toString() || ''}
+          onValueChange={(value) => setSourceId(parseInt(value))}
+        >
+          <SelectTrigger id="source" className={errors.sourceId ? 'border-destructive' : ''}>
+            <SelectValue placeholder="Selecione o componente de origem" />
+          </SelectTrigger>
+          <SelectContent>
+            {components.map((component) => (
+              <SelectItem key={`source-${component.id}`} value={component.id.toString()}>
+                {component.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      {/* Componente Destino */}
+      <div className="grid gap-2">
+        <Label htmlFor="target" className={errors.targetId ? 'text-destructive' : ''}>
+          Componente Destino {errors.targetId && <span className="text-sm">({errors.targetId})</span>}
+        </Label>
+        <Select
+          value={targetId?.toString() || ''}
+          onValueChange={(value) => setTargetId(parseInt(value))}
+        >
+          <SelectTrigger id="target" className={errors.targetId ? 'border-destructive' : ''}>
+            <SelectValue placeholder="Selecione o componente de destino" />
+          </SelectTrigger>
+          <SelectContent>
+            {components.map((component) => (
+              <SelectItem key={`target-${component.id}`} value={component.id.toString()}>
+                {component.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Tipo de Relacionamento */}
+      <div className="grid gap-2">
+        <Label htmlFor="type" className={errors.type ? 'text-destructive' : ''}>
+          Tipo de Relacionamento {errors.type && <span className="text-sm">({errors.type})</span>}
+        </Label>
+        <Select
+          value={type}
+          onValueChange={setType}
+        >
+          <SelectTrigger id="type" className={errors.type ? 'border-destructive' : ''}>
+            <SelectValue placeholder="Selecione o tipo de relacionamento" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.values(RelationshipType).map((relType) => (
+              <SelectItem key={relType} value={relType}>
+                {relType.replace(/_/g, ' ')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <DialogFooter className="flex justify-end gap-2 pt-4 mt-4 border-t">
+        <Button variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit">
-          {initialData.id ? 'Salvar Alterações' : 'Criar Relacionamento'}
+        <Button type="submit" onClick={handleSubmit}>
+          {isEditMode ? 'Salvar' : 'Criar'}
         </Button>
-      </div>
-    </form>
+      </DialogFooter>
+    </div>
   );
 } 

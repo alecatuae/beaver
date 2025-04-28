@@ -9,6 +9,9 @@ import { schema } from './schema';
 import { createContext } from './context';
 import { logger } from './utils/logger';
 import statusRoutes from './routes/status';
+// Importação dos resolvers
+import './resolvers/componentResolvers';
+import './resolvers/relationship/relationshipResolvers';
 
 // Carrega as variáveis de ambiente
 dotenv.config();

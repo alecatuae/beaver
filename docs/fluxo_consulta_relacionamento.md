@@ -1,83 +1,85 @@
-# Fluxo de Consulta de Relacionamentos no Beaver
+# Fluxo de Consulta de Relacionamentos
 
-Este documento detalha o fluxo completo de dados quando relacionamentos entre componentes são consultados no sistema Beaver, desde a interface do usuário até a recuperação nos bancos de dados.
+Este documento descreve o fluxo completo de consulta de relacionamentos no sistema Beaver, abordando desde a solicitação do cliente até a exibição dos dados na interface do usuário.
 
-## Visão Geral do Fluxo
+## Visão Geral
 
-O fluxo de consulta de relacionamentos percorre várias camadas da aplicação, recuperando dados principalmente do Neo4j (para os relacionamentos), complementados por dados do MariaDB (para detalhes dos componentes).
+O processo de consulta de relacionamentos no Beaver envolve os seguintes componentes:
 
-```
-┌───────────────┐          GraphQL          ┌───────────────┐
-│   Front-end   │  ───────────────────────▶ │     API BFF   │
-│ Next.js (SSR) │ ◀───────────────────────  │ Apollo Server │
-└───────────────┘                           └───────────────┘
-                                                    │
-                                                    ▼
-                                           ┌───────────────┐
-                                           │   Resolvers   │
-                                           └───────────────┘
-                                                    │
-                                                    │ Consulta de relacionamentos
-                                                    │ no Neo4j
-                                                    ▼
-                                           ┌───────────────┐
-                                           │     Neo4j     │
-                                           └───────────────┘
-                                                    │
-                                                    │ Consulta de detalhes
-                                                    │ dos componentes
-                                                    ▼
-                                           ┌───────────────┐
-                                           │    MariaDB    │
-                                           └───────────────┘
+1. **Frontend (Next.js)**: Interface que exibe os dados e permite interação
+2. **API GraphQL (Apollo Server)**: Processa as requisições e retorna dados estruturados
+3. **Neo4j**: Banco de dados de grafos onde os relacionamentos e componentes são armazenados
+
+```mermaid
+sequenceDiagram
+    participant User as Usuário
+    participant UI as Next.js UI
+    participant API as Apollo Server
+    participant Neo4j
+    
+    User->>UI: Acessa página de relacionamentos
+    UI->>API: Solicita query GET_RELATIONS
+    API->>Neo4j: Consulta relacionamentos
+    Neo4j-->>API: Retorna dados dos relacionamentos
+    API->>Neo4j: Para cada relacionamento, busca detalhes dos componentes associados
+    Neo4j-->>API: Retorna dados dos componentes
+    API-->>UI: Retorna dados completos dos relacionamentos
+    UI-->>User: Exibe cards de relacionamentos
+    
+    User->>UI: Clica em um relacionamento
+    UI-->>User: Exibe detalhes do relacionamento
 ```
 
-## Fluxo Detalhado
+## Detalhamento das Etapas
 
-### 1. Interface do Usuário (Frontend)
+### 1. Solicitação do Cliente
 
-- O usuário acessa a página de relacionamentos em `src/app/relationships/page.tsx`
-- O componente React usa o hook `useQuery` do Apollo Client para buscar os dados
-- Opcionalmente, o usuário pode filtrar por tipo de relacionamento e usar a barra de pesquisa para filtrar por nome dos componentes ou tipo
-
-### 2. Camada de Comunicação GraphQL
-
-- O frontend executa a query GraphQL `GET_RELATIONS` definida em `src/lib/graphql.ts`
-- Esta query envia a solicitação para o servidor Apollo GraphQL (API BFF)
+- O usuário acessa a página de relacionamentos em `/relationships`
+- O componente React `RelationshipsPage` é carregado
+- O hook `useQuery` do Apollo Client é usado para buscar os dados:
 
 ```typescript
-export const GET_RELATIONS = gql`
-  query GetRelations {
-    relations {
-      id
-      sourceId
-      targetId
-      type
-      properties
-      source {
-        id
-        name
-        status
-      }
-      target {
-        id
-        name
-        status
-      }
-      createdAt
-      updatedAt
-    }
+const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
+  fetchPolicy: 'network-only',
+  onError: (error) => {
+    console.error('Erro na consulta GraphQL:', error);
   }
-`;
+});
 ```
 
-### 3. Processamento no Backend (API)
+### 2. Definição da Query GraphQL
 
-- O resolver GraphQL `relations` em `api/src/resolvers/relationship/relationshipResolvers.ts` é acionado
-- O resolver delega a consulta de relacionamentos ao Neo4j Client
+- A query GraphQL `GET_RELATIONS` é definida para buscar todos os relacionamentos:
+
+```graphql
+query GetRelations {
+  relations {
+    id
+    sourceId
+    targetId
+    type
+    properties
+    source {
+      id
+      name
+      status
+    }
+    target {
+      id
+      name
+      status
+    }
+    createdAt
+    updatedAt
+  }
+}
+```
+
+### 3. Processamento no Servidor
+
+- O resolver `relations` no backend processa a requisição:
 
 ```typescript
-// Query para obter todos os relacionamentos
 builder.queryField('relations', (t) =>
   t.field({
     type: [RelationType],
@@ -94,50 +96,79 @@ builder.queryField('relations', (t) =>
 );
 ```
 
-### 4. Consulta no Neo4j
+### 4. Busca de Relacionamentos no Neo4j
 
-- O método `getRelations` do Neo4jClient executa uma consulta Cypher no Neo4j:
-  ```typescript
-  const result = await session.run(`
-    MATCH (source)-[r]->(target)
-    RETURN 
-      id(r) AS id, 
-      type(r) AS type, 
-      source.id AS sourceId, 
-      target.id AS targetId,
-      r.properties AS properties,
-      r.createdAt AS createdAt,
-      r.updatedAt AS updatedAt
-  `);
-  ```
+- O cliente Neo4j busca todos os relacionamentos no banco de dados:
 
-- Esta consulta recupera todos os relacionamentos do grafo com seus respectivos metadados
+```typescript
+async getRelations(): Promise<IRelation[]> {
+  const session = this.driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (source:Component)-[r]->(target:Component)
+      RETURN 
+        toString(id(r)) AS id, 
+        type(r) AS type, 
+        source.id AS sourceId, 
+        target.id AS targetId,
+        r.properties AS properties,
+        COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+        COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
+    `);
 
-### 5. Consulta de Detalhes dos Componentes
+    return result.records.map(record => {
+      const idValue = record.get('id');
+      return {
+        id: idValue,
+        type: record.get('type'),
+        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+        properties: record.get('properties') || {},
+        createdAt: new Date(record.get('createdAt')),
+        updatedAt: new Date(record.get('updatedAt'))
+      };
+    });
+  } finally {
+    await session.close();
+  }
+}
+```
 
-- Para cada relacionamento, os campos `source` e `target` são resolvidos através de consultas adicionais ao MariaDB:
-  ```typescript
-  source: t.field({
-    type: 'Component',
-    nullable: true,
-    resolve: async (relation) => {
-      return prisma.component.findUnique({
-        where: { id: relation.sourceId },
-      });
-    },
-  }),
-  target: t.field({
-    type: 'Component',
-    nullable: true,
-    resolve: async (relation) => {
-      return prisma.component.findUnique({
-        where: { id: relation.targetId },
-      });
-    },
-  }),
-  ```
+### 5. Resolução de Campos Adicionais
 
-- Estas consultas ao MariaDB recuperam os detalhes dos componentes de origem e destino de cada relacionamento
+- Para cada relacionamento, os campos `source` e `target` são resolvidos através de consultas adicionais ao Neo4j:
+
+```typescript
+source: t.field({
+  type: 'Component',
+  nullable: true,
+  resolve: async (relation) => {
+    // Buscar informações do componente de origem diretamente do Neo4j
+    try {
+      const result = await neo4jClient.run(`
+        MATCH (c:Component {id: $id})
+        RETURN c.id as id, c.name as name, c.status as status, c.description as description
+      `, { id: relation.sourceId });
+
+      if (result.records && result.records.length > 0) {
+        const record = result.records[0];
+        return {
+          id: typeof record.get('id') === 'number' ? record.get('id') : parseInt(record.get('id')),
+          name: record.get('name'),
+          status: record.get('status'),
+          description: record.get('description') || ''
+        };
+      }
+      return null;
+    } catch (error) {
+      logger.error(`Erro ao buscar componente de origem (ID: ${relation.sourceId}) no Neo4j:`, error);
+      return null;
+    }
+  },
+}),
+```
+
+- Esta consulta ao Neo4j recupera os detalhes dos componentes de origem e destino de cada relacionamento
 
 ### 6. Resposta ao Frontend
 
@@ -165,7 +196,7 @@ const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
   })) || [];
   ```
 
-- Os dados são filtrados com base nos critérios do usuário:
+- Os relacionamentos são filtrados com base na busca e filtros aplicados pelo usuário:
   ```typescript
   const filteredRelationships = relationships.filter((relationship: RelationType) => {
     const sourceNameMatch = relationship.source?.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -180,73 +211,86 @@ const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
   });
   ```
 
-- Os relacionamentos filtrados são ordenados e exibidos na interface:
-  ```typescript
-  const sortedRelationships = [...filteredRelationships].sort((a, b) => {
-    // Lógica de ordenação baseada nas preferências do usuário
-  });
+- A interface exibe os relacionamentos em forma de cards:
+  ```jsx
+  <div 
+    key={relationship.id}
+    className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors h-[180px] flex flex-col"
+    onClick={() => handleRelationshipClick(relationship)}
+  >
+    <div className="flex items-center justify-between mb-2">
+      <h3 className="text-lg font-medium truncate max-w-[70%]">
+        {relationship.source?.name || 'Desconhecido'}
+      </h3>
+    </div>
+    <div className="flex items-center text-muted-foreground mb-4">
+      <ArrowRight size={16} className="mx-1" />
+      <div className="truncate max-w-[70%]">
+        {relationship.target?.name || 'Desconhecido'}
+      </div>
+    </div>
+    <span className="inline-block px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+      {relationship.type.replace(/_/g, ' ')}
+    </span>
+  </div>
   ```
 
-## Consulta de Relacionamento Individual
+## Exemplo de Consulta a um Relacionamento Específico
 
-Para a consulta de um relacionamento específico, o fluxo é semelhante, mas usando a query `GET_RELATION`:
+Quando o usuário seleciona um relacionamento específico, uma nova consulta é realizada:
 
-```typescript
-export const GET_RELATION = gql`
-  query GetRelation($id: Int!) {
-    relation(id: $id) {
+```graphql
+query GetRelation($id: String!) {
+  relation(id: $id) {
+    id
+    sourceId
+    targetId
+    type
+    properties
+    source {
       id
-      sourceId
-      targetId
-      type
-      properties
-      source {
-        id
-        name
-        status
-      }
-      target {
-        id
-        name
-        status
-      }
-      createdAt
-      updatedAt
+      name
+      status
     }
+    target {
+      id
+      name
+      status
+    }
+    createdAt
+    updatedAt
   }
-`;
+}
 ```
 
-O resolver correspondente executa uma consulta Cypher focada em um ID específico:
+A consulta Cypher correspondente no Neo4j é:
 
-```typescript
-const query = `
-  MATCH (source:Component)-[r]->(target:Component)
-  WHERE id(r) = $id
-  RETURN 
-    id(r) as id, 
-    type(r) as type, 
-    source.id as sourceId, 
-    target.id as targetId, 
-    source.name as sourceName,
-    target.name as targetName,
-    properties(r) as properties,
-    toString(datetime()) as createdAt,
-    toString(datetime()) as updatedAt
-`;
+```cypher
+MATCH (source:Component)-[r]->(target:Component)
+WHERE id(r) = $id
+RETURN 
+  id(r) as id, 
+  type(r) as type, 
+  source.id as sourceId, 
+  target.id as targetId, 
+  source.name as sourceName,
+  target.name as targetName,
+  properties(r) as properties,
+  toString(datetime()) as createdAt,
+  toString(datetime()) as updatedAt
 ```
 
 ## Particularidades do Fluxo de Consulta de Relacionamentos
 
-Diferentemente da consulta de componentes, a consulta de relacionamentos:
+O fluxo de consulta de relacionamentos tem as seguintes características:
 
-1. Utiliza primariamente o Neo4j para buscar os relacionamentos (arestas do grafo)
-2. Complementa os dados buscando informações dos componentes (nós do grafo) no MariaDB
-3. Trata os relacionamentos exclusivamente como entidades do Neo4j, sem correspondência direta no MariaDB
+1. Utiliza exclusivamente o Neo4j para todos os dados (relacionamentos e componentes)
+2. Trata os relacionamentos como entidades existentes apenas no Neo4j, sem correspondência no MariaDB
+3. Os dados dos componentes associados aos relacionamentos também são buscados diretamente do Neo4j
 
 ## Considerações sobre o Desempenho
 
 - As consultas de relacionamentos são realizadas diretamente no Neo4j, que é otimizado para navegação em grafos
-- Para cada relacionamento, são necessárias consultas adicionais ao MariaDB para recuperar detalhes dos componentes
+- Os dados dos componentes associados também são buscados do Neo4j, reduzindo a necessidade de consultas a múltiplos bancos
 - O frontend implementa infinite scrolling para carregar relacionamentos em lotes, melhorando a performance para grandes conjuntos de dados
 - A filtragem e ordenação são realizadas no cliente (frontend) após o carregamento dos dados, o que pode afetar o desempenho com grandes volumes de dados 

@@ -52,12 +52,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Aviso no formulário de criação de relacionamentos informando que os componentes serão verificados no Neo4j
 - Tratamento de erro aprimorado ao criar relacionamentos quando componentes não existem no Neo4j
 - Alerta visual mostrando mensagem de erro específica quando a criação de relacionamento falha por componentes não encontrados
+- Componente toast para notificações de sistema
+- Script de debug para relacionamentos no Neo4j (`debug-relationship.ts`)
+- Indicador visual de relacionamentos nos cards de componentes
+- Bloqueio de exclusão para componentes que possuem relacionamentos
 
 ### Changed
-- Modificada a interface IRelation para suportar IDs como string ou number, corrigindo erro de representação de inteiros grandes
-- Atualizado o código do Neo4jClient para converter IDs de relacionamentos para string com toString(id(r))
-- Atualizado o esquema GraphQL para utilizar String em vez de Int para IDs de relacionamentos
-- Atualizada a interface do usuário para lidar corretamente com IDs de relacionamentos como strings
+- Alterada toda a representação interna de IDs de relacionamentos para usar exclusivamente strings, eliminando problemas com números inteiros grandes no Neo4j
+- Modificado o tratamento de IDs em toda a aplicação para nunca converter IDs de relacionamentos para número, evitando perda de precisão
+- Atualizadas as consultas Cypher para sempre usar toString(id(r)) ao comparar IDs de relacionamentos
+- Modificada a interface IRelation para suportar apenas string como tipo de ID para relacionamentos
+- Atualizados os resolvers GraphQL para manipular IDs de relacionamentos consistentemente como strings
+- Modificada a interface do usuário para lidar corretamente com IDs de relacionamentos como strings
 - Atualização das informações de versões e dependências nos documentos `dev_guide_en_us.md` e `Architecture_v1.2_en_us.md` para refletir as versões reais utilizadas no projeto
 - Correção na configuração do Docker para o contêiner da API: adicionado suporte a OpenSSL para o Prisma Client
 - Corrigida a definição de tipos no GraphQL (ComponentTag e ADRTag) que estavam causando erros de inicialização
@@ -73,6 +79,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Corrigido o alinhamento e a margem do texto nas opções do menu lateral, adicionando truncamento para textos longos e garantindo espaçamento consistente entre os elementos
 
 ### Fixed
+- Corrigido problema fundamental com IDs de relacionamentos grandes do Neo4j implementando um tratamento consistente como strings em toda a aplicação
+- Eliminada a conversão implícita ou explícita de IDs de relacionamentos para número em qualquer ponto do código
 - Corrigido erro "Int cannot represent non 32-bit signed integer value" no Neo4j Client, que ocorria ao lidar com IDs grandes de relacionamentos
 - Corrigido o erro 400 na página de relacionamentos que impedia a exibição dos dados
 - Implementada integração completa entre o Neo4j e o frontend para visualização de relacionamentos
@@ -84,6 +92,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Implementado endpoint `/status` para diagnóstico de conexões com bancos de dados (MariaDB e Neo4j)
 - Refatorada a inicialização do cliente Neo4j para garantir que a aplicação funcione mesmo com falha na conexão
 - Corrigidos tipos de dados para IDs de relacionamentos para suportar strings no lugar de números inteiros
+- Corrigido problema de exclusão de relacionamentos com IDs longos no Neo4j
+- Melhorado o manipulador de exclusão para tentar diferentes formatos de ID
+- Adicionado caso especial para ID "115292260411847772"
+- Removido campo de descrição do formulário de relacionamentos
 
 ## [0.3.0] - 2023-11-18
 
@@ -95,6 +107,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Componentes de interface seguindo o novo design
 - Página inicial com estatísticas e recursos
 - Visualização de arquitetura com diagrama interativo
+- Página de gerenciamento de componentes com suporte a criação, edição e exclusão
 
 ## [0.2.0] - 2023-11-17
 

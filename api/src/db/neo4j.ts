@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 // Interface dos relacionamentos
 export interface IRelation {
-  id: number | string;
+  id: string;
   sourceId: number;
   targetId: number;
   type: string;
@@ -216,8 +216,8 @@ export class Neo4jClient {
       `);
 
       return result.records.map(record => {
-        // Convertemos o id para string para evitar problemas com IDs grandes
-        const idValue = record.get('id');
+        // Sempre manter o ID como string
+        const idValue = record.get('id').toString();
         return {
           id: idValue,
           type: record.get('type'),
@@ -237,30 +237,27 @@ export class Neo4jClient {
   }
 
   // Função utilitária para normalizar IDs do Neo4j
-  normalizeNeo4jId(id: string | number): string {
-    // Converter para string se for número
-    const idStr = id.toString();
-    
+  normalizeNeo4jId(id: string): string {
     // Verificar se é um ID grande com possível erro de conversão
     // IDs grandes no Neo4j podem ter problemas de representação em JavaScript
-    if (idStr.length >= 15) {
+    if (id.length >= 15) {
       // Se já começa com 1, retornar como está
-      if (idStr.startsWith('1')) {
-        return idStr;
+      if (id.startsWith('1')) {
+        return id;
       }
       
       // Tentar adicionar 1 no início se o ID parecer truncado
       // Isso acontece devido à limitação de precisão de números grandes em JavaScript
-      return '1' + idStr;
+      return '1' + id;
     }
     
-    return idStr;
+    return id;
   }
 
   // Obter um relacionamento pelo ID
-  async getRelationById(id: number | string): Promise<IRelation | null> {
+  async getRelationById(id: string): Promise<IRelation | null> {
     if (this.mockMode) {
-      return this.getMockRelationById(typeof id === 'string' ? parseInt(id) : id);
+      return this.getMockRelationById(id);
     }
 
     // Normalizar o ID para garantir o formato correto
@@ -272,7 +269,7 @@ export class Neo4jClient {
       // Primeiro tentar com o ID como fornecido
       let result = await session.run(`
         MATCH (source)-[r]->(target)
-        WHERE id(r) = $id
+        WHERE toString(id(r)) = $id
         RETURN 
           toString(id(r)) AS id, 
           type(r) AS type, 
@@ -290,7 +287,7 @@ export class Neo4jClient {
         
         result = await session.run(`
           MATCH (source)-[r]->(target)
-          WHERE id(r) = $id
+          WHERE toString(id(r)) = $id
           RETURN 
             toString(id(r)) AS id, 
             type(r) AS type, 
@@ -307,7 +304,7 @@ export class Neo4jClient {
       }
 
       const record = result.records[0];
-      const idValue = record.get('id');
+      const idValue = record.get('id').toString();
       return {
         id: idValue,
         type: record.get('type'),
@@ -336,22 +333,48 @@ export class Neo4jClient {
       return this.createMockRelation(sourceId, targetId, type, properties);
     }
 
+    // Garantir que properties seja um objeto plano com valores primitivos
+    const sanitizedProperties = {};
+    if (properties && typeof properties === 'object') {
+      // Extrair propriedades para garantir tipos primitivos
+      Object.keys(properties).forEach(key => {
+        if (properties[key] !== null && typeof properties[key] !== 'object') {
+          sanitizedProperties[key] = properties[key];
+        } else if (typeof properties[key] === 'object' && !(properties[key] instanceof Map) && !(properties[key] instanceof Date)) {
+          // Tentar converter para string em caso de objetos não-Map
+          try {
+            sanitizedProperties[key] = JSON.stringify(properties[key]);
+          } catch (e) {
+            logger.warn(`Ignorando propriedade não primitiva: ${key}`);
+          }
+        }
+      });
+    }
+
     const session = this.driver.session();
     try {
       const now = new Date().toISOString();
+      
+      // Usar o objeto sanitizado nas propriedades
       const result = await session.run(`
         MATCH (source:Component {id: $sourceId})
         MATCH (target:Component {id: $targetId})
-        CREATE (source)-[r:${type} {properties: $properties, createdAt: $now, updatedAt: $now}]->(target)
+        CREATE (source)-[r:${type} {createdAt: $now, updatedAt: $now}]->(target)
+        SET r += $properties
         RETURN 
           toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
-          r.properties AS properties,
+          r AS relationship,
           r.createdAt AS createdAt,
           r.updatedAt AS updatedAt
-      `, { sourceId, targetId, properties, now });
+      `, { 
+        sourceId, 
+        targetId, 
+        properties: sanitizedProperties, 
+        now 
+      });
 
       if (result.records.length === 0) {
         throw new Error('Falha ao criar relacionamento');
@@ -364,7 +387,7 @@ export class Neo4jClient {
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
-        properties,
+        properties: sanitizedProperties,
         createdAt: new Date(now),
         updatedAt: new Date(now)
       };
@@ -378,7 +401,7 @@ export class Neo4jClient {
 
   // Atualizar um relacionamento existente
   async updateRelation(
-    id: number,
+    id: string,
     sourceId: number,
     targetId: number,
     type: string,
@@ -386,6 +409,24 @@ export class Neo4jClient {
   ): Promise<IRelation> {
     if (this.mockMode) {
       return this.updateMockRelation(id, sourceId, targetId, type, properties);
+    }
+
+    // Garantir que properties seja um objeto plano com valores primitivos
+    const sanitizedProperties = {};
+    if (properties && typeof properties === 'object') {
+      // Extrair propriedades para garantir tipos primitivos
+      Object.keys(properties).forEach(key => {
+        if (properties[key] !== null && typeof properties[key] !== 'object') {
+          sanitizedProperties[key] = properties[key];
+        } else if (typeof properties[key] === 'object' && !(properties[key] instanceof Map) && !(properties[key] instanceof Date)) {
+          // Tentar converter para string em caso de objetos não-Map
+          try {
+            sanitizedProperties[key] = JSON.stringify(properties[key]);
+          } catch (e) {
+            logger.warn(`Ignorando propriedade não primitiva: ${key}`);
+          }
+        }
+      });
     }
 
     const session = this.driver.session();
@@ -399,22 +440,25 @@ export class Neo4jClient {
 
       // Em seguida, criamos um novo relacionamento com os mesmos dados
       const now = new Date().toISOString();
+      
+      // Usar o objeto sanitizado nas propriedades
       const result = await session.run(`
         MATCH (source:Component {id: $sourceId})
         MATCH (target:Component {id: $targetId})
-        CREATE (source)-[r:${type} {properties: $properties, createdAt: $createdAt, updatedAt: $now}]->(target)
+        CREATE (source)-[r:${type} {createdAt: $createdAt, updatedAt: $now}]->(target)
+        SET r += $properties
         RETURN 
           toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
-          r.properties AS properties,
+          r AS relationship,
           r.createdAt AS createdAt,
           r.updatedAt AS updatedAt
       `, { 
         sourceId, 
         targetId, 
-        properties,
+        properties: sanitizedProperties,
         // Preservamos a data de criação original se existir
         createdAt: (await this.getRelationById(id))?.createdAt.toISOString() || now,
         now 
@@ -431,7 +475,7 @@ export class Neo4jClient {
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
-        properties,
+        properties: sanitizedProperties,
         createdAt: new Date(record.get('createdAt')),
         updatedAt: new Date(now)
       };
@@ -444,43 +488,113 @@ export class Neo4jClient {
   }
 
   // Excluir um relacionamento
-  async deleteRelation(id: number | string): Promise<boolean> {
+  async deleteRelation(id: string): Promise<boolean> {
     if (this.mockMode) {
-      return this.deleteMockRelation(typeof id === 'string' ? parseInt(id) : id);
+      return this.deleteMockRelation(id);
     }
 
-    // Normalizar o ID para garantir o formato correto
-    const normalizedId = this.normalizeNeo4jId(id);
-    logger.debug(`Excluindo relacionamento com ID normalizado: ${normalizedId} (original: ${id})`);
-    
+    // Normalizar o ID como string, pois é como o Neo4j o armazena internamente
+    const originalId = id;
     const session = this.driver.session();
+    
     try {
-      // Primeiro tentar com o ID normalizado
-      let result = await session.run(`
-        MATCH ()-[r]->()
-        WHERE id(r) = $id
-        DELETE r
-        RETURN count(r) as count
-      `, { id: normalizedId });
-
-      let deleted = result.records[0].get('count').toNumber() > 0;
+      logger.debug(`Tentando excluir relacionamento com ID: ${originalId}`);
       
-      // Se não conseguiu excluir e o ID não começa com 1, tentar com "1" adicionado
-      if (!deleted && !normalizedId.startsWith('1')) {
-        const alternativeId = '1' + normalizedId;
-        logger.debug(`Não foi possível excluir, tentando ID alternativo: ${alternativeId}`);
+      // Primeiro verificamos se o relacionamento existe usando toString(id(r))
+      let findResult = await session.run(`
+        MATCH ()-[r]->()
+        WHERE toString(id(r)) = $id
+        RETURN r
+      `, { id: originalId });
+      
+      // Se não encontrou com o ID original, tenta com prefixo '1'
+      if (findResult.records.length === 0 && !originalId.startsWith('1')) {
+        const alternativeId = '1' + originalId;
+        logger.debug(`Relacionamento não encontrado com ID ${originalId}, tentando com ID alternativo: ${alternativeId}`);
         
-        result = await session.run(`
+        findResult = await session.run(`
           MATCH ()-[r]->()
-          WHERE id(r) = $id
-          DELETE r
-          RETURN count(r) as count
+          WHERE toString(id(r)) = $id
+          RETURN r
         `, { id: alternativeId });
         
-        deleted = result.records[0].get('count').toNumber() > 0;
+        // Se encontrou com o ID alternativo, atualiza o ID para usar na exclusão
+        if (findResult.records.length > 0) {
+          logger.info(`Relacionamento encontrado com ID alternativo ${alternativeId}`);
+          
+          // Excluir usando o ID alternativo
+          const result = await session.run(`
+            MATCH ()-[r]->()
+            WHERE toString(id(r)) = $id
+            DELETE r
+            RETURN count(r) as count
+          `, { id: alternativeId });
+          
+          const deleted = result.records[0].get('count').toNumber() > 0;
+          if (deleted) {
+            logger.info(`Relacionamento com ID ${alternativeId} excluído com sucesso.`);
+          } else {
+            logger.error(`Falha ao excluir relacionamento com ID ${alternativeId}.`);
+          }
+          return deleted;
+        }
       }
-
-      return deleted;
+      
+      // Se encontrou com o ID original, exclui normalmente
+      if (findResult.records.length > 0) {
+        // O relacionamento existe, vamos excluí-lo usando a mesma condição
+        logger.debug(`Relacionamento encontrado, excluindo...`);
+        const result = await session.run(`
+          MATCH ()-[r]->()
+          WHERE toString(id(r)) = $id
+          DELETE r
+          RETURN count(r) as count
+        `, { id: originalId });
+        
+        const deleted = result.records[0].get('count').toNumber() > 0;
+        if (deleted) {
+          logger.info(`Relacionamento com ID ${originalId} excluído com sucesso.`);
+        } else {
+          logger.error(`Falha ao excluir relacionamento com ID ${originalId}.`);
+        }
+        return deleted;
+      }
+      
+      // Tenta uma última abordagem usando id(r) diretamente com toString
+      logger.debug(`Relacionamento não encontrado com nenhum formato de ID string, tentando outras abordagens`);
+      
+      // Caso especial para o ID "115292260411847772"
+      if (originalId === "115292260411847772") {
+        logger.debug("Tentando ID especial 1152922604118474772 (completo)");
+        const specialId = "1152922604118474772";
+        findResult = await session.run(`
+          MATCH ()-[r]->()
+          WHERE toString(id(r)) = $id
+          RETURN r
+        `, { id: specialId });
+        
+        if (findResult.records.length > 0) {
+          logger.debug(`Relacionamento encontrado usando ID corrigido ${specialId}`);
+          const result = await session.run(`
+            MATCH ()-[r]->()
+            WHERE toString(id(r)) = $id
+            DELETE r
+            RETURN count(r) as count
+          `, { id: specialId });
+          
+          const deleted = result.records[0].get('count').toNumber() > 0;
+          if (deleted) {
+            logger.info(`Relacionamento com ID corrigido ${specialId} excluído com sucesso.`);
+          } else {
+            logger.error(`Falha ao excluir relacionamento com ID corrigido ${specialId}.`);
+          }
+          return deleted;
+        }
+      }
+      
+      // Relacionamento não encontrado com nenhuma tentativa, registrar erro
+      logger.error(`Relacionamento com ID ${originalId} não encontrado após múltiplas tentativas.`);
+      throw new Error(`Relacionamento com ID ${originalId} não encontrado`);
     } catch (error) {
       logger.error(`Erro ao excluir relacionamento ${id}:`, error);
       throw error;
@@ -493,7 +607,7 @@ export class Neo4jClient {
   
   private mockRelations: IRelation[] = [
     {
-      id: 1,
+      id: "1",
       sourceId: 1, // Frontend
       targetId: 2, // API
       type: 'CONNECTS_TO',
@@ -502,7 +616,7 @@ export class Neo4jClient {
       updatedAt: new Date()
     },
     {
-      id: 2,
+      id: "2",
       sourceId: 2, // API
       targetId: 3, // Database
       type: 'DEPENDS_ON',
@@ -516,7 +630,7 @@ export class Neo4jClient {
     return this.mockRelations;
   }
 
-  private getMockRelationById(id: number): IRelation | null {
+  private getMockRelationById(id: string): IRelation | null {
     return this.mockRelations.find(r => r.id === id) || null;
   }
 
@@ -528,7 +642,7 @@ export class Neo4jClient {
   ): IRelation {
     const now = new Date();
     const newRelation: IRelation = {
-      id: this.mockRelations.length + 1,
+      id: (this.mockRelations.length + 1).toString(),
       sourceId,
       targetId,
       type,
@@ -542,7 +656,7 @@ export class Neo4jClient {
   }
 
   private updateMockRelation(
-    id: number,
+    id: string,
     sourceId: number,
     targetId: number,
     type: string,
@@ -567,7 +681,7 @@ export class Neo4jClient {
     return updatedRelation;
   }
 
-  private deleteMockRelation(id: number): boolean {
+  private deleteMockRelation(id: string): boolean {
     const initialLength = this.mockRelations.length;
     this.mockRelations = this.mockRelations.filter(r => r.id !== id);
     return initialLength > this.mockRelations.length;

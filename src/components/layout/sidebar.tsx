@@ -171,7 +171,7 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
               {hasSubItems ? (
                 <div>
                   <button
-                    onClick={() => isExpanded && toggleSubmenu(item.label)}
+                    onClick={() => toggleSubmenu(item.label)}
                     className={cn(
                       "w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                       {
