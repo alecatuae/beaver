@@ -11,7 +11,7 @@ import { CategoryType, CategoryInput } from '@/lib/graphql';
 // Interface para o formulário de categoria
 interface CategoryFormProps {
   initialData?: Partial<CategoryType>;
-  onSubmit: (data: CategoryInput) => void;
+  onSubmit: (data: CategoryInput, onFormSubmitted: () => void) => void;
   onCancel: () => void;
 }
 
@@ -25,6 +25,7 @@ export default function CategoryForm({
   const [description, setDescription] = useState(initialData.description?.slice(0, 256) || '');
   const [image, setImage] = useState<string | undefined>(initialData.image);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Contador de caracteres restantes
@@ -105,13 +106,22 @@ export default function CategoryForm({
     
     // Limpar erros e enviar dados
     setErrors({});
-      
-    onSubmit({
-      id: initialData.id,
-      name,
-      description,
-      image
-    });
+    setIsSubmitting(true);
+    
+    try {
+      onSubmit(
+        {
+          id: initialData.id,
+          name,
+          description,
+          image
+        },
+        () => setIsSubmitting(false) // Callback para resetar o estado
+      );
+    } catch (error) {
+      console.error('Erro ao submeter formulário:', error);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -200,11 +210,26 @@ export default function CategoryForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancelar
         </Button>
-        <Button type="submit">
-          {initialData.id ? 'Salvar Alterações' : 'Criar Categoria'}
+        <Button 
+          type="submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <>
+              <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></span>
+              {initialData.id ? 'Salvando...' : 'Criando...'}
+            </>
+          ) : (
+            initialData.id ? 'Salvar Alterações' : 'Criar Categoria'
+          )}
         </Button>
       </div>
     </form>

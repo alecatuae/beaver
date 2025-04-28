@@ -114,15 +114,23 @@ export const categoryResolvers = (builder: any) => {
         try {
           const { name, description, image } = input;
           
-          logger.info(`Criando nova categoria: ${name}`);
+          logger.info(`Criando nova categoria com nome: "${name}", descrição: "${description?.substring(0, 30)}..."`);
+          
+          // Verificar se o contexto e o cliente Prisma existem
+          if (!ctx.prisma) {
+            logger.error('Contexto do Prisma não disponível');
+            throw new Error('Erro interno do servidor: Cliente do banco de dados não disponível');
+          }
           
           // Converter a imagem de base64 para Buffer, se existir
           let imageBuffer = null;
           if (image) {
+            logger.info(`Imagem fornecida para categoria "${name}", convertendo de base64`);
             imageBuffer = Buffer.from(image, 'base64');
           }
           
           // Criar categoria no banco de dados
+          logger.info(`Executando prisma.category.create para categoria "${name}"`);
           const category = await ctx.prisma.category.create({
             data: {
               name,
@@ -131,10 +139,14 @@ export const categoryResolvers = (builder: any) => {
             },
           });
           
-          logger.info(`Categoria criada com sucesso: ${category.id}`);
+          logger.info(`Categoria criada com sucesso: ID=${category.id}, nome="${category.name}"`);
           return category;
         } catch (error: any) {
-          logger.error('Erro ao criar categoria:', error);
+          logger.error(`Erro ao criar categoria:`, error);
+          logger.error(`Detalhes do erro: ${error.message}`);
+          if (error.code) {
+            logger.error(`Código do erro: ${error.code}`);
+          }
           throw new Error(`Erro ao criar a categoria: ${error.message}`);
         }
       },
@@ -157,37 +169,58 @@ export const categoryResolvers = (builder: any) => {
           // Ignore o id na entrada, use o id do argumento principal para a operação
           const { name, description, image } = input;
           
-          logger.info(`Atualizando categoria: ${id}`);
+          logger.info(`Atualizando categoria: ID=${id}, nome="${name}", descrição: "${description?.substring(0, 30)}..."`);
+          
+          // Verificar se o contexto e o cliente Prisma existem
+          if (!ctx.prisma) {
+            logger.error('Contexto do Prisma não disponível');
+            throw new Error('Erro interno do servidor: Cliente do banco de dados não disponível');
+          }
           
           // Verificar se a categoria existe
+          logger.info(`Verificando se a categoria ID=${id} existe`);
           const existingCategory = await ctx.prisma.category.findUnique({
             where: { id },
           });
           
           if (!existingCategory) {
+            logger.error(`Categoria com ID ${id} não encontrada`);
             throw new Error(`Categoria com ID ${id} não encontrada`);
           }
           
           // Converter a imagem de base64 para Buffer, se existir
-          let imageBuffer = null;
+          let imageBuffer = undefined;
           if (image) {
+            logger.info(`Imagem fornecida para categoria ID=${id}, convertendo de base64`);
             imageBuffer = Buffer.from(image, 'base64');
           }
           
+          // Preparar dados para atualização
+          const updateData: any = {
+            name,
+            description,
+          };
+          
+          // Só inclui imagem se tiver sido fornecida
+          if (imageBuffer !== undefined) {
+            updateData.image = imageBuffer;
+          }
+          
           // Atualizar a categoria no banco de dados
+          logger.info(`Executando prisma.category.update para categoria ID=${id}`);
           const updatedCategory = await ctx.prisma.category.update({
             where: { id },
-            data: {
-              name,
-              description,
-              image: imageBuffer,
-            },
+            data: updateData,
           });
           
-          logger.info(`Categoria atualizada com sucesso: ${id}`);
+          logger.info(`Categoria atualizada com sucesso: ID=${id}, nome="${updatedCategory.name}"`);
           return updatedCategory;
         } catch (error: any) {
           logger.error(`Erro ao atualizar categoria ${id}:`, error);
+          logger.error(`Detalhes do erro: ${error.message}`);
+          if (error.code) {
+            logger.error(`Código do erro: ${error.code}`);
+          }
           throw new Error(`Erro ao atualizar a categoria: ${error.message}`);
         }
       },

@@ -116,23 +116,41 @@ export default function CategoriesPage() {
 
   // Mutation para criar categoria
   const [createCategory] = useMutation(CREATE_CATEGORY, {
-    onCompleted: () => {
+    onCompleted: (data) => {
+      console.log('Categoria criada com sucesso:', data);
       setIsCreateDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao criar categoria:', error);
+      console.error('Mensagem de erro:', error.message);
+      if (error.graphQLErrors) {
+        console.error('GraphQL errors:', error.graphQLErrors);
+      }
+      if (error.networkError) {
+        console.error('Network error:', error.networkError);
+      }
+      alert(`Erro ao criar categoria: ${error.message}`);
     }
   });
 
   // Mutation para atualizar categoria
   const [updateCategory] = useMutation(UPDATE_CATEGORY, {
-    onCompleted: () => {
+    onCompleted: (data) => {
+      console.log('Categoria atualizada com sucesso:', data);
       setIsEditDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao atualizar categoria:', error);
+      console.error('Mensagem de erro:', error.message);
+      if (error.graphQLErrors) {
+        console.error('GraphQL errors:', error.graphQLErrors);
+      }
+      if (error.networkError) {
+        console.error('Network error:', error.networkError);
+      }
+      alert(`Erro ao atualizar categoria: ${error.message}`);
     }
   });
 
@@ -173,19 +191,33 @@ export default function CategoriesPage() {
   };
 
   // Manipulador para submeter o formulário de criação
-  const handleCreateSubmit = (formData: CategoryInput) => {
+  const handleCreateSubmit = (formData: CategoryInput, onFormSubmitted: () => void) => {
+    console.log('Enviando dados para criação:', formData);
     createCategory({
-      variables: { input: formData }
+      variables: { input: formData },
+      onCompleted: () => {
+        onFormSubmitted();
+      },
+      onError: () => {
+        onFormSubmitted();
+      }
     });
   };
 
   // Manipulador para submeter o formulário de edição
-  const handleUpdateSubmit = (formData: CategoryInput) => {
+  const handleUpdateSubmit = (formData: CategoryInput, onFormSubmitted: () => void) => {
     if (currentCategory?.id) {
+      console.log('Enviando dados para atualização:', formData, 'ID:', currentCategory.id);
       updateCategory({
         variables: {
           id: currentCategory.id,
           input: formData
+        },
+        onCompleted: () => {
+          onFormSubmitted();
+        },
+        onError: () => {
+          onFormSubmitted();
         }
       });
     }
@@ -445,7 +477,7 @@ export default function CategoriesPage() {
             </DialogDescription>
           </DialogHeader>
           <CategoryForm 
-            onSubmit={handleCreateSubmit} 
+            onSubmit={handleCreateSubmit}
             onCancel={() => setIsCreateDialogOpen(false)} 
           />
         </DialogContent>
@@ -463,7 +495,7 @@ export default function CategoriesPage() {
           {currentCategory && (
             <CategoryForm 
               initialData={currentCategory} 
-              onSubmit={handleUpdateSubmit} 
+              onSubmit={handleUpdateSubmit}
               onCancel={() => setIsEditDialogOpen(false)} 
             />
           )}
