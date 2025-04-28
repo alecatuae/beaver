@@ -126,7 +126,17 @@ export const categoryResolvers = (builder: any) => {
           let imageBuffer = null;
           if (image) {
             logger.info(`Imagem fornecida para categoria "${name}", convertendo de base64`);
-            imageBuffer = Buffer.from(image, 'base64');
+            try {
+              imageBuffer = Buffer.from(image, 'base64');
+              // Verifica se a conversão é válida
+              if (imageBuffer.length === 0) {
+                logger.warn(`Imagem fornecida para categoria "${name}" é inválida ou vazia`);
+                throw new Error('A imagem fornecida é inválida ou vazia');
+              }
+            } catch (error) {
+              logger.error(`Erro ao converter imagem para Buffer: ${error}`);
+              throw new Error('Erro ao processar a imagem');
+            }
           }
           
           // Criar categoria no banco de dados
@@ -140,6 +150,23 @@ export const categoryResolvers = (builder: any) => {
           });
           
           logger.info(`Categoria criada com sucesso: ID=${category.id}, nome="${category.name}"`);
+          
+          // Verificar se a categoria foi realmente persistida
+          const savedCategory = await ctx.prisma.category.findUnique({
+            where: { id: category.id }
+          });
+          
+          if (!savedCategory) {
+            logger.error(`Categoria aparentemente criada, mas não foi encontrada no banco: ID=${category.id}`);
+            throw new Error('Falha na persistência da categoria');
+          }
+          
+          // Verificar se a imagem foi persistida corretamente, se existir
+          if (image && (!savedCategory.image || savedCategory.image.length === 0)) {
+            logger.error(`Imagem da categoria não foi persistida corretamente: ID=${category.id}`);
+            throw new Error('Falha na persistência da imagem da categoria');
+          }
+          
           return category;
         } catch (error: any) {
           logger.error(`Erro ao criar categoria:`, error);
