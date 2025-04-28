@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import {
   GET_CATEGORIES,
@@ -19,9 +19,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, PencilIcon, Trash2Icon, TagIcon } from 'lucide-react';
+import { 
+  PlusCircle, 
+  PencilIcon, 
+  Trash2Icon, 
+  TagIcon, 
+  RefreshCw, 
+  Search, 
+  ArrowUpDown,
+  SortAsc,
+  SortDesc,
+  Plus
+} from 'lucide-react';
 import CategoryForm from './category-form';
 import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { format } from 'date-fns';
 
 export default function CategoriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -29,6 +42,12 @@ export default function CategoriesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Partial<CategoryType> | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [hasMore, setHasMore] = useState(true);
+  
+  const lastCategoryRef = useRef<HTMLDivElement | null>(null);
 
   // Consulta para buscar categorias
   const { loading, error, data, refetch } = useQuery(GET_CATEGORIES, {
@@ -37,6 +56,61 @@ export default function CategoriesPage() {
       console.error('Erro na consulta GraphQL:', error);
     }
   });
+
+  // Formatação das categorias para exibição
+  const categories = data?.categories?.map((category: any) => ({
+    ...category,
+    createdAt: new Date(category.createdAt),
+    componentCount: category.components?.length || 0
+  })) || [];
+
+  // Filtragem de categorias pelo termo de busca
+  const filteredCategories = categories.filter((category: CategoryType) => {
+    return category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           category.description?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // Função para ordenar categorias
+  const sortCategories = (categories: CategoryType[]) => {
+    return [...categories].sort((a, b) => {
+      if (sortBy === 'name') {
+        return sortDirection === 'asc' 
+          ? a.name.localeCompare(b.name) 
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === 'date') {
+        return sortDirection === 'asc'
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+      return 0;
+    });
+  };
+
+  // Aplicar ordenação às categorias filtradas
+  const sortedCategories = sortCategories(filteredCategories);
+
+  // Configurar um observer para carregamento contínuo
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setVisibleCount(prev => prev + 8);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (lastCategoryRef.current) {
+      observer.observe(lastCategoryRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, sortedCategories.length]);
+
+  // Verificar se há mais categorias para carregar
+  useEffect(() => {
+    setHasMore(visibleCount < sortedCategories.length);
+  }, [visibleCount, sortedCategories.length]);
 
   // Mutation para criar categoria
   const [createCategory] = useMutation(CREATE_CATEGORY, {
@@ -77,13 +151,15 @@ export default function CategoriesPage() {
   };
 
   // Manipulador para abrir o diálogo de edição
-  const handleOpenEditDialog = (category: CategoryType) => {
+  const handleOpenEditDialog = (category: CategoryType, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     setCurrentCategory(category);
     setIsEditDialogOpen(true);
   };
 
   // Manipulador para abrir o diálogo de exclusão
-  const handleOpenDeleteDialog = (category: CategoryType) => {
+  const handleOpenDeleteDialog = (category: CategoryType, event?: React.MouseEvent) => {
+    event?.stopPropagation();
     setCurrentCategory(category);
     setIsDeleteDialogOpen(true);
   };
@@ -116,35 +192,77 @@ export default function CategoriesPage() {
     }
   };
 
-  // Formatação das categorias para exibição
-  const categories = data?.categories?.map((category: any) => ({
-    ...category,
-    createdAt: new Date(category.createdAt)
-  })) || [];
+  // Função para alternar a ordenação
+  const toggleSort = (field: 'name' | 'date') => {
+    if (sortBy === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortDirection('asc');
+    }
+  };
 
-  // Filtragem de categorias pelo termo de busca
-  const filteredCategories = categories.filter((category: CategoryType) => {
-    return category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           category.description?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Função para configurar referência para carregamento infinito
+  const setLastCategoryRef = (el: HTMLDivElement | null, index: number) => {
+    if (index === Math.min(visibleCount - 1, sortedCategories.length - 1)) {
+      lastCategoryRef.current = el;
+    }
+  };
 
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Gerenciamento de Categorias</h1>
         <Button onClick={handleOpenCreateDialog}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <Plus size={16} className="mr-2 h-4 w-4" />
           Nova Categoria
         </Button>
       </div>
 
-      <div className="mb-6">
-        <Input
-          placeholder="Pesquisar categorias..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-md"
-        />
+      {/* Área de busca e filtros */}
+      <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+          <Input
+            placeholder="Pesquisar categorias..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-md focus:ring-1 focus:ring-primary focus:border-primary bg-background"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <ArrowUpDown size={16} />
+                Ordenar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => toggleSort('name')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Nome</span>
+                  {sortBy === 'name' && (
+                    sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                  )}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleSort('date')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Data de criação</span>
+                  {sortBy === 'date' && (
+                    sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                  )}
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button variant="outline" onClick={() => refetch()} title="Atualizar lista de categorias">
+            <RefreshCw size={16} />
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -157,33 +275,50 @@ export default function CategoriesPage() {
           <p>Erro ao carregar categorias.</p>
           <p className="text-sm">{error.message}</p>
         </div>
-      ) : filteredCategories.length === 0 ? (
+      ) : sortedCategories.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground">
           <p>Nenhuma categoria encontrada.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCategories.map((category: CategoryType) => (
+          {sortedCategories.slice(0, visibleCount).map((category: any, index: number) => (
             <div
               key={category.id}
-              className="bg-card rounded-lg border shadow-sm p-4 h-[180px] flex flex-col"
+              ref={(el) => setLastCategoryRef(el, index)}
+              className="bg-card rounded-lg border shadow-sm p-4 h-[180px] flex flex-col hover:border-primary transition-colors cursor-pointer"
+              onClick={() => handleOpenEditDialog(category)}
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-medium truncate max-w-[70%]">
-                  {category.name}
-                </h3>
+                <div className="flex items-center space-x-2 max-w-[70%]">
+                  {category.image ? (
+                    <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
+                      <img 
+                        src={`data:image/png;base64,${category.image}`} 
+                        alt={category.name} 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                      <TagIcon size={16} className="text-muted-foreground" />
+                    </div>
+                  )}
+                  <h3 className="text-lg font-medium truncate">
+                    {category.name}
+                  </h3>
+                </div>
                 <div className="flex space-x-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleOpenEditDialog(category)}
+                    onClick={(e) => handleOpenEditDialog(category, e)}
                   >
                     <PencilIcon size={16} />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleOpenDeleteDialog(category)}
+                    onClick={(e) => handleOpenDeleteDialog(category, e)}
                   >
                     <Trash2Icon size={16} />
                   </Button>
@@ -199,14 +334,21 @@ export default function CategoriesPage() {
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                 <div className="flex items-center text-xs text-muted-foreground">
                   <TagIcon size={12} className="mr-1" />
-                  {category.components?.length || 0} componentes
+                  {category.componentCount} componente{category.componentCount !== 1 ? 's' : ''}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Criado em {new Date(category.createdAt).toLocaleDateString('pt-BR')}
+                  {format(new Date(category.createdAt), 'dd/MM/yyyy')}
                 </div>
               </div>
             </div>
           ))}
+          
+          {/* Indicador de carregamento */}
+          {hasMore && sortedCategories.length > 0 && (
+            <div className="col-span-full flex justify-center py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          )}
         </div>
       )}
 
@@ -250,15 +392,30 @@ export default function CategoriesPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão</DialogTitle>
-            <DialogDescription className="pt-2">
-              Tem certeza de que deseja excluir a categoria &quot;{currentCategory?.name}&quot;? Esta ação não pode ser desfeita.
+            <DialogDescription>
+              Você está prestes a excluir a categoria "{currentCategory?.name}".
+              Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Se esta categoria possuir componentes associados, a exclusão será rejeitada.
+              Você precisará remover ou reassociar todos os componentes primeiro.
+            </p>
+          </div>
+          <DialogFooter className="flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
               Cancelar
             </Button>
-            <Button variant="default" onClick={handleDeleteConfirm}>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+            >
               Excluir
             </Button>
           </DialogFooter>

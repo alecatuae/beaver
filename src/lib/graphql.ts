@@ -280,6 +280,9 @@ export const GET_CATEGORIES = gql`
       description
       image
       createdAt
+      components {
+        id
+      }
     }
   }
 `;

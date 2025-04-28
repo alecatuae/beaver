@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Network,
+  TagIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
@@ -98,6 +99,11 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
           href: '/components',
           label: 'Components',
           icon: <Box size={16} />,
+        },
+        {
+          href: '/categories',
+          label: 'Categories',
+          icon: <TagIcon size={16} />,
         },
         {
           href: '/relationships',

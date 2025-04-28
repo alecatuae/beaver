@@ -1,56 +1,66 @@
 import { logger } from '../utils/logger';
 
 export const categoryResolvers = (builder: any) => {
-  // Define o tipo Category
-  const Category = builder.objectType('Category', {
-    fields: (t: any) => ({
-      id: t.field({
-        type: 'Int',
-        resolve: (parent: any) => parent.id,
-      }),
-      name: t.field({
-        type: 'String',
-        resolve: (parent: any) => parent.name,
-      }),
-      description: t.field({
-        type: 'String',
-        nullable: true,
-        resolve: (parent: any) => parent.description,
-      }),
-      image: t.field({
-        type: 'String',
-        nullable: true,
-        resolve: (parent: any) => {
-          if (parent.image) {
-            // Converte Buffer para string base64 se existir
-            return Buffer.from(parent.image).toString('base64');
+  // Define o tipo Category, verificando se já existe
+  const Category = builder.objectRef<any>('Category');
+  
+  // Só define o tipo se não existir
+  if (!builder.configStore.hasConfigWithTypename('Category')) {
+    builder.objectType(Category, {
+      fields: (t: any) => ({
+        id: t.field({
+          type: 'Int',
+          resolve: (parent: any) => parent.id,
+        }),
+        name: t.field({
+          type: 'String',
+          resolve: (parent: any) => parent.name,
+        }),
+        description: t.field({
+          type: 'String',
+          nullable: true,
+          resolve: (parent: any) => parent.description,
+        }),
+        image: t.field({
+          type: 'String',
+          nullable: true,
+          resolve: (parent: any) => {
+            if (parent.image) {
+              // Converte Buffer para string base64 se existir
+              return Buffer.from(parent.image).toString('base64');
+            }
+            return null;
           }
-          return null;
-        }
+        }),
+        createdAt: t.field({
+          type: 'Date',
+          resolve: (parent: any) => parent.createdAt || new Date(),
+        }),
+        components: t.field({
+          type: ['Component'],
+          resolve: async (parent: any, _args: any, ctx: any) => {
+            return await ctx.prisma.component.findMany({
+              where: { categoryId: parent.id }
+            });
+          }
+        }),
       }),
-      createdAt: t.field({
-        type: 'Date',
-        resolve: (parent: any) => parent.createdAt || new Date(),
-      }),
-      components: t.field({
-        type: ['Component'],
-        resolve: async (parent: any, _args: any, ctx: any) => {
-          return await ctx.prisma.component.findMany({
-            where: { categoryId: parent.id }
-          });
-        }
-      }),
-    }),
-  });
+    });
+  }
 
   // Input para criação/atualização de categoria
-  const CategoryInput = builder.inputType('CategoryInput', {
-    fields: (t: any) => ({
-      name: t.string({ required: true }),
-      description: t.string(),
-      image: t.string(),
-    }),
-  });
+  const CategoryInput = builder.inputRef<any>('CategoryInput');
+  
+  // Só define o tipo se não existir
+  if (!builder.configStore.hasConfigWithTypename('CategoryInput')) {
+    builder.inputType(CategoryInput, {
+      fields: (t: any) => ({
+        name: t.string({ required: true }),
+        description: t.string(),
+        image: t.string(),
+      }),
+    });
+  }
 
   // Query para listar categorias
   builder.queryField('categories', (t: any) =>
