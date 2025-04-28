@@ -20,7 +20,8 @@ import {
   ArrowUpDown,
   SortAsc,
   SortDesc,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -517,8 +518,8 @@ export default function RelationshipsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="outline">
-              <Download size={16} />
+            <Button variant="outline" onClick={() => refetch()} title="Atualizar lista de relacionamentos">
+              <RefreshCw size={16} />
             </Button>
           </div>
         </div>

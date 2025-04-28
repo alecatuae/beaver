@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc, Link as LinkIcon } from 'lucide-react';
+import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -521,8 +521,8 @@ export default function ComponentsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="outline">
-              <Download size={16} />
+            <Button variant="outline" onClick={() => refetch()} title="Atualizar lista de componentes">
+              <RefreshCw size={16} />
             </Button>
           </div>
         </div>
