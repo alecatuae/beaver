@@ -36,6 +36,7 @@ import CategoryForm from './category-form';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
+import DeleteCategoryDialog from './delete-category-dialog';
 
 export default function CategoriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -115,7 +116,7 @@ export default function CategoriesPage() {
   }, [visibleCount, sortedCategories.length]);
 
   // Mutation para criar categoria
-  const [createCategory] = useMutation(CREATE_CATEGORY, {
+  const [createCategory, { loading: createLoading }] = useMutation(CREATE_CATEGORY, {
     onCompleted: (data) => {
       console.log('Categoria criada com sucesso:', data);
       setIsCreateDialogOpen(false);
@@ -135,7 +136,7 @@ export default function CategoriesPage() {
   });
 
   // Mutation para atualizar categoria
-  const [updateCategory] = useMutation(UPDATE_CATEGORY, {
+  const [updateCategory, { loading: updateLoading }] = useMutation(UPDATE_CATEGORY, {
     onCompleted: (data) => {
       console.log('Categoria atualizada com sucesso:', data);
       setIsEditDialogOpen(false);
@@ -155,13 +156,21 @@ export default function CategoriesPage() {
   });
 
   // Mutation para excluir categoria
-  const [deleteCategory] = useMutation(DELETE_CATEGORY, {
+  const [deleteCategory, { loading: deleteLoading }] = useMutation(DELETE_CATEGORY, {
     onCompleted: () => {
       setIsDeleteDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao excluir categoria:', error);
+      console.error('Mensagem de erro:', error.message);
+      if (error.graphQLErrors) {
+        console.error('GraphQL errors:', error.graphQLErrors);
+      }
+      if (error.networkError) {
+        console.error('Network error:', error.networkError);
+      }
+      alert(`Erro ao excluir categoria: ${error.message}`);
     }
   });
 
@@ -226,6 +235,7 @@ export default function CategoriesPage() {
   // Manipulador para confirmar exclusão
   const handleDeleteConfirm = () => {
     if (currentCategory?.id) {
+      console.log('Enviando solicitação para excluir categoria com ID:', currentCategory.id);
       deleteCategory({
         variables: { id: currentCategory.id }
       });
@@ -503,40 +513,13 @@ export default function CategoriesPage() {
       </Dialog>
 
       {/* Diálogo de confirmação de exclusão */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
-            <DialogDescription>
-              Você está prestes a excluir a categoria "{currentCategory?.name}".
-              Esta ação não pode ser desfeita.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Se esta categoria possuir componentes associados, a exclusão será rejeitada.
-              Você precisará remover ou reassociar todos os componentes primeiro.
-            </p>
-          </div>
-          <DialogFooter className="flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={currentCategory?.componentCount > 0}
-            >
-              Excluir
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteCategoryDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        category={currentCategory as CategoryType}
+        onConfirm={handleDeleteConfirm}
+        isLoading={deleteLoading}
+      />
     </AppLayout>
   );
 } 

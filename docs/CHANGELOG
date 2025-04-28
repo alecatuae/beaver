@@ -134,6 +134,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Resolvido o problema de leitura de categorias ao listar componentes
 - Corrigido o nome das propriedades no Neo4j para valid_from e valid_to em vez de validFrom e validTo
 - Ajustada a função GraphQL components para suportar filtragem por categoria
+- Corrigido o funcionamento dos botões de ação na página de Gerenciamento de Categorias
+- Adicionado indicador de carregamento durante operações de criação, edição e exclusão de categorias
+- Melhorado o tratamento de erros nas operações de manipulação de categorias
+- Refatorado o componente DeleteCategoryDialog para suportar estado de carregamento
+
+### Added
+- Documentação detalhada do fluxo de visualização e gestão de categorias
 
 ## [0.3.0] - 2023-11-18
 

@@ -17,6 +17,7 @@ interface DeleteCategoryDialogProps {
   onOpenChange: (open: boolean) => void;
   category: CategoryType | null;
   onConfirm: () => void;
+  isLoading?: boolean;
 }
 
 export default function DeleteCategoryDialog({
@@ -24,6 +25,7 @@ export default function DeleteCategoryDialog({
   onOpenChange,
   category,
   onConfirm,
+  isLoading = false,
 }: DeleteCategoryDialogProps) {
   if (!category) {
     return null;
@@ -50,6 +52,7 @@ export default function DeleteCategoryDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={isLoading}
           >
             Cancelar
           </Button>
@@ -57,9 +60,16 @@ export default function DeleteCategoryDialog({
             type="button"
             variant="destructive"
             onClick={onConfirm}
-            disabled={category.componentCount > 0}
+            disabled={category.componentCount > 0 || isLoading}
           >
-            Excluir
+            {isLoading ? (
+              <>
+                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></span>
+                Excluindo...
+              </>
+            ) : (
+              'Excluir'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
