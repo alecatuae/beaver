@@ -56,6 +56,23 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Script de debug para relacionamentos no Neo4j (`debug-relationship.ts`)
 - Indicador visual de relacionamentos nos cards de componentes
 - Bloqueio de exclusão para componentes que possuem relacionamentos
+- Implementação do suporte a categorias de componentes com nova tabela Category no MariaDB
+- Adição de 18 categorias predefinidas incluindo Application, Authentication, Database, Security, etc.
+- Atualização da tabela Component para relacionamento com Category através da coluna category_id
+- Migração automática para definir a categoria padrão "NA (Default)" para componentes existentes
+- Implementação de queries GraphQL para listar e filtrar categorias
+- Atualização dos resolvers de componentes para incluir a categoria e permitir filtragem por categoria
+- Criação do tipo GraphQL Category com campos id, name, description, image, createdAt e components
+- Criação de queries e mutations para componentes que suportam o relacionamento com categorias
+- Método para exibir categorias no formato base64 quando imagens são fornecidas
+- Criação do modelo Prisma para Category que representa a tabela no banco de dados
+- Correções no resolver de componentes para contornar problemas com enum ComponentStatus através de SQL bruto
+- Criação do tipo CategoryInput para uso nas operações de criação/atualização de categorias
+- Método para buscar todos os componentes de uma categoria específica
+- Criação de uma rota temporária para aplicar a migração da tabela Category (posteriormente removida)
+- Modificação das operações CRUD de componentes para suportar o relacionamento com categorias
+- Criação de testes para verificar o funcionamento correto do relacionamento entre componentes e categorias
+- Atualizado o seed.ts para incluir as 18 categorias predefinidas durante a inicialização do banco de dados
 
 ### Changed
 - Alterada toda a representação interna de IDs de relacionamentos para usar exclusivamente strings, eliminando problemas com números inteiros grandes no Neo4j
@@ -77,6 +94,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Alterada a cor dos botões de ação em destaque para utilizar a cor primária roxa (var(--primary)), garantindo consistência visual e aderência ao guia de estilo da aplicação
 - Aprimorado o alinhamento do menu lateral para garantir consistência visual entre itens com e sem submenu, aplicando layout flexível e espaçamento uniforme
 - Corrigido o alinhamento e a margem do texto nas opções do menu lateral, adicionando truncamento para textos longos e garantindo espaçamento consistente entre os elementos
+- Migrados os resolvers de componentes para usar consultas SQL brutas para contornar problema com enum no Prisma
+- Alterada a implementação de createComponent para utilizar SQL bruto em vez do Prisma client
+- Modificado o método updateComponent para usar SQL bruto e suportar a atualização da categoria
+- Alterado o resolver deleteComponent para utilizar SQL bruto e manter a consistência com outros métodos
+- Atualizada a interface do Neo4jClient.upsertComponent para manter compatibilidade com as alterações
+- Modificada a implementação de componentes para sempre incluir a categoria, mesmo que seja a padrão
+- Corrigida a criação de componentes no Neo4j para usar o método upsertComponent em vez de run direto
 
 ### Fixed
 - Corrigido problema fundamental com IDs de relacionamentos grandes do Neo4j implementando um tratamento consistente como strings em toda a aplicação
@@ -96,6 +120,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - Melhorado o manipulador de exclusão para tentar diferentes formatos de ID
 - Adicionado caso especial para ID "115292260411847772"
 - Removido campo de descrição do formulário de relacionamentos
+- Corrigido problema com o enum ComponentStatus no Prisma utilizando SQL bruto para operações CRUD
+- Resolvido problema de IDs de relacionamentos no Neo4j utilizando strings em vez de números inteiros
+- Corrigida a criação de componentes no Neo4j para incluir as propriedades valid_from e valid_to
+- Ajustado o método updateComponent para suportar atualizações parciais (categoria opcional)
+- Resolvido o problema de leitura de categorias ao listar componentes
+- Corrigido o nome das propriedades no Neo4j para valid_from e valid_to em vez de validFrom e validTo
+- Ajustada a função GraphQL components para suportar filtragem por categoria
 
 ## [0.3.0] - 2023-11-18
 

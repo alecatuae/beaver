@@ -1,7 +1,7 @@
 import * as neo4j from 'neo4j-driver';
 import type { Driver } from 'neo4j-driver';
 import * as dotenv from 'dotenv';
-import { PrismaClient, Component } from '@prisma/client';
+import { PrismaClient, ComponentStatus } from '@prisma/client';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -91,7 +91,7 @@ async function syncComponents() {
             id: component.id,
             name: component.name,
             description: component.description || '',
-            status: component.status.toString()
+            status: component.status
           });
           
           console.log(`Componente ${component.id} sincronizado com sucesso`);
@@ -124,7 +124,7 @@ async function syncComponents() {
             id: component.id,
             name: component.name,
             description: component.description || '',
-            status: component.status.toString()
+            status: component.status
           });
         }
         

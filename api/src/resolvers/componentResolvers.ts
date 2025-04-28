@@ -1,10 +1,55 @@
 import { ComponentStatus } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { prisma } from '../prisma';
 
 export const componentResolvers = (builder: any) => {
   // Define o enumerador ComponentStatus
   const ComponentStatusEnum = builder.enumType('ComponentStatus', {
     values: Object.values(ComponentStatus) as [string, ...string[]],
+  });
+
+  // Define o tipo Category
+  const Category = builder.objectType('Category', {
+    fields: (t: any) => ({
+      id: t.field({
+        type: 'Int',
+        resolve: (parent: any) => parent.id,
+      }),
+      name: t.field({
+        type: 'String',
+        resolve: (parent: any) => parent.name,
+      }),
+      description: t.field({
+        type: 'String',
+        nullable: true,
+        resolve: (parent: any) => parent.description,
+      }),
+      image: t.field({
+        type: 'String',
+        nullable: true,
+        resolve: (parent: any) => {
+          if (parent.image) {
+            // Converte Buffer para string base64 se existir
+            return Buffer.from(parent.image).toString('base64');
+          }
+          return null;
+        }
+      }),
+      createdAt: t.field({
+        type: 'Date',
+        resolve: (parent: any) => parent.createdAt || new Date(),
+      }),
+      components: t.field({
+        type: ['Component'],
+        resolve: async (parent: any, _args: any, ctx: any) => {
+          const rawComponents = await ctx.prisma.$queryRaw`
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt 
+            FROM Component WHERE category_id = ${parent.id}
+          `;
+          return rawComponents;
+        }
+      }),
+    }),
   });
 
   // Define o tipo ComponentTag
@@ -24,13 +69,13 @@ export const componentResolvers = (builder: any) => {
         resolve: (parent: any) => parent.tag,
       }),
       component: t.field({
-        type: Component,
+        type: 'Component',
         nullable: true,
         resolve: async (parent: any, _args: any, ctx: any) => {
           if (!parent.componentId) return null;
           
           const rawComponents = await ctx.prisma.$queryRaw`
-            SELECT id, name, description, status, created_at as createdAt 
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt 
             FROM Component WHERE id = ${parent.componentId}
           `;
           
@@ -63,6 +108,22 @@ export const componentResolvers = (builder: any) => {
           const status = parent.status || 'ACTIVE';
           return status.toUpperCase();
         },
+      }),
+      categoryId: t.field({
+        type: 'Int',
+        nullable: true,
+        resolve: (parent: any) => parent.categoryId,
+      }),
+      category: t.field({
+        type: Category,
+        nullable: true,
+        resolve: async (parent: any, _args: any, ctx: any) => {
+          if (!parent.categoryId) return null;
+          
+          return await ctx.prisma.category.findUnique({
+            where: { id: parent.categoryId }
+          });
+        }
       }),
       createdAt: t.field({
         type: 'Date',
@@ -136,6 +197,7 @@ export const componentResolvers = (builder: any) => {
       name: t.string({ required: true }),
       description: t.string(),
       status: t.field({ type: ComponentStatusEnum }),
+      categoryId: t.int(),
       tags: t.field({ type: ['String'] }),
     }),
   });
@@ -146,6 +208,7 @@ export const componentResolvers = (builder: any) => {
       type: [Component],
       args: {
         status: t.arg.string({ nullable: true }),
+        categoryId: t.arg.int({ nullable: true }),
       },
       resolve: async (_root: any, args: any, ctx: any) => {
         try {
@@ -153,25 +216,32 @@ export const componentResolvers = (builder: any) => {
           
           // Normaliza o status para maiúsculas se fornecido
           const status = args.status ? args.status.toUpperCase() : null;
+          const categoryId = args.categoryId || null;
+          
           console.log(`Status solicitado: ${status || 'TODOS'}`);
+          console.log(`Categoria solicitada: ${categoryId || 'TODAS'}`);
           
           // Usa raw query para evitar problemas com enum
           let rawComponents;
-          if (status === 'ACTIVE') {
+          
+          if (status && categoryId) {
             rawComponents = await ctx.prisma.$queryRaw`
-              SELECT id, name, description, status, created_at as createdAt FROM Component WHERE status = 'ACTIVE'
+              SELECT id, name, description, status, category_id as categoryId, created_at as createdAt FROM Component 
+              WHERE status = ${status} AND category_id = ${categoryId}
             `;
-          } else if (status === 'INACTIVE') {
+          } else if (status) {
             rawComponents = await ctx.prisma.$queryRaw`
-              SELECT id, name, description, status, created_at as createdAt FROM Component WHERE status = 'INACTIVE'
+              SELECT id, name, description, status, category_id as categoryId, created_at as createdAt FROM Component 
+              WHERE status = ${status}
             `;
-          } else if (status === 'DEPRECATED') {
+          } else if (categoryId) {
             rawComponents = await ctx.prisma.$queryRaw`
-              SELECT id, name, description, status, created_at as createdAt FROM Component WHERE status = 'DEPRECATED'
+              SELECT id, name, description, status, category_id as categoryId, created_at as createdAt FROM Component 
+              WHERE category_id = ${categoryId}
             `;
           } else {
             rawComponents = await ctx.prisma.$queryRaw`
-              SELECT id, name, description, status, created_at as createdAt FROM Component
+              SELECT id, name, description, status, category_id as categoryId, created_at as createdAt FROM Component
             `;
           }
           
@@ -199,7 +269,8 @@ export const componentResolvers = (builder: any) => {
         try {
           // Usa raw query para evitar problemas com enum
           const rawComponents = await ctx.prisma.$queryRaw`
-            SELECT id, name, description, status, created_at as createdAt FROM Component WHERE id = ${args.id}
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt 
+            FROM Component WHERE id = ${args.id}
           `;
           
           if (rawComponents.length === 0) {
@@ -248,12 +319,12 @@ export const componentResolvers = (builder: any) => {
             name: node.name,
             description: node.description,
             type: Array.isArray(node.labels) ? node.labels[0] : 'Node',
-            validFrom: node.valid_from,
-            validTo: node.valid_to,
+            validFrom: node.validFrom,
+            validTo: node.validTo,
           }));
           
-          const edges = data.allRels.map((rel: any, index: number) => ({
-            id: `e${index}`,
+          const edges = data.allRels.map((rel: any) => ({
+            id: rel.id,
             source: String(rel.startNodeId),
             target: String(rel.endNodeId),
             label: rel.type,
@@ -261,9 +332,47 @@ export const componentResolvers = (builder: any) => {
           }));
           
           return { nodes, edges };
-        } catch (error) {
-          logger.error(`Erro ao buscar dados do grafo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-          throw new Error('Erro ao buscar dados do grafo');
+        } catch (error: any) {
+          console.error('Erro ao obter dados do grafo:', error);
+          throw new Error(`Erro ao obter dados do grafo: ${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Query para listar categorias
+  builder.queryField('categories', (t: any) =>
+    t.field({
+      type: [Category],
+      resolve: async (_root: any, _args: any, ctx: any) => {
+        try {
+          return await ctx.prisma.category.findMany({
+            orderBy: { name: 'asc' }
+          });
+        } catch (error: any) {
+          console.error('Erro ao buscar categorias:', error);
+          throw new Error(`Erro ao carregar as categorias: ${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Query para buscar categoria por ID
+  builder.queryField('category', (t: any) =>
+    t.field({
+      type: Category,
+      nullable: true,
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (_root: any, args: any, ctx: any) => {
+        try {
+          return await ctx.prisma.category.findUnique({
+            where: { id: args.id }
+          });
+        } catch (error: any) {
+          console.error(`Erro ao buscar categoria com ID ${args.id}:`, error);
+          throw new Error(`Erro ao carregar a categoria: ${error.message}`);
         }
       },
     })
@@ -277,27 +386,20 @@ export const componentResolvers = (builder: any) => {
         input: t.arg({ type: ComponentInput, required: true }),
       },
       resolve: async (_root: any, args: any, ctx: any) => {
-        // Descomente esta verificação em produção
-        // if (!ctx.userId) {
-        //   throw new Error('Não autorizado');
-        // }
-        
-        const { name, description, tags } = args.input;
-        // Usar o status fornecido ou ACTIVE como padrão
-        const status = args.input.status ? args.input.status.toUpperCase() : 'ACTIVE';
-        
         try {
-          // Cria o componente no MariaDB com SQL bruto
-          await ctx.prisma.$queryRaw`
-            INSERT INTO Component (name, description, status) 
-            VALUES (${name}, ${description}, ${status})
+          const { name, description, status, categoryId, tags } = args.input;
+          
+          // Cria o componente no MariaDB
+          const component = await ctx.prisma.$queryRaw`
+            INSERT INTO Component (name, description, status, category_id) 
+            VALUES (${name}, ${description}, 'ACTIVE', ${categoryId || null})
           `;
           
           // Busca o componente que acabou de ser criado
           const rawComponents = await ctx.prisma.$queryRaw`
-            SELECT id, name, description, status, created_at as createdAt 
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt 
             FROM Component 
-            WHERE name = ${name} AND status = ${status}
+            WHERE name = ${name}
             ORDER BY id DESC 
             LIMIT 1
           `;
@@ -308,7 +410,7 @@ export const componentResolvers = (builder: any) => {
           
           const createdComponent = rawComponents[0];
           
-          // Adiciona tags ao componente se necessário
+          // Cria as tags, se fornecidas
           if (tags && tags.length > 0) {
             for (const tag of tags) {
               await ctx.prisma.componentTag.create({
@@ -320,22 +422,33 @@ export const componentResolvers = (builder: any) => {
             }
           }
           
-          // Atualiza o Neo4j
+          // Cria o nó correspondente no Neo4j
           await ctx.neo4j.upsertComponent({
             id: createdComponent.id,
             name: createdComponent.name,
             description: createdComponent.description,
+            validFrom: new Date().toISOString(),
+            validTo: '9999-12-31T23:59:59Z'
           });
           
-          logger.info(`Componente criado com queryRaw: ${name}`);
+          await ctx.prisma.log.create({
+            data: {
+              userId: ctx.user?.id,
+              action: `Criou componente ${name}`,
+            },
+          });
           
           return {
-            ...createdComponent,
-            id: String(createdComponent.id) // Converte ID para string conforme esperado pelo tipo
+            id: createdComponent.id,
+            name: createdComponent.name,
+            description: createdComponent.description,
+            status: createdComponent.status,
+            categoryId: createdComponent.categoryId,
+            createdAt: createdComponent.createdAt,
           };
         } catch (error: any) {
-          console.error('Erro ao criar componente com queryRaw:', error);
-          throw new Error(`Falha ao criar componente: ${error.message}`);
+          console.error('Erro ao criar componente:', error);
+          throw new Error(`Erro ao criar componente: ${error.message}`);
         }
       },
     })
@@ -350,70 +463,99 @@ export const componentResolvers = (builder: any) => {
         input: t.arg({ type: ComponentInput, required: true }),
       },
       resolve: async (_root: any, args: any, ctx: any) => {
-        // Descomente esta verificação em produção
-        // if (!ctx.userId) {
-        //   throw new Error('Não autorizado');
-        // }
-        
-        const { id } = args;
-        const { name, description, tags } = args.input;
-        // Usar o status fornecido ou ACTIVE como padrão
-        const status = args.input.status ? args.input.status.toUpperCase() : 'ACTIVE';
-        
         try {
-          // Atualiza o componente no MariaDB com SQL bruto
-          await ctx.prisma.$queryRaw`
-            UPDATE Component 
-            SET name = ${name}, description = ${description}, status = ${status}
-            WHERE id = ${id}
-          `;
+          const { id } = args;
+          const { name, description, status, categoryId, tags } = args.input;
           
-          // Busca o componente atualizado
-          const rawComponents = await ctx.prisma.$queryRaw`
-            SELECT id, name, description, status, created_at as createdAt 
+          // Verifica se o componente existe
+          const components = await ctx.prisma.$queryRaw`
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt
             FROM Component WHERE id = ${id}
           `;
           
-          if (!rawComponents.length) {
-            throw new Error('Componente não foi encontrado após atualização');
+          if (!components.length) {
+            throw new Error(`Componente com ID ${id} não encontrado`);
           }
           
-          const updatedComponent = rawComponents[0];
+          // Atualiza o componente no MariaDB
+          let query = `
+            UPDATE Component 
+            SET 
+              name = ?,
+              description = ?
+          `;
           
-          // Atualiza as tags se necessário
-          if (tags) {
-            // Remove tags existentes
+          const params = [name, description || null];
+          
+          if (status) {
+            query += `, status = ?`;
+            params.push(status);
+          }
+          
+          query += `, category_id = ? WHERE id = ?`;
+          params.push(categoryId || null, id);
+          
+          await ctx.prisma.$executeRawUnsafe(query, ...params);
+          
+          // Busca o componente atualizado
+          const updatedComponents = await ctx.prisma.$queryRaw`
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt
+            FROM Component WHERE id = ${id}
+          `;
+          
+          if (!updatedComponents.length) {
+            throw new Error(`Componente atualizado não pode ser recuperado`);
+          }
+          
+          const updatedComponent = updatedComponents[0];
+          
+          // Se tags foram fornecidas, atualiza as tags
+          if (tags !== undefined) {
+            // Remove as tags existentes
             await ctx.prisma.componentTag.deleteMany({
-              where: { componentId: id }
+              where: { componentId: id },
             });
             
-            // Adiciona novas tags
-            for (const tag of tags) {
-              await ctx.prisma.componentTag.create({
-                data: {
-                  componentId: id,
-                  tag
-                }
-              });
+            // Adiciona as novas tags
+            if (tags.length > 0) {
+              for (const tag of tags) {
+                await ctx.prisma.componentTag.create({
+                  data: {
+                    componentId: id,
+                    tag
+                  }
+                });
+              }
             }
           }
           
-          // Atualiza o Neo4j
+          // Atualiza o nó no Neo4j
           await ctx.neo4j.upsertComponent({
             id: updatedComponent.id,
             name: updatedComponent.name,
             description: updatedComponent.description,
+            validFrom: new Date().toISOString(),
+            validTo: '9999-12-31T23:59:59Z'
           });
           
-          logger.info(`Componente atualizado com queryRaw: ${name}`);
+          await ctx.prisma.log.create({
+            data: {
+              userId: ctx.user?.id,
+              action: `Atualizou componente ${name}`,
+            },
+          });
           
           return {
-            ...updatedComponent,
-            id: String(updatedComponent.id) // Converte ID para string conforme esperado pelo tipo
+            id: updatedComponent.id,
+            name: updatedComponent.name,
+            description: updatedComponent.description,
+            status: updatedComponent.status,
+            categoryId: updatedComponent.categoryId,
+            createdAt: updatedComponent.createdAt,
           };
         } catch (error: any) {
-          console.error('Erro ao atualizar componente com queryRaw:', error);
-          throw new Error(`Falha ao atualizar componente: ${error.message}`);
+          console.error(`Erro ao atualizar componente com ID ${args.id}:`, error);
+          throw new Error(`Erro ao atualizar componente: ${error.message}`);
         }
       },
     })
@@ -422,65 +564,46 @@ export const componentResolvers = (builder: any) => {
   // Mutation para excluir componente
   builder.mutationField('deleteComponent', (t: any) =>
     t.field({
-      type: Component,
+      type: 'Boolean',
       args: {
         id: t.arg.int({ required: true }),
       },
       resolve: async (_root: any, args: any, ctx: any) => {
         try {
           const { id } = args;
-          console.log(`Tentando excluir componente com ID ${id}`);
           
           // Verifica se o componente existe
-          const componentes = await ctx.prisma.$queryRaw`
-            SELECT id, name, description, status, created_at as createdAt 
+          const components = await ctx.prisma.$queryRaw`
+            SELECT id, name, description, status, category_id as categoryId, created_at as createdAt 
             FROM Component WHERE id = ${id}
           `;
           
-          console.log(`Resultado da busca:`, componentes);
-          
-          if (!componentes || componentes.length === 0) {
-            console.error(`Componente com ID ${id} não encontrado`);
-            throw new Error('Componente não encontrado');
+          if (!components.length) {
+            throw new Error(`Componente com ID ${id} não encontrado`);
           }
           
-          const component = componentes[0];
-          console.log(`Componente encontrado:`, component);
+          const component = components[0];
           
-          // Busca as tags do componente para verificação
-          const tags = await ctx.prisma.$queryRaw`
-            SELECT * FROM ComponentTag WHERE component_id = ${id}
-          `;
-          console.log(`Tags encontradas: ${tags.length}`);
+          // Remove as tags associadas
+          await ctx.prisma.$executeRaw`DELETE FROM ComponentTag WHERE component_id = ${id}`;
           
-          // Exclui as tags do componente do MariaDB
-          const deleteTagsResult = await ctx.prisma.$executeRaw`
-            DELETE FROM ComponentTag WHERE component_id = ${id}
-          `;
-          console.log(`Tags excluídas: ${deleteTagsResult}`);
+          // Remove o componente
+          await ctx.prisma.$executeRaw`DELETE FROM Component WHERE id = ${id}`;
           
-          // Exclui o componente do MariaDB
-          const deleteComponentResult = await ctx.prisma.$executeRaw`
-            DELETE FROM Component WHERE id = ${id}
-          `;
-          console.log(`Resultado da exclusão do componente: ${deleteComponentResult}`);
-          
-          if (deleteComponentResult === 0) {
-            throw new Error(`Falha ao excluir o componente com ID ${id}`);
-          }
-          
-          // Exclui o componente e suas relações do Neo4j
+          // Remove o nó correspondente no Neo4j
           await ctx.neo4j.deleteNode('Component', id);
           
-          logger.info(`Componente excluído: ${component.name}`);
+          await ctx.prisma.log.create({
+            data: {
+              userId: ctx.user?.id,
+              action: `Excluiu componente ${component.name}`,
+            },
+          });
           
-          return {
-            ...component,
-            id: String(component.id) // Converte ID para string conforme esperado pelo tipo
-          };
+          return true;
         } catch (error: any) {
-          console.error(`Erro detalhado ao excluir componente:`, error);
-          throw new Error(`Falha ao excluir componente: ${error.message}`);
+          console.error(`Erro ao excluir componente com ID ${args.id}:`, error);
+          throw new Error(`Erro ao excluir componente: ${error.message}`);
         }
       },
     })
