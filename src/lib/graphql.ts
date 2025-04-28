@@ -340,6 +340,7 @@ export interface CategoryType {
 }
 
 export interface CategoryInput {
+  id?: number;
   name: string;
   description?: string;
   image?: string;

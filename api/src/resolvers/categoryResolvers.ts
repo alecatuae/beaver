@@ -154,6 +154,7 @@ export const categoryResolvers = (builder: any) => {
       },
       resolve: async (_root: any, { id, input }: any, ctx: any) => {
         try {
+          // Ignore o id na entrada, use o id do argumento principal para a operação
           const { name, description, image } = input;
           
           logger.info(`Atualizando categoria: ${id}`);

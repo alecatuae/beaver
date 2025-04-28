@@ -107,6 +107,7 @@ export default function CategoryForm({
     setErrors({});
       
     onSubmit({
+      id: initialData.id,
       name,
       description,
       image
