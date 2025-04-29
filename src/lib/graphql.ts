@@ -123,12 +123,7 @@ export const UPDATE_COMPONENT = gql`
 
 export const DELETE_COMPONENT = gql`
   mutation DeleteComponent($id: Int!) {
-    deleteComponent(id: $id) {
-      id
-      name
-      description
-      status
-    }
+    deleteComponent(id: $id)
   }
 `;
 

@@ -49,6 +49,7 @@ export default function ComponentsPage() {
   const [componentToDelete, setComponentToDelete] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Obter cliente Apollo para manipulação de cache
   const client = useApolloClient();
@@ -116,7 +117,8 @@ export default function ComponentsPage() {
     }
   });
 
-  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(GET_RELATIONS, {
+  // Consulta específica para verificar relacionamentos (usando a query CHECK_COMPONENT_RELATIONS)
+  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(CHECK_COMPONENT_RELATIONS, {
     fetchPolicy: 'network-only',
     onError: (error) => {
       console.error("Erro ao verificar relacionamentos do componente:", error);
@@ -297,7 +299,14 @@ export default function ComponentsPage() {
   // Função para iniciar o processo de exclusão
   const confirmDeleteComponent = async (id: number) => {
     // Verificar se o componente tem relacionamentos antes de permitir a exclusão
-    if (hasRelations) {
+    const { data } = await checkComponentRelations({ 
+      variables: { id },
+      fetchPolicy: 'network-only' 
+    });
+    
+    const hasComponentRelations = data?.componentRelations?.hasRelations || false;
+    
+    if (hasComponentRelations) {
       toast({
         title: "Operação não permitida",
         description: "Não é possível excluir um componente que possui relacionamentos. Remova os relacionamentos primeiro.",
@@ -306,7 +315,7 @@ export default function ComponentsPage() {
       return;
     }
     
-    // Versão simplificada sem verificação de relacionamentos
+    // Prosseguir com a exclusão
     setComponentToDelete(id);
     setShowDeleteConfirm(true);
     setShowDetails(false); // Fechar o modal de detalhes
@@ -316,17 +325,30 @@ export default function ComponentsPage() {
   const handleConfirmedDelete = () => {
     if (componentToDelete === null) return;
     
+    setIsDeleting(true);
+    
     deleteComponent({
       variables: { id: componentToDelete },
       onCompleted: () => {
         console.log("Componente excluído com sucesso");
         setShowDeleteConfirm(false);
         setComponentToDelete(null);
+        setIsDeleting(false);
+        toast({
+          title: "Componente excluído",
+          description: "O componente foi excluído com sucesso.",
+        });
         // Atualiza a lista após excluir
-        setTimeout(() => refetch(), 300);
+        refetch();
       },
       onError: (error) => {
         console.error("Erro ao excluir componente:", error);
+        setIsDeleting(false);
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Ocorreu um erro ao excluir o componente.",
+          variant: "destructive"
+        });
       }
     });
   };
@@ -731,11 +753,20 @@ export default function ComponentsPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
                 Cancelar
               </Button>
-              <Button variant="default" onClick={handleConfirmedDelete}>
-                Excluir
+              <Button 
+                variant="default" 
+                onClick={handleConfirmedDelete} 
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-r-transparent"></div>
+                    Excluindo...
+                  </>
+                ) : "Excluir"}
               </Button>
             </DialogFooter>
           </DialogContent>
