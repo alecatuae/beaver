@@ -21,13 +21,15 @@ interface CategoryFormProps {
   onSubmit: (data: CategoryInput) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  hasComponents?: boolean;
 }
 
 export default function CategoryForm({ 
   initialData = { name: '', description: '' }, 
   onSubmit, 
   onCancel,
-  onDelete
+  onDelete,
+  hasComponents = false
 }: CategoryFormProps) {
   // Estados do formulário
   const [name, setName] = useState(initialData.name || '');
@@ -232,10 +234,29 @@ export default function CategoryForm({
 
       <div className="flex justify-between pt-4 border-t">
         {initialData.id && onDelete && (
-          <Button type="button" variant="destructive" onClick={onDelete} className="flex items-center gap-1">
-            <Trash2 size={16} />
-            Excluir
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button 
+                    type="button" 
+                    variant="destructive" 
+                    onClick={onDelete} 
+                    className="flex items-center gap-1"
+                    disabled={hasComponents}
+                  >
+                    <Trash2 size={16} />
+                    Excluir
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {hasComponents && (
+                <TooltipContent>
+                  <p>Não é possível excluir uma categoria com componentes associados</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         )}
         <div className="flex-grow"></div>
         <Button type="submit">

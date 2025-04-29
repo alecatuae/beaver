@@ -433,6 +433,7 @@ export default function CategoriesPage() {
                   setIsEditDialogOpen(false);
                   setIsDeleteDialogOpen(true);
                 }}
+                hasComponents={(currentCategory as any).componentCount > 0}
               />
             )}
           </DialogContent>
