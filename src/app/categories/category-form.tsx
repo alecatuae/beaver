@@ -145,11 +145,11 @@ export default function CategoryForm({
             {image ? (
               <div className="relative w-full max-w-[256px] h-auto border rounded-md overflow-hidden flex items-center justify-center bg-background p-4">
                 <img 
-                  src={`data:image/png;base64,${image}`} 
+                  src={`/images/categories/${image}`} 
                   alt="Imagem da categoria" 
                   className="w-16 h-16 object-contain"
                 />
-                <p className="ml-3 text-sm">{image.substring(0, 20)}...</p>
+                <p className="ml-3 text-sm">{image}</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -207,8 +207,8 @@ export default function CategoryForm({
                   >
                     <div className="relative w-full h-16 flex items-center justify-center">
                       <img 
-                        src={`data:image/png;base64,${imageName}`}
-                        alt={imageName.substring(0, 10)}
+                        src={`/images/categories/${imageName}`}
+                        alt={imageName}
                         className="h-12 w-12 object-contain" 
                       />
                       {image === imageName && (
@@ -218,7 +218,7 @@ export default function CategoryForm({
                       )}
                     </div>
                     <p className="text-xs text-center mt-1 truncate w-full">
-                      Imagem {Array.from(imageName).slice(0, 8).join('')}...
+                      {imageName}
                     </p>
                   </div>
                 ))}

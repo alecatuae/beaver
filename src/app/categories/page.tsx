@@ -192,12 +192,28 @@ export default function CategoriesPage() {
   // Manipulador para submeter o formulário de edição
   const handleUpdateSubmit = (formData: CategoryInput) => {
     if (currentCategory?.id) {
-      updateCategory({
-        variables: {
-          id: currentCategory.id,
-          input: formData
-        }
-      });
+      // Verifica se estamos tentando definir uma imagem
+      if (formData.image) {
+        // Alerta o usuário sobre a limitação atual
+        alert('Aviso: Devido a uma limitação técnica temporária com o modo Mock do Neo4j, não é possível atualizar a imagem da categoria neste momento. Os outros dados da categoria serão atualizados normalmente, mas a imagem permanecerá inalterada.');
+        
+        // Não precisamos mais remover a imagem do payload, pois o backend já foi atualizado
+        // para ignorar a atualização de imagem quando estiver no modo Mock
+        updateCategory({
+          variables: {
+            id: currentCategory.id,
+            input: formData
+          }
+        });
+      } else {
+        // Se não estiver tentando atualizar a imagem, procede normalmente
+        updateCategory({
+          variables: {
+            id: currentCategory.id,
+            input: formData
+          }
+        });
+      }
     }
   };
 
