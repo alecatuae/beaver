@@ -37,7 +37,13 @@ export const GET_COMPONENTS = gql`
       name
       description
       status
+      categoryId
       createdAt
+      category {
+        id
+        name
+        image
+      }
       tags {
         tag
       }
@@ -90,6 +96,7 @@ export const CREATE_COMPONENT = gql`
       name
       description
       status
+      categoryId
       createdAt
       tags {
         tag
@@ -105,6 +112,7 @@ export const UPDATE_COMPONENT = gql`
       name
       description
       status
+      categoryId
       createdAt
       tags {
         tag
@@ -235,6 +243,7 @@ export interface ComponentInput {
   name: string;
   description?: string;
   status?: ComponentStatus;
+  categoryId?: number | null;
   tags?: string[];
 }
 

@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tag, X, Plus } from 'lucide-react';
-import { ComponentStatus, ComponentType, ComponentInput } from '@/lib/graphql';
+import { ComponentStatus, ComponentType, ComponentInput, CategoryType, GET_CATEGORIES } from '@/lib/graphql';
+import { useQuery } from '@apollo/client';
 
 // Interface para o formulário de componente
 interface ComponentFormProps {
@@ -31,9 +32,14 @@ export default function ComponentForm({
   const [name, setName] = useState(initialData.name || '');
   const [description, setDescription] = useState(initialData.description?.slice(0, 256) || '');
   const [status, setStatus] = useState<ComponentStatus>(initialData.status || ComponentStatus.ACTIVE);
+  const [categoryId, setCategoryId] = useState<number | null>(initialData.categoryId || null);
   const [tags, setTags] = useState<string[]>(initialData.tags || []);
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+  // Buscar categorias
+  const { data: categoriesData } = useQuery(GET_CATEGORIES);
+  const categories = categoriesData?.categories || [];
 
   // Contador de caracteres restantes
   const remainingChars = 256 - description.length;
@@ -80,6 +86,7 @@ export default function ComponentForm({
       name,
       description,
       status: validStatus,
+      categoryId: categoryId,
       tags
     });
   };
@@ -162,6 +169,28 @@ export default function ComponentForm({
               <SelectItem value={ComponentStatus.ACTIVE}>Ativo</SelectItem>
               <SelectItem value={ComponentStatus.INACTIVE}>Inativo</SelectItem>
               <SelectItem value={ComponentStatus.DEPRECATED}>Depreciado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="category" className="text-sm font-medium">
+            Categoria
+          </Label>
+          <Select
+            value={categoryId?.toString() || "null"}
+            onValueChange={(value) => setCategoryId(value === "null" ? null : parseInt(value))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione uma categoria (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="null">Sem categoria</SelectItem>
+              {categories.map((category: CategoryType) => (
+                <SelectItem key={category.id} value={category.id.toString()}>
+                  {category.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

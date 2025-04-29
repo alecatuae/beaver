@@ -24,9 +24,11 @@ import {
   DELETE_COMPONENT,
   CHECK_COMPONENT_RELATIONS,
   GET_RELATIONS,
+  GET_CATEGORIES,
   ComponentStatus,
   ComponentType,
-  ComponentInput
+  ComponentInput,
+  CategoryType
 } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
 import { useApolloClient } from '@apollo/client';
@@ -552,7 +554,21 @@ export default function ComponentsPage() {
                     </span>
                   </div>
                 </div>
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-2 flex-grow">{component.description}</p>
+                <p className="text-muted-foreground text-sm mb-2 line-clamp-2 flex-grow">{component.description}</p>
+                {component.category && (
+                  <div className="flex items-center mb-2">
+                    <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
+                      {component.category.image ? (
+                        <img 
+                          src={`/images/categories/${component.category.image}`} 
+                          alt={component.category.name}
+                          className="w-3 h-3 mr-1 object-contain"
+                        />
+                      ) : null}
+                      {component.category.name}
+                    </span>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between mt-auto">
                   <div className="flex flex-wrap gap-2 max-w-[70%]">
                     {component.tags.slice(0, 3).map((tag, index) => (
@@ -628,6 +644,12 @@ export default function ComponentsPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <div className="text-sm text-muted-foreground">ID:</div>
                     <div className="text-sm">{selectedComponent.id}</div>
+                    
+                    <div className="text-sm text-muted-foreground">Categoria:</div>
+                    <div className="text-sm">
+                      {selectedComponent.category ? selectedComponent.category.name : 'Sem categoria'}
+                    </div>
+                    
                     <div className="text-sm text-muted-foreground">Data de Criação:</div>
                     <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
                   </div>
