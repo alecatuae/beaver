@@ -27,13 +27,7 @@ export const componentResolvers = (builder: any) => {
       image: t.field({
         type: 'String',
         nullable: true,
-        resolve: (parent: any) => {
-          if (parent.image) {
-            // Converte Buffer para string base64 se existir
-            return Buffer.from(parent.image).toString('base64');
-          }
-          return null;
-        }
+        resolve: (parent: any) => parent.image // Agora é um caminho de string, não um Buffer
       }),
       createdAt: t.field({
         type: 'Date',
@@ -335,44 +329,6 @@ export const componentResolvers = (builder: any) => {
         } catch (error: any) {
           console.error('Erro ao obter dados do grafo:', error);
           throw new Error(`Erro ao obter dados do grafo: ${error.message}`);
-        }
-      },
-    })
-  );
-
-  // Query para listar categorias
-  builder.queryField('categories', (t: any) =>
-    t.field({
-      type: [Category],
-      resolve: async (_root: any, _args: any, ctx: any) => {
-        try {
-          return await ctx.prisma.category.findMany({
-            orderBy: { name: 'asc' }
-          });
-        } catch (error: any) {
-          console.error('Erro ao buscar categorias:', error);
-          throw new Error(`Erro ao carregar as categorias: ${error.message}`);
-        }
-      },
-    })
-  );
-
-  // Query para buscar categoria por ID
-  builder.queryField('category', (t: any) =>
-    t.field({
-      type: Category,
-      nullable: true,
-      args: {
-        id: t.arg.int({ required: true }),
-      },
-      resolve: async (_root: any, args: any, ctx: any) => {
-        try {
-          return await ctx.prisma.category.findUnique({
-            where: { id: args.id }
-          });
-        } catch (error: any) {
-          console.error(`Erro ao buscar categoria com ID ${args.id}:`, error);
-          throw new Error(`Erro ao carregar a categoria: ${error.message}`);
         }
       },
     })

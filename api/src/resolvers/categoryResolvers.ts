@@ -1,237 +1,215 @@
 import { logger } from '../utils/logger';
+import fs from 'fs';
+import path from 'path';
+import { createReadStream } from 'fs';
+import { Categories } from './categories';
+import { builder } from '../builder';
+import { prisma } from '../prisma';
 
 export const categoryResolvers = (builder: any) => {
-  // Define o tipo Category, verificando se já existe
-  const Category = builder.objectRef<any>('Category');
-  
-  // Só define o tipo se não existir
-  if (!builder.configStore.hasConfigWithTypename('Category')) {
-    builder.objectType(Category, {
-      fields: (t: any) => ({
-        id: t.field({
-          type: 'Int',
-          resolve: (parent: any) => parent.id,
-        }),
-        name: t.field({
-          type: 'String',
-          resolve: (parent: any) => parent.name,
-        }),
-        description: t.field({
-          type: 'String',
-          nullable: true,
-          resolve: (parent: any) => parent.description,
-        }),
-        image: t.field({
-          type: 'String',
-          nullable: true,
-          resolve: (parent: any) => {
-            if (parent.image) {
-              // Converte Buffer para string base64 se existir
-              return Buffer.from(parent.image).toString('base64');
-            }
-            return null;
-          }
-        }),
-        createdAt: t.field({
-          type: 'Date',
-          resolve: (parent: any) => parent.createdAt || new Date(),
-        }),
-        components: t.field({
-          type: ['Component'],
-          resolve: async (parent: any, _args: any, ctx: any) => {
-            return await ctx.prisma.component.findMany({
-              where: { categoryId: parent.id }
-            });
-          }
-        }),
-      }),
-    });
-  }
+  // Note: Não definimos o tipo Category aqui pois já foi definido em componentResolvers.ts
 
-  // Input para criação/atualização de categoria
-  const CategoryInput = builder.inputRef<any>('CategoryInput');
-  
-  // Só define o tipo se não existir
-  if (!builder.configStore.hasConfigWithTypename('CategoryInput')) {
-    builder.inputType(CategoryInput, {
-      fields: (t: any) => ({
-        name: t.string({ required: true }),
-        description: t.string(),
-        image: t.string(),
-      }),
-    });
-  }
+  // Query para obter as imagens disponíveis
+  builder.queryField('categoryImages', (t: any) =>
+    t.field({
+      type: ['String'],
+      resolve: async () => {
+        try {
+          const directoryPath = path.join(process.cwd(), '../public/images/categories');
+          const files = fs.readdirSync(directoryPath);
+          const imageFiles = files.filter(file => 
+            file.endsWith('.png') || 
+            file.endsWith('.jpg') || 
+            file.endsWith('.jpeg') || 
+            file.endsWith('.svg')
+          );
+          
+          // Converter os arquivos para base64
+          const base64Images = await Promise.all(
+            imageFiles.map(async (fileName) => {
+              try {
+                const filePath = path.join(directoryPath, fileName);
+                const imageBuffer = fs.readFileSync(filePath);
+                return Buffer.from(imageBuffer).toString('base64');
+              } catch (error) {
+                logger.error(`Erro ao converter imagem ${fileName} para base64:`, error);
+                return null;
+              }
+            })
+          );
+          
+          // Filtrar quaisquer nulos que possam ter ocorrido devido a erros
+          return base64Images.filter(img => img !== null);
+        } catch (error: any) {
+          logger.error('Erro ao ler as imagens de categorias:', error);
+          return [];
+        }
+      },
+    })
+  );
 
-  // Query para listar categorias
+  // Query para obter a lista de categorias
   builder.queryField('categories', (t: any) =>
     t.field({
-      type: [Category],
-      resolve: async (_root: any, _args: any, ctx: any) => {
+      type: ['Category'],
+      resolve: async () => {
         try {
-          return await ctx.prisma.category.findMany({
-            orderBy: { name: 'asc' }
+          return await prisma.category.findMany({
+            orderBy: {
+              name: 'asc',
+            },
           });
         } catch (error: any) {
           logger.error('Erro ao buscar categorias:', error);
-          throw new Error(`Erro ao carregar as categorias: ${error.message}`);
+          return [];
         }
       },
     })
   );
 
-  // Query para buscar categoria por ID
+  // Query para obter uma categoria pelo ID
   builder.queryField('category', (t: any) =>
     t.field({
-      type: Category,
-      nullable: true,
+      type: 'Category',
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (_root: any, args: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          return await ctx.prisma.category.findUnique({
-            where: { id: args.id }
+          const category = await prisma.category.findUnique({
+            where: { id: args.id },
           });
-        } catch (error: any) {
-          logger.error(`Erro ao buscar categoria com ID ${args.id}:`, error);
-          throw new Error(`Erro ao carregar a categoria: ${error.message}`);
-        }
-      },
-    })
-  );
 
-  // Mutation para criar categoria
-  builder.mutationField('createCategory', (t: any) =>
-    t.field({
-      type: Category,
-      args: {
-        input: t.arg({
-          type: CategoryInput,
-          required: true,
-        }),
-      },
-      resolve: async (_root: any, { input }: any, ctx: any) => {
-        try {
-          const { name, description, image } = input;
-          
-          logger.info(`Criando nova categoria: ${name}`);
-          
-          // Converter a imagem de base64 para Buffer, se existir
-          let imageBuffer = null;
-          if (image) {
-            imageBuffer = Buffer.from(image, 'base64');
+          if (!category) {
+            throw new Error(`Categoria com ID ${args.id} não encontrada`);
           }
-          
-          // Criar categoria no banco de dados
-          const category = await ctx.prisma.category.create({
-            data: {
-              name,
-              description,
-              image: imageBuffer,
-            },
-          });
-          
-          logger.info(`Categoria criada com sucesso: ${category.id}`);
+
           return category;
         } catch (error: any) {
-          logger.error('Erro ao criar categoria:', error);
-          throw new Error(`Erro ao criar a categoria: ${error.message}`);
+          logger.error(`Erro ao buscar categoria ${args.id}:`, error);
+          throw error;
         }
       },
     })
   );
 
-  // Mutation para atualizar categoria
-  builder.mutationField('updateCategory', (t: any) =>
+  // Input type para criar/atualizar categorias
+  const CategoryInput = builder.inputType('CategoryInput', {
+    fields: (t: any) => ({
+      name: t.string({ required: true }),
+      description: t.string({ required: false }),
+      image: t.string({ required: false }),
+    }),
+  });
+
+  // Mutation para criar uma categoria
+  builder.mutationField('createCategory', (t: any) =>
     t.field({
-      type: Category,
+      type: 'Category',
       args: {
-        id: t.arg.int({ required: true }),
-        input: t.arg({
-          type: CategoryInput,
-          required: true,
-        }),
+        input: t.arg({ type: CategoryInput, required: true }),
       },
-      resolve: async (_root: any, { id, input }: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          const { name, description, image } = input;
-          
-          logger.info(`Atualizando categoria: ${id}`);
-          
-          // Verificar se a categoria existe
-          const existingCategory = await ctx.prisma.category.findUnique({
-            where: { id },
-          });
-          
-          if (!existingCategory) {
-            throw new Error(`Categoria com ID ${id} não encontrada`);
-          }
-          
-          // Converter a imagem de base64 para Buffer, se existir
-          let imageBuffer = null;
-          if (image) {
-            imageBuffer = Buffer.from(image, 'base64');
-          }
-          
-          // Atualizar a categoria no banco de dados
-          const updatedCategory = await ctx.prisma.category.update({
-            where: { id },
+          return await prisma.category.create({
             data: {
-              name,
-              description,
-              image: imageBuffer,
+              name: args.input.name,
+              description: args.input.description,
+              image: args.input.image,
             },
           });
-          
-          logger.info(`Categoria atualizada com sucesso: ${id}`);
-          return updatedCategory;
         } catch (error: any) {
-          logger.error(`Erro ao atualizar categoria ${id}:`, error);
-          throw new Error(`Erro ao atualizar a categoria: ${error.message}`);
+          logger.error('Erro ao criar a categoria:', error);
+          throw new Error(`Erro ao criar a categoria: \n${error.message}`);
         }
       },
     })
   );
 
-  // Mutation para excluir categoria
-  builder.mutationField('deleteCategory', (t: any) =>
+  // Mutation para atualizar uma categoria
+  builder.mutationField('updateCategory', (t: any) =>
     t.field({
-      type: 'Boolean',
+      type: 'Category',
       args: {
         id: t.arg.int({ required: true }),
+        input: t.arg({ type: CategoryInput, required: true }),
       },
-      resolve: async (_root: any, { id }: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          logger.info(`Excluindo categoria: ${id}`);
+          logger.info(`Atualizando categoria ID ${args.id}`);
+          logger.info(`Input recebido:`, JSON.stringify(args.input, null, 2));
           
           // Verificar se a categoria existe
-          const existingCategory = await ctx.prisma.category.findUnique({
-            where: { id },
+          const existingCategory = await prisma.category.findUnique({
+            where: { id: args.id },
           });
           
           if (!existingCategory) {
-            throw new Error(`Categoria com ID ${id} não encontrada`);
+            throw new Error(`Categoria com ID ${args.id} não encontrada`);
           }
           
-          // Verificar se existem componentes associados a esta categoria
-          const componentsCount = await ctx.prisma.component.count({
-            where: { categoryId: id },
-          });
+          logger.info(`Categoria existente:`, JSON.stringify(existingCategory, null, 2));
           
-          if (componentsCount > 0) {
-            throw new Error(`Não é possível excluir a categoria pois existem ${componentsCount} componentes associados a ela`);
+          // Criar objeto de atualização explicitamente
+          const updateData = {
+            name: args.input.name,
+            description: args.input.description,
+          };
+          
+          // Adicionar campo de imagem apenas se fornecido
+          if (args.input.image !== undefined) {
+            logger.info(`Valor original da imagem: "${args.input.image}"`);
+            // Verificar se não está manipulando o valor da imagem antes de salvar
+            updateData.image = args.input.image; // Usar diretamente sem codificação/decodificação
+            logger.info(`Valor da imagem que será salvo: "${updateData.image}"`);
           }
           
-          // Excluir a categoria
-          await ctx.prisma.category.delete({
-            where: { id },
+          logger.info(`Dados para atualização:`, JSON.stringify(updateData, null, 2));
+          
+          // Atualizar o registro
+          const updated = await prisma.category.update({
+            where: { id: args.id },
+            data: updateData,
           });
           
-          logger.info(`Categoria excluída com sucesso: ${id}`);
-          return true;
+          logger.info(`Categoria atualizada com sucesso:`, JSON.stringify(updated, null, 2));
+          return updated;
         } catch (error: any) {
-          logger.error(`Erro ao excluir categoria ${id}:`, error);
-          throw new Error(`Erro ao excluir a categoria: ${error.message}`);
+          logger.error('Erro ao atualizar a categoria:', error);
+          throw new Error(`Erro ao atualizar a categoria: \n${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Mutation para excluir uma categoria
+  builder.mutationField('deleteCategory', (t: any) =>
+    t.field({
+      type: 'Category',
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (_, args) => {
+        try {
+          // Verificar se existem componentes associados à categoria
+          const componentsCount = await prisma.component.count({
+            where: { 
+              categories: {
+                some: { id: args.id }
+              }
+            }
+          });
+
+          if (componentsCount > 0) {
+            throw new Error(`Não é possível excluir a categoria pois existem ${componentsCount} componentes associados a ela.`);
+          }
+
+          return await prisma.category.delete({
+            where: { id: args.id },
+          });
+        } catch (error: any) {
+          logger.error('Erro ao excluir a categoria:', error);
+          throw new Error(`Erro ao excluir a categoria: \n${error.message}`);
         }
       },
     })

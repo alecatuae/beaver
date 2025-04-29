@@ -59,7 +59,7 @@ model Category {
   id          Int         @id @default(autoincrement())
   name        String
   description String?     @db.Text
-  image       Bytes?
+  image       String?
   createdAt   DateTime    @default(now()) @map("created_at")
   components  Component[]
 

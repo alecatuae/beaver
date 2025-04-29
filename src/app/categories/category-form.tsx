@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Upload, X, ImageIcon, AlertCircle } from 'lucide-react';
-import { CategoryType, CategoryInput } from '@/lib/graphql';
+import { X, ImageIcon, AlertCircle, Check } from 'lucide-react';
+import { CategoryType, CategoryInput, GET_CATEGORY_IMAGES } from '@/lib/graphql';
+import { useQuery } from '@apollo/client';
 import { 
   Tooltip,
   TooltipContent,
@@ -30,9 +31,12 @@ export default function CategoryForm({
   const [name, setName] = useState(initialData.name || '');
   const [description, setDescription] = useState(initialData.description?.slice(0, 256) || '');
   const [image, setImage] = useState<string | undefined>(initialData.image);
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [showImageGrid, setShowImageGrid] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Buscar imagens disponíveis
+  const { data: imageData } = useQuery(GET_CATEGORY_IMAGES);
+  const availableImages = imageData?.categoryImages || [];
 
   // Contador de caracteres restantes
   const remainingChars = 256 - description.length;
@@ -45,57 +49,15 @@ export default function CategoryForm({
     }
   };
 
-  // Manipulador para upload de imagem
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Limpar erro anterior
-      setImageError(null);
-      
-      // Verificar tipo de arquivo (apenas PNG e SVG)
-      if (!['image/png', 'image/svg+xml'].includes(file.type)) {
-        setImageError('Apenas imagens PNG e SVG são permitidas');
-        return;
-      }
-
-      // Verificar tamanho do arquivo (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        setImageError('A imagem deve ter no máximo 2MB');
-        return;
-      }
-
-      // Criar uma imagem para verificar as dimensões
-      const img = new Image();
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          img.onload = () => {
-            if (img.width > 256 || img.height > 256) {
-              setImageError('A imagem deve ter no máximo 256x256 pixels');
-              return;
-            }
-            
-            // Se passou todas as validações, atualiza a imagem
-            const base64 = event.target?.result as string;
-            setImage(base64.split(',')[1]); // Remove o prefixo "data:image/png;base64,"
-          };
-          
-          img.src = event.target.result as string;
-        }
-      };
-      
-      reader.readAsDataURL(file);
-    }
+  // Manipulador para selecionar uma imagem do catálogo
+  const handleSelectImage = (imageName: string) => {
+    setImage(imageName);
+    setShowImageGrid(false);
   };
 
   // Remover imagem
   const handleRemoveImage = () => {
     setImage(undefined);
-    setImageError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   // Manipulador de submit
@@ -111,10 +73,6 @@ export default function CategoryForm({
     
     if (description.length > 256) {
       validationErrors.description = 'A descrição deve ter no máximo 256 caracteres';
-    }
-    
-    if (imageError) {
-      validationErrors.image = imageError;
     }
     
     if (Object.keys(validationErrors).length > 0) {
@@ -181,16 +139,17 @@ export default function CategoryForm({
 
         <div>
           <Label htmlFor="image" className="text-sm font-medium">
-            Imagem (PNG ou SVG, máx. 256x256px)
+            Imagem da categoria
           </Label>
           <div className="mt-2">
             {image ? (
-              <div className="relative w-full max-w-[256px] h-auto border rounded-md overflow-hidden">
+              <div className="relative w-full max-w-[256px] h-auto border rounded-md overflow-hidden flex items-center justify-center bg-background p-4">
                 <img 
                   src={`data:image/png;base64,${image}`} 
                   alt="Imagem da categoria" 
-                  className="w-full h-auto object-contain max-h-[200px]"
+                  className="w-16 h-16 object-contain"
                 />
+                <p className="ml-3 text-sm">{image.substring(0, 20)}...</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -209,28 +168,63 @@ export default function CategoryForm({
                 </TooltipProvider>
               </div>
             ) : (
-              <div className="border border-dashed rounded-md p-8 text-center flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary transition-colors"
-                onClick={() => fileInputRef.current?.click()}>
-                <ImageIcon size={32} className="text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Clique para fazer upload</p>
-                <p className="text-xs text-muted-foreground">PNG ou SVG, máx. 2MB, 256x256px</p>
-              </div>
-            )}
-            <input 
-              type="file" 
-              id="image" 
-              ref={fileInputRef}
-              onChange={handleImageUpload} 
-              className="hidden" 
-              accept="image/png,image/svg+xml"
-            />
-            {imageError && (
-              <p className="text-destructive text-sm mt-1 flex items-center">
-                <AlertCircle size={12} className="mr-1" />
-                {imageError}
-              </p>
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full flex items-center justify-center gap-2 h-auto py-4"
+                onClick={() => setShowImageGrid(true)}
+              >
+                <ImageIcon size={20} />
+                Selecionar imagem
+              </Button>
             )}
           </div>
+
+          {/* Grid de seleção de imagem */}
+          {showImageGrid && (
+            <div className="mt-4 border rounded-md p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-sm font-medium">Selecione uma imagem</h3>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => setShowImageGrid(false)}
+                >
+                  <X size={16} />
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-2 max-h-[300px] overflow-y-auto">
+                {availableImages.map((imageName: string) => (
+                  <div 
+                    key={imageName}
+                    onClick={() => handleSelectImage(imageName)}
+                    className={`
+                      p-2 border rounded-md cursor-pointer flex flex-col items-center 
+                      hover:border-primary transition-colors
+                      ${image === imageName ? 'border-primary bg-primary/10' : ''}
+                    `}
+                  >
+                    <div className="relative w-full h-16 flex items-center justify-center">
+                      <img 
+                        src={`data:image/png;base64,${imageName}`}
+                        alt={imageName.substring(0, 10)}
+                        className="h-12 w-12 object-contain" 
+                      />
+                      {image === imageName && (
+                        <div className="absolute top-0 right-0 bg-primary text-white rounded-full">
+                          <Check size={16} />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-center mt-1 truncate w-full">
+                      Imagem {Array.from(imageName).slice(0, 8).join('')}...
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

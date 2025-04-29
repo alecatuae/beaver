@@ -12,6 +12,7 @@ import statusRoutes from './routes/status';
 // Importação dos resolvers
 import './resolvers/componentResolvers';
 import './resolvers/relationship/relationshipResolvers';
+import './resolvers/categoryResolvers';
 
 // Carrega as variáveis de ambiente
 dotenv.config();

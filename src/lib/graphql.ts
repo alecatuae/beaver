@@ -3,7 +3,7 @@ import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client';
 // HTTP link para a API real
 // Usando o endpoint configurado na variável de ambiente ou um fallback para desenvolvimento local
 const apiUrl = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
-console.log('Usando endpoint GraphQL:', apiUrl);
+console.log('Conectando ao endpoint GraphQL:', apiUrl);
 
 const httpLink = new HttpLink({
   uri: apiUrl,
@@ -18,6 +18,13 @@ export const client = new ApolloClient({
     watchQuery: {
       fetchPolicy: 'network-only',
       nextFetchPolicy: 'cache-first',
+    },
+    query: {
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all',
+    },
+    mutate: {
+      errorPolicy: 'all',
     },
   },
 });
@@ -296,6 +303,12 @@ export const GET_CATEGORY = gql`
       image
       createdAt
     }
+  }
+`;
+
+export const GET_CATEGORY_IMAGES = gql`
+  query GetCategoryImages {
+    categoryImages
   }
 `;
 
