@@ -15,14 +15,26 @@ export const categoryResolvers = (builder: any) => {
       type: ['String'],
       resolve: async () => {
         try {
-          const directoryPath = path.join(process.cwd(), '../public/images/categories');
+          const directoryPath = path.join(process.cwd(), 'public/images/categories');
+          logger.info(`Buscando imagens no diretório: ${directoryPath}`);
+
+          if (!fs.existsSync(directoryPath)) {
+            logger.error(`Diretório não existe: ${directoryPath}`);
+            logger.info(`Diretório de trabalho atual: ${process.cwd()}`);
+            return [];
+          }
+          
           const files = fs.readdirSync(directoryPath);
+          logger.info(`Encontrados ${files.length} arquivos no diretório`);
+          
           const imageFiles = files.filter(file => 
             file.endsWith('.png') || 
             file.endsWith('.jpg') || 
             file.endsWith('.jpeg') || 
             file.endsWith('.svg')
           );
+          
+          logger.info(`Retornando ${imageFiles.length} imagens`);
           
           // Retorna apenas os nomes dos arquivos
           return imageFiles;
