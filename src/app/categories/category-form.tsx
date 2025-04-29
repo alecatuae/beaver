@@ -174,63 +174,67 @@ export default function CategoryForm({
                 </TooltipProvider>
               </div>
             ) : (
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center gap-2 h-auto py-4"
-                onClick={() => setShowImageGrid(true)}
-              >
-                <ImageIcon size={20} />
-                Selecionar imagem
-              </Button>
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() => setShowImageGrid(!showImageGrid)}
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Selecionar Imagem
+                </Button>
+
+                {/* Grid de seleção de imagem */}
+                {showImageGrid && (
+                  <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
+                    <div className="relative bg-background rounded-md p-4 shadow-md w-[400px] max-h-[80vh] overflow-hidden">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-medium">Selecione uma imagem</h3>
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={() => setShowImageGrid(false)}
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3 overflow-y-auto max-h-[calc(80vh-80px)] p-1">
+                        {availableImages.map((imageName: string) => (
+                          <div 
+                            key={imageName}
+                            onClick={() => handleSelectImage(imageName)}
+                            className={`
+                              p-2 border rounded-md cursor-pointer flex flex-col items-center 
+                              hover:border-primary transition-colors
+                              ${image === imageName ? 'border-primary bg-primary/10' : ''}
+                            `}
+                          >
+                            <div className="relative w-full h-16 flex items-center justify-center">
+                              <img 
+                                src={`/images/categories/${imageName}`}
+                                alt={imageName}
+                                className="h-12 w-12 object-contain" 
+                              />
+                              {image === imageName && (
+                                <div className="absolute top-0 right-0 bg-primary text-white rounded-full">
+                                  <Check size={16} />
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-xs text-center mt-1 truncate w-full">
+                              {imageName}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          {/* Grid de seleção de imagem */}
-          {showImageGrid && (
-            <div className="mt-4 border rounded-md p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium">Selecione uma imagem</h3>
-                <Button 
-                  type="button" 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={() => setShowImageGrid(false)}
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-              <div className="grid grid-cols-4 gap-2 max-h-[300px] overflow-y-auto">
-                {availableImages.map((imageName: string) => (
-                  <div 
-                    key={imageName}
-                    onClick={() => handleSelectImage(imageName)}
-                    className={`
-                      p-2 border rounded-md cursor-pointer flex flex-col items-center 
-                      hover:border-primary transition-colors
-                      ${image === imageName ? 'border-primary bg-primary/10' : ''}
-                    `}
-                  >
-                    <div className="relative w-full h-16 flex items-center justify-center">
-                      <img 
-                        src={`/images/categories/${imageName}`}
-                        alt={imageName}
-                        className="h-12 w-12 object-contain" 
-                      />
-                      {image === imageName && (
-                        <div className="absolute top-0 right-0 bg-primary text-white rounded-full">
-                          <Check size={16} />
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-center mt-1 truncate w-full">
-                      {imageName}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
