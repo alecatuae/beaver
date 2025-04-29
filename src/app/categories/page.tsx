@@ -363,23 +363,6 @@ export default function CategoriesPage() {
                       {category.name}
                     </h3>
                   </div>
-                  <div className="flex space-x-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleOpenEditDialog(category, e)}
-                    >
-                      <PencilIcon size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleOpenDeleteDialog(category, e)}
-                      disabled={category.componentCount > 0}
-                    >
-                      <Trash2Icon size={16} />
-                    </Button>
-                  </div>
                 </div>
                 
                 <div className="flex-grow overflow-hidden">
