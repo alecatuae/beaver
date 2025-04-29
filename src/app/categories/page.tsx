@@ -349,7 +349,7 @@ export default function CategoriesPage() {
                     {category.image ? (
                       <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
                         <img 
-                          src={`data:image/png;base64,${category.image}`} 
+                          src={`/images/categories/${category.image}`} 
                           alt={category.name} 
                           className="w-full h-full object-cover"
                         />
