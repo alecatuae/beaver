@@ -13,8 +13,14 @@ let neo4jClient: Neo4jClient;
 // Função para inicializar a conexão com o Neo4j
 async function initNeo4j() {
   try {
-    // Tenta criar uma conexão real com o Neo4j
-    const neo4jUrl = process.env.NEO4J_URL || 'bolt://neo4j:7687';
+    // Determinar se estamos executando dentro do Docker ou localmente
+    const isRunningInDocker = process.env.RUNNING_IN_DOCKER === 'true';
+    
+    // Usar configurações apropriadas com base no ambiente
+    // No Docker: neo4j:7687 (nome do serviço)
+    // Local: localhost:7687 (máquina local)
+    const neo4jHost = isRunningInDocker ? 'neo4j' : 'localhost';
+    const neo4jUrl = process.env.NEO4J_URL || `bolt://${neo4jHost}:7687`;
     const neo4jUser = process.env.NEO4J_USER || 'neo4j';
     const neo4jPassword = process.env.NEO4J_PASSWORD || 'beaver12345';
     
@@ -47,6 +53,11 @@ async function initNeo4j() {
     console.error('   - O servidor Neo4j está em execução');
     console.error('   - As configurações de URL, usuário e senha estão corretas');
     console.error('   - Não há regras de firewall bloqueando a conexão');
+    console.error('');
+    console.error('Se você está executando o aplicativo localmente (fora do Docker), tenha certeza que:');
+    console.error('   - Neo4j está em execução na porta 7687');
+    console.error('   - O host configurado é "localhost" (ambiente local) ou "neo4j" (dentro do Docker)');
+    console.error('   - Para forçar o uso de "localhost", defina a variável de ambiente RUNNING_IN_DOCKER=false');
     
     logger.error(`Falha ao conectar com Neo4j: ${errorMessage}`);
     
