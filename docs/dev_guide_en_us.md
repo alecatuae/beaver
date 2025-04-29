@@ -70,6 +70,39 @@ This guide provides detailed instructions on how to develop and maintain the Bea
 6. **Observability and Monitoring**
    - Optional: Use Prometheus, Grafana, Loki, and Tempo for monitoring and observability.
 
+7. **Engineering Principles**
+
+   - **Use best practices**  
+      Never apply hacks or temporary fixes.
+
+   - **Write clean and readable code**  
+      Favor clarity over unnecessary complexity.
+
+   - **Keep it simple**  
+      Simple solutions are better than complex ones.
+
+   - **Be consistent**  
+      Follow the project's standards and conventions.
+
+   - **Catch errors early**  
+      Validate inputs, use strong typing, and write automated tests.
+
+   - **Design for scale and maintenance**  
+      Plan for growth and long-term support from the start.
+
+   - **Document what matters**  
+      Explain decisions and non-trivial logic.
+
+   - **Automate wherever possible**  
+      Automate testing, deployments, checks, and monitoring.
+
+   - **Build with security from the start**  
+      Validate everything, protect data, and follow least privilege.
+
+   - **Own your code**  
+      Fix bugs, improve tests, and support your releases.
+
+
 ## Deployment
 - Docker Compose para orquestração de contêineres (perfis "base" e "observability").
 - Utilize o script `scripts/update-app.sh` para facilitar a atualização e reinicialização dos contêineres.
