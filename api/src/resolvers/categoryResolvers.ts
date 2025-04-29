@@ -136,34 +136,12 @@ export const categoryResolvers = (builder: any) => {
           
           logger.info(`Categoria existente:`, JSON.stringify(existingCategory, null, 2));
           
-          // Verificar se estamos usando o MockNeo4jClient (fallback)
-          // Detectamos isso verificando uma linha específica nos logs
-          const isMockMode = true; // Assumimos que estamos em modo mock por segurança
-          
-          // Criar objeto de atualização com base no modo
-          let updateData: any = {
+          // Preparar dados para atualização
+          const updateData = {
             name: args.input.name,
             description: args.input.description,
+            image: args.input.image
           };
-          
-          // Se estamos no modo mock, e tentando atualizar a imagem
-          if (isMockMode && args.input.image !== undefined) {
-            logger.info(`Detectado modo Mock com tentativa de atualização de imagem "${args.input.image}"`);
-            logger.info(`Preservando imagem anterior "${existingCategory.image || 'NULL'}"`);
-            
-            // No modo mock, ignoramos a atualização de imagem para evitar erro
-            // mas mantemos a imagem anterior, se existir
-            if (existingCategory.image) {
-              updateData.image = existingCategory.image;
-            }
-            
-            logger.info(`Dados para atualização (sem nova imagem):`, JSON.stringify(updateData, null, 2));
-          } else if (args.input.image !== undefined) {
-            // Se não estamos em modo mock, ou se não estamos atualizando a imagem
-            // procedemos normalmente
-            updateData.image = args.input.image;
-            logger.info(`Dados para atualização com imagem:`, JSON.stringify(updateData, null, 2));
-          }
           
           // Realizar a atualização
           try {
@@ -176,22 +154,6 @@ export const categoryResolvers = (builder: any) => {
             return updated;
           } catch (updateError: any) {
             logger.error(`Erro ao atualizar: ${updateError.message || "Erro desconhecido"}`);
-            
-            // Se ainda falhou, tentar sem a imagem como último recurso
-            if (args.input.image !== undefined) {
-              logger.info("Tentando atualizar sem a imagem como último recurso");
-              const basicUpdate = await prisma.category.update({
-                where: { id: args.id },
-                data: {
-                  name: args.input.name,
-                  description: args.input.description,
-                },
-              });
-              
-              logger.info("Atualização sem imagem bem-sucedida");
-              return basicUpdate;
-            }
-            
             throw updateError;
           }
         } catch (error: any) {

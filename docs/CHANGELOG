@@ -243,4 +243,16 @@
 - Ajustado o método updateComponent para suportar atualizações parciais (categoria opcional)
 - Resolvido o problema de leitura de categorias ao listar componentes
 - Corrigido o nome das propriedades no Neo4j para valid_from e valid_to em vez de validFrom e validTo
-- Ajustada a função GraphQL components para suportar filtragem por categoria 
+- Ajustada a função GraphQL components para suportar filtragem por categoria
+
+## [Não Liberado]
+
+### Adicionado
+
+### Alterado
+- Removido o MockNeo4jClient para forçar conexão real com o Neo4j
+- Adicionadas mensagens de erro mais detalhadas no console quando a conexão com Neo4j falha
+
+### Corrigido
+
+// ... existing code ... 
