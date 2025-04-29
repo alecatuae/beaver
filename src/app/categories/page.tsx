@@ -153,13 +153,14 @@ export default function CategoriesPage() {
   });
 
   // Mutation para excluir categoria
-  const [deleteCategory] = useMutation(DELETE_CATEGORY, {
-    onCompleted: () => {
+  const [deleteCategory, { loading: deleteLoading }] = useMutation(DELETE_CATEGORY, {
+    onCompleted: (data) => {
       setIsDeleteDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao excluir categoria:', error);
+      alert(`Erro ao excluir categoria: ${error.message}`);
     }
   });
 
@@ -205,7 +206,7 @@ export default function CategoriesPage() {
   const handleDeleteConfirm = () => {
     if (currentCategory?.id) {
       deleteCategory({
-        variables: { id: currentCategory.id }
+        variables: { id: parseInt(currentCategory.id.toString()) }
       });
     }
   };
@@ -465,9 +466,16 @@ export default function CategoriesPage() {
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteConfirm}
-                disabled={currentCategory && (currentCategory as any).componentCount > 0}
+                disabled={currentCategory && ((currentCategory as any).componentCount > 0 || deleteLoading)}
               >
-                Excluir
+                {deleteLoading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-r-transparent"></div>
+                    Excluindo...
+                  </>
+                ) : (
+                  'Excluir'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

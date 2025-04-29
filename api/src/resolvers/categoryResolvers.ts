@@ -168,7 +168,7 @@ export const categoryResolvers = (builder: any) => {
   // Mutation para excluir uma categoria
   builder.mutationField('deleteCategory', (t: any) =>
     t.field({
-      type: 'Category',
+      type: 'Boolean',
       args: {
         id: t.arg.int({ required: true }),
       },
@@ -177,9 +177,7 @@ export const categoryResolvers = (builder: any) => {
           // Verificar se existem componentes associados à categoria
           const componentsCount = await prisma.component.count({
             where: { 
-              categories: {
-                some: { id: args.id }
-              }
+              categoryId: args.id
             }
           });
 
@@ -187,9 +185,11 @@ export const categoryResolvers = (builder: any) => {
             throw new Error(`Não é possível excluir a categoria pois existem ${componentsCount} componentes associados a ela.`);
           }
 
-          return await prisma.category.delete({
+          await prisma.category.delete({
             where: { id: args.id },
           });
+          
+          return true;
         } catch (error: any) {
           logger.error('Erro ao excluir a categoria:', error);
           throw new Error(`Erro ao excluir a categoria: \n${error.message}`);
