@@ -173,8 +173,12 @@ The relationship management functionality enables defining and managing connecti
   - Full CRUD operations for categories (Create, Read, Update, Delete).
   - Interactive interface with field validations:
     - Required fields: Category name.
-    - Optional field for detailed description (up to 256 characters) with visual counter.
-    - Support for uploading a representative image for the category.
+    - Optional field for detailed description (up to 256 characters) with a visual counter.
+    - Selection of a representative image for the category:
+      - Only `.png` format is accepted.
+      - Images are stored statically under the `public/images/categories` directory on the frontend.
+      - Users can select an image from a predefined list.
+      - Selected images are used to visually represent the nodes in the graph.
   - Real-time list updates after creating, editing, or deleting a category.
   - Modal-based interface for detailed viewing and editing.
   - Responsive card-based layout:
@@ -189,29 +193,31 @@ The relationship management functionality enables defining and managing connecti
     - Visual loading indicator during data fetching.
     - Responsive grid layout adapting to different screen sizes.
   - Enhanced user protection:
-    - Confirmation dialog for delete operations with warning about irreversible action.
+    - Confirmation dialog for delete operations with a warning about irreversible action.
     - Safety check preventing deletion of categories with associated components.
     - Consistent positioning of confirm and cancel buttons.
   - Flexible data organization:
     - Advanced sorting capabilities for listing categories:
       - Sort by name (alphabetical), date (chronological), or number of components.
-      - Visual indication of active sorting field and direction (ascending/descending).
+      - Visual indication of the active sorting field and direction (ascending/descending).
       - Persistent sorting state during the user's session.
-    - Compact interface with dropdown menu for sorting options.
+    - Compact interface with a dropdown menu for sorting options.
   - Advanced filtering:
     - Search by category name (partial matches allowed).
     - Filter for categories with or without associated components.
 
-The category management functionality enables logical organization of components within the system. Key features include:
+The category management functionality enables the logical organization of components within the system. Key features include:
 
 - Complete interface for category CRUD operations
-- Support for representative images for categories
+- Support for predefined representative images loaded from the `public/images/categories` directory
 - Full validation on create/edit forms
 - Visualization of components associated with each category
 - Protection against deletion of categories in use
 - Advanced search and filtering
 - Responsive and visually consistent layout
 - Full integration with MariaDB database for persistence
+- Static frontend-based image management for scalable node representation
+
 
 ### Team Management
 - **Description**: Manage teams within the organization.
