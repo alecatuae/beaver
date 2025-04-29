@@ -9,6 +9,7 @@ O processo de consulta de relacionamentos no Beaver envolve os seguintes compone
 1. **Frontend (Next.js)**: Interface que exibe os dados e permite interação
 2. **API GraphQL (Apollo Server)**: Processa as requisições e retorna dados estruturados
 3. **Neo4j**: Banco de dados de grafos onde os relacionamentos e componentes são armazenados
+4. **MockNeo4jClient**: Cliente de fallback usado quando a conexão com Neo4j falha
 
 ```mermaid
 sequenceDiagram
@@ -16,13 +17,22 @@ sequenceDiagram
     participant UI as Next.js UI
     participant API as Apollo Server
     participant Neo4j
+    participant Mock as MockNeo4jClient
     
     User->>UI: Acessa página de relacionamentos
     UI->>API: Solicita query GET_RELATIONS
-    API->>Neo4j: Consulta relacionamentos
-    Neo4j-->>API: Retorna dados dos relacionamentos
-    API->>Neo4j: Para cada relacionamento, busca detalhes dos componentes associados
-    Neo4j-->>API: Retorna dados dos componentes
+    API-->>API: Verifica conexão com Neo4j
+    
+    alt Conexão com Neo4j bem-sucedida
+        API->>Neo4j: Consulta relacionamentos
+        Neo4j-->>API: Retorna dados dos relacionamentos
+        API->>Neo4j: Para cada relacionamento, busca detalhes dos componentes
+        Neo4j-->>API: Retorna dados dos componentes
+    else Falha na conexão com Neo4j
+        API->>Mock: Usa MockNeo4jClient como fallback
+        Mock-->>API: Retorna dados simulados
+    end
+    
     API-->>UI: Retorna dados completos dos relacionamentos
     UI-->>User: Exibe cards de relacionamentos
     
@@ -96,54 +106,85 @@ builder.queryField('relations', (t) =>
 );
 ```
 
-### 4. Busca de Relacionamentos no Neo4j
+### 4. Verificação de Modo de Fallback
+
+- O Neo4jClient verifica se está operando em modo normal ou fallback:
+
+```typescript
+async getRelations(): Promise<IRelation[]> {
+  // Verificar se estamos em modo mock (fallback)
+  if (this.mockMode) {
+    return this.getMockRelations();
+  }
+
+  // Continua com a consulta normal no Neo4j se não estiver em modo mock
+  // ...
+}
+```
+
+### 5. Busca de Relacionamentos 
+
+#### 5.1 No Neo4j (modo normal)
 
 - O cliente Neo4j busca todos os relacionamentos no banco de dados:
 
 ```typescript
-async getRelations(): Promise<IRelation[]> {
-  const session = this.driver.session();
-  try {
-    const result = await session.run(`
-      MATCH (source:Component)-[r]->(target:Component)
-      RETURN 
-        toString(id(r)) AS id, 
-        type(r) AS type, 
-        source.id AS sourceId, 
-        target.id AS targetId,
-        r.properties AS properties,
-        COALESCE(r.createdAt, toString(datetime())) AS createdAt,
-        COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
-    `);
+const session = this.driver.session();
+try {
+  const result = await session.run(`
+    MATCH (source:Component)-[r]->(target:Component)
+    RETURN 
+      toString(id(r)) AS id, 
+      type(r) AS type, 
+      source.id AS sourceId, 
+      target.id AS targetId,
+      r.properties AS properties,
+      COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+      COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
+  `);
 
-    return result.records.map(record => {
-      const idValue = record.get('id');
-      return {
-        id: idValue,
-        type: record.get('type'),
-        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
-        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
-        properties: record.get('properties') || {},
-        createdAt: new Date(record.get('createdAt')),
-        updatedAt: new Date(record.get('updatedAt'))
-      };
-    });
-  } finally {
-    await session.close();
-  }
+  return result.records.map(record => {
+    // Sempre manter o ID como string
+    const idValue = record.get('id').toString();
+    return {
+      id: idValue,
+      type: record.get('type'),
+      sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+      targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+      properties: record.get('properties') || {},
+      createdAt: new Date(record.get('createdAt')),
+      updatedAt: new Date(record.get('updatedAt'))
+    };
+  });
+} catch (error) {
+  logger.error('Erro ao obter relacionamentos:', error);
+  throw error;
+} finally {
+  await session.close();
 }
 ```
 
-### 5. Resolução de Campos Adicionais
+#### 5.2 No MockNeo4jClient (modo fallback)
 
-- Para cada relacionamento, os campos `source` e `target` são resolvidos através de consultas adicionais ao Neo4j:
+- Quando a conexão com Neo4j falha, o sistema usa um cliente mock:
+
+```typescript
+private getMockRelations(): IRelation[] {
+  return [...this.mockRelations];
+}
+```
+
+### 6. Resolução de Campos Adicionais
+
+- Para cada relacionamento, os campos `source` e `target` são resolvidos para obter informações dos componentes conectados
+- Este processo depende de se estamos no modo normal ou no modo mock:
 
 ```typescript
 source: t.field({
   type: 'Component',
   nullable: true,
   resolve: async (relation) => {
-    // Buscar informações do componente de origem diretamente do Neo4j
+    // Buscar informações do componente de origem
     try {
       const result = await neo4jClient.run(`
         MATCH (c:Component {id: $id})
@@ -161,16 +202,14 @@ source: t.field({
       }
       return null;
     } catch (error) {
-      logger.error(`Erro ao buscar componente de origem (ID: ${relation.sourceId}) no Neo4j:`, error);
+      logger.error(`Erro ao buscar componente de origem (ID: ${relation.sourceId}):`, error);
       return null;
     }
   },
 }),
 ```
 
-- Esta consulta ao Neo4j recupera os detalhes dos componentes de origem e destino de cada relacionamento
-
-### 6. Resposta ao Frontend
+### 7. Resposta ao Frontend
 
 - O resolver retorna os dados completos dos relacionamentos para o cliente
 - O Apollo Client no frontend recebe a resposta da query
@@ -185,7 +224,7 @@ const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
 });
 ```
 
-### 7. Processamento e Exibição na UI
+### 8. Processamento e Exibição na UI
 
 - Os dados dos relacionamentos são transformados para o formato esperado pela UI:
   ```typescript
@@ -235,62 +274,60 @@ const { loading, error, data, refetch } = useQuery(GET_RELATIONS, {
   </div>
   ```
 
-## Exemplo de Consulta a um Relacionamento Específico
+## Tratamento de IDs e Particularidades
 
-Quando o usuário seleciona um relacionamento específico, uma nova consulta é realizada:
+### IDs dos Relacionamentos no Neo4j
 
-```graphql
-query GetRelation($id: String!) {
-  relation(id: $id) {
-    id
-    sourceId
-    targetId
-    type
-    properties
-    source {
-      id
-      name
-      status
+- Os IDs dos relacionamentos no Neo4j são convertidos para strings:
+  ```typescript
+  toString(id(r)) AS id
+  ```
+
+- Devido a limitações do JavaScript com números grandes, os IDs podem ser truncados
+- A aplicação implementa uma verificação para normalizar esses IDs:
+  ```typescript
+  // Função utilitária para normalizar IDs do Neo4j
+  normalizeNeo4jId(id: string): string {
+    // Verificar se é um ID grande com possível erro de conversão
+    if (id.length >= 15) {
+      // Se já começa com 1, retornar como está
+      if (id.startsWith('1')) {
+        return id;
+      }
+      
+      // Tentar adicionar 1 no início se o ID parecer truncado
+      return `1${id}`;
     }
-    target {
-      id
-      name
-      status
-    }
-    createdAt
-    updatedAt
+    return id;
   }
-}
-```
+  ```
 
-A consulta Cypher correspondente no Neo4j é:
+### Modo Mock (Fallback)
 
-```cypher
-MATCH (source:Component)-[r]->(target:Component)
-WHERE id(r) = $id
-RETURN 
-  id(r) as id, 
-  type(r) as type, 
-  source.id as sourceId, 
-  target.id as targetId, 
-  source.name as sourceName,
-  target.name as targetName,
-  properties(r) as properties,
-  toString(datetime()) as createdAt,
-  toString(datetime()) as updatedAt
-```
+- Quando a conexão com Neo4j falha, o sistema usa um `MockNeo4jClient`:
+  ```typescript
+  if (this.mockMode) {
+    return this.getMockRelations();
+  }
+  ```
 
-## Particularidades do Fluxo de Consulta de Relacionamentos
+- O mock cliente mantém uma lista interna de relacionamentos simulados:
+  ```typescript
+  private mockRelations: IRelation[] = [
+    // Lista de relacionamentos simulados para desenvolvimento/fallback
+  ];
+  ```
 
-O fluxo de consulta de relacionamentos tem as seguintes características:
+- Este modo permite que a aplicação continue funcionando mesmo sem acesso ao Neo4j
+- Os IDs no modo mock são gerados diferentemente dos IDs no Neo4j, o que pode causar problemas de consistência
 
-1. Utiliza exclusivamente o Neo4j para todos os dados (relacionamentos e componentes)
-2. Trata os relacionamentos como entidades existentes apenas no Neo4j, sem correspondência no MariaDB
-3. Os dados dos componentes associados aos relacionamentos também são buscados diretamente do Neo4j
+## Considerações sobre o Desempenho e Confiabilidade
 
-## Considerações sobre o Desempenho
-
-- As consultas de relacionamentos são realizadas diretamente no Neo4j, que é otimizado para navegação em grafos
-- Os dados dos componentes associados também são buscados do Neo4j, reduzindo a necessidade de consultas a múltiplos bancos
-- O frontend implementa infinite scrolling para carregar relacionamentos em lotes, melhorando a performance para grandes conjuntos de dados
-- A filtragem e ordenação são realizadas no cliente (frontend) após o carregamento dos dados, o que pode afetar o desempenho com grandes volumes de dados 
+- As consultas de relacionamentos são realizadas diretamente no Neo4j quando possível
+- O sistema tem um mecanismo de fallback (MockNeo4jClient) que permite operação limitada quando o Neo4j está indisponível
+- A manipulação de IDs de relacionamentos requer atenção especial devido a:
+  1. Formato dos IDs (string vs. number)
+  2. Tamanho dos IDs no Neo4j (podem ultrapassar a precisão de inteiros em JavaScript)
+  3. Diferença entre IDs gerados pelo Neo4j e pelo MockNeo4jClient
+- Operações de atualização e exclusão incluem verificações específicas para IDs problemáticos
+- O frontend implementa infinite scrolling para carregar relacionamentos em lotes, melhorando a performance para grandes conjuntos de dados 
