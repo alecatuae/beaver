@@ -15,26 +15,39 @@ export const categoryResolvers = (builder: any) => {
       type: ['String'],
       resolve: async () => {
         try {
-          const directoryPath = path.join(process.cwd(), 'public/images/categories');
+          // Tenta primeiro o caminho da API e depois o caminho do frontend
+          const apiPath = path.join(process.cwd(), 'public/images/categories');
+          const frontendPath = path.join(process.cwd(), '../public/images/categories');
+          
+          let directoryPath = apiPath;
+          
+          // Verifica qual diretório existe e contém imagens
+          if (!fs.existsSync(apiPath)) {
+            logger.info(`Diretório da API não existe, tentando diretório frontend: ${frontendPath}`);
+            directoryPath = frontendPath;
+          }
+          
           logger.info(`Buscando imagens no diretório: ${directoryPath}`);
 
           if (!fs.existsSync(directoryPath)) {
-            logger.error(`Diretório não existe: ${directoryPath}`);
-            logger.info(`Diretório de trabalho atual: ${process.cwd()}`);
+            logger.error(`Nenhum diretório válido encontrado`);
             return [];
           }
           
           const files = fs.readdirSync(directoryPath);
           logger.info(`Encontrados ${files.length} arquivos no diretório`);
           
+          // Filtra apenas arquivos de imagem e exclui arquivos ocultos (como .DS_Store)
           const imageFiles = files.filter(file => 
-            file.endsWith('.png') || 
-            file.endsWith('.jpg') || 
-            file.endsWith('.jpeg') || 
-            file.endsWith('.svg')
+            !file.startsWith('.') && (
+              file.endsWith('.png') || 
+              file.endsWith('.jpg') || 
+              file.endsWith('.jpeg') || 
+              file.endsWith('.svg')
+            )
           );
           
-          logger.info(`Retornando ${imageFiles.length} imagens`);
+          logger.info(`Retornando ${imageFiles.length} imagens: ${imageFiles.join(', ')}`);
           
           // Retorna apenas os nomes dos arquivos
           return imageFiles;
