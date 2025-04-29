@@ -29,7 +29,8 @@ import {
   ArrowUpDown,
   SortAsc,
   SortDesc,
-  Plus
+  Plus,
+  Filter
 } from 'lucide-react';
 import CategoryForm from './category-form';
 import { Input } from '@/components/ui/input';
@@ -42,10 +43,11 @@ export default function CategoriesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Partial<CategoryType> | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'components'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleCount, setVisibleCount] = useState(12);
   const [hasMore, setHasMore] = useState(true);
+  const [componentFilter, setComponentFilter] = useState<'all' | 'with' | 'without'>('all');
   
   const lastCategoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,10 +66,21 @@ export default function CategoriesPage() {
     componentCount: category.components?.length || 0
   })) || [];
 
-  // Filtragem de categorias pelo termo de busca
+  // Filtragem de categorias pelo termo de busca e filtro de componentes
   const filteredCategories = categories.filter((category: CategoryType) => {
-    return category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           category.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Filtro de pesquisa por texto
+    const matchesSearch = 
+      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+    
+    // Filtro por componentes associados
+    if (componentFilter === 'all') {
+      return matchesSearch;
+    } else if (componentFilter === 'with') {
+      return matchesSearch && category.componentCount > 0;
+    } else {
+      return matchesSearch && category.componentCount === 0;
+    }
   });
 
   // Função para ordenar categorias
@@ -81,6 +94,10 @@ export default function CategoriesPage() {
         return sortDirection === 'asc'
           ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortBy === 'components') {
+        return sortDirection === 'asc'
+          ? a.componentCount - b.componentCount
+          : b.componentCount - a.componentCount;
       }
       return 0;
     });
@@ -193,7 +210,7 @@ export default function CategoriesPage() {
   };
 
   // Função para alternar a ordenação
-  const toggleSort = (field: 'name' | 'date') => {
+  const toggleSort = (field: 'name' | 'date' | 'components') => {
     if (sortBy === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -235,6 +252,35 @@ export default function CategoriesPage() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
+                <Filter size={16} />
+                Filtrar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setComponentFilter('all')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Todas as categorias</span>
+                  {componentFilter === 'all' && <span className="ml-2">✓</span>}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setComponentFilter('with')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Com componentes</span>
+                  {componentFilter === 'with' && <span className="ml-2">✓</span>}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setComponentFilter('without')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Sem componentes</span>
+                  {componentFilter === 'without' && <span className="ml-2">✓</span>}
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
                 <ArrowUpDown size={16} />
                 Ordenar
               </Button>
@@ -252,6 +298,14 @@ export default function CategoriesPage() {
                 <div className="flex items-center justify-between w-full">
                   <span>Data de criação</span>
                   {sortBy === 'date' && (
+                    sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                  )}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleSort('components')}>
+                <div className="flex items-center justify-between w-full">
+                  <span>Número de componentes</span>
+                  {sortBy === 'components' && (
                     sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
                   )}
                 </div>
@@ -319,6 +373,7 @@ export default function CategoriesPage() {
                     variant="ghost"
                     size="sm"
                     onClick={(e) => handleOpenDeleteDialog(category, e)}
+                    disabled={category.componentCount > 0}
                   >
                     <Trash2Icon size={16} />
                   </Button>
@@ -332,9 +387,15 @@ export default function CategoriesPage() {
               </div>
               
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <TagIcon size={12} className="mr-1" />
-                  {category.componentCount} componente{category.componentCount !== 1 ? 's' : ''}
+                <div className="flex items-center">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                    category.componentCount > 0 
+                      ? 'bg-primary/10 text-primary' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    <TagIcon size={12} className="mr-1" />
+                    {category.componentCount} componente{category.componentCount !== 1 ? 's' : ''}
+                  </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {format(new Date(category.createdAt), 'dd/MM/yyyy')}
@@ -398,10 +459,17 @@ export default function CategoriesPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Se esta categoria possuir componentes associados, a exclusão será rejeitada.
-              Você precisará remover ou reassociar todos os componentes primeiro.
-            </p>
+            {currentCategory && (currentCategory as any).componentCount > 0 ? (
+              <p className="text-sm font-medium text-destructive">
+                Esta categoria possui {(currentCategory as any).componentCount} componente(s) associado(s).
+                Por favor, remova ou reatribua os componentes antes de excluir a categoria.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Se esta categoria possuir componentes associados, a exclusão será rejeitada.
+                Você precisará remover ou reassociar todos os componentes primeiro.
+              </p>
+            )}
           </div>
           <DialogFooter className="flex justify-end gap-4">
             <Button
@@ -415,6 +483,7 @@ export default function CategoriesPage() {
               type="button"
               variant="destructive"
               onClick={handleDeleteConfirm}
+              disabled={currentCategory && (currentCategory as any).componentCount > 0}
             >
               Excluir
             </Button>

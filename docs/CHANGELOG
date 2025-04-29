@@ -80,6 +80,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Resolvers GraphQL para operações CRUD de categorias
   - Tratamento de erro para evitar exclusão de categorias com componentes associados
   - Criação do tipo CategoryInput para uso nas operações de criação/atualização de categorias
+- Aprimorada a página de Gerenciamento de Categorias com novos recursos:
+  - Adicionada ordenação por número de componentes associados
+  - Implementado filtro para visualizar categorias com/sem componentes associados
+  - Melhorado o indicador visual do número de componentes com badges coloridos
+  - Aprimorado o formulário de categoria com validação mais robusta
+  - Adicionada verificação de tamanho e dimensões para upload de imagens (máximo 2MB, 256x256px)
+  - Otimizado o fluxo de exclusão com bloqueio para categorias com componentes associados
+  - Melhorada a interface com tooltips informativos e ícones de alerta em mensagens de erro
+  - Adicionado indicador visível do estado atual das opções de ordenação e filtro
 
 ### Changed
 - Alterada toda a representação interna de IDs de relacionamentos para usar exclusivamente strings, eliminando problemas com números inteiros grandes no Neo4j
