@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { X, ImageIcon, AlertCircle, Check } from 'lucide-react';
+import { X, ImageIcon, AlertCircle, Check, Trash2 } from 'lucide-react';
 import { CategoryType, CategoryInput, GET_CATEGORY_IMAGES } from '@/lib/graphql';
 import { useQuery } from '@apollo/client';
 import { 
@@ -20,12 +20,14 @@ interface CategoryFormProps {
   initialData?: Partial<CategoryType>;
   onSubmit: (data: CategoryInput) => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }
 
 export default function CategoryForm({ 
   initialData = { name: '', description: '' }, 
   onSubmit, 
-  onCancel 
+  onCancel,
+  onDelete
 }: CategoryFormProps) {
   // Estados do formulário
   const [name, setName] = useState(initialData.name || '');
@@ -228,10 +230,14 @@ export default function CategoryForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
+      <div className="flex justify-between pt-4 border-t">
+        {initialData.id && onDelete && (
+          <Button type="button" variant="destructive" onClick={onDelete} className="flex items-center gap-1">
+            <Trash2 size={16} />
+            Excluir
+          </Button>
+        )}
+        <div className="flex-grow"></div>
         <Button type="submit">
           {initialData.id ? 'Salvar Alterações' : 'Criar Categoria'}
         </Button>

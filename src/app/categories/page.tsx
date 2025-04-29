@@ -427,7 +427,11 @@ export default function CategoriesPage() {
               <CategoryForm 
                 initialData={currentCategory} 
                 onSubmit={handleUpdateSubmit} 
-                onCancel={() => setIsEditDialogOpen(false)} 
+                onCancel={() => setIsEditDialogOpen(false)}
+                onDelete={() => {
+                  setIsEditDialogOpen(false);
+                  setIsDeleteDialogOpen(true);
+                }}
               />
             )}
           </DialogContent>
@@ -456,14 +460,7 @@ export default function CategoriesPage() {
                 </p>
               )}
             </div>
-            <DialogFooter className="flex justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
+            <DialogFooter className="flex justify-end">
               <Button
                 type="button"
                 variant="destructive"
