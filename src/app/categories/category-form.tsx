@@ -118,11 +118,8 @@ export default function CategoryForm({
         </div>
 
         <div>
-          <Label htmlFor="description" className="text-sm font-medium flex items-center justify-between">
-            <span>Descrição</span>
-            <span className={`text-xs ${remainingChars <= 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {remainingChars} caracteres restantes
-            </span>
+          <Label htmlFor="description" className="text-sm font-medium">
+            Descrição
           </Label>
           <Textarea
             id="description"
@@ -133,6 +130,11 @@ export default function CategoryForm({
             className={errors.description ? 'border-destructive' : ''}
             placeholder="Descreva a categoria (opcional)"
           />
+          <div className="text-right">
+            <span className={`text-xs ${remainingChars <= 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {remainingChars} caracteres restantes
+            </span>
+          </div>
           {errors.description && (
             <p className="text-destructive text-sm mt-1 flex items-center">
               <AlertCircle size={12} className="mr-1" />
@@ -240,7 +242,7 @@ export default function CategoryForm({
                 <div>
                   <Button 
                     type="button" 
-                    variant="destructive" 
+                    variant="outline" 
                     onClick={onDelete} 
                     className="flex items-center gap-1"
                     disabled={hasComponents}
@@ -259,8 +261,8 @@ export default function CategoryForm({
           </TooltipProvider>
         )}
         <div className="flex-grow"></div>
-        <Button type="submit">
-          {initialData.id ? 'Salvar Alterações' : 'Criar Categoria'}
+        <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          Salvar Alterações
         </Button>
       </div>
     </form>

@@ -444,9 +444,8 @@ export default function CategoriesPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Confirmar Exclusão</DialogTitle>
-              <DialogDescription>
-                Você está prestes a excluir a categoria "{currentCategory?.name}".
-                Esta ação não pode ser desfeita.
+              <DialogDescription className="pt-2">
+                Tem certeza de que deseja excluir esta categoria? Esta ação não pode ser desfeita.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -462,12 +461,19 @@ export default function CategoriesPage() {
                 </p>
               )}
             </div>
-            <DialogFooter className="flex justify-end">
+            <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={deleteLoading}
+              >
+                Cancelar
+              </Button>
               <Button
-                type="button"
-                variant="destructive"
+                variant="default"
                 onClick={handleDeleteConfirm}
                 disabled={currentCategory && ((currentCategory as any).componentCount > 0 || deleteLoading)}
+                className="bg-primary hover:bg-primary/90"
               >
                 {deleteLoading ? (
                   <>
