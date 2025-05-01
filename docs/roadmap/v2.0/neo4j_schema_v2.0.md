@@ -144,6 +144,14 @@ Indica que um ADR afeta uma instância específica de componente.
 **Propriedades:**
 - `impact_level`: Nível de impacto ('low', 'medium', 'high')
 
+#### :PARTICIPATES_IN
+Indica que um usuário participa de um ADR com um papel específico.
+
+**Direção:** (:User)-[:PARTICIPATES_IN]->(:ADR)
+
+**Propriedades:**
+- `role`: Papel do participante ('owner', 'reviewer', 'consumer')
+
 ## Constraints e Índices
 
 ### Constraints
@@ -201,7 +209,9 @@ A sincronização entre MariaDB e Neo4j na v2.0 foi ampliada para incluir:
    - A relação `MANAGED_BY` é criada e mantida automaticamente
 
 4. **Suporte a ADRs com múltiplos participantes**:
-   - Embora os participantes não sejam diretamente modelados no Neo4j, as relações de impacto de ADRs são sincronizadas
+   - Os participantes de ADRs são representados pela relação `PARTICIPATES_IN` no Neo4j
+   - A relação conecta nós `:User` aos nós `:ADR`, incluindo o papel do participante como propriedade
+   - Esta relação corresponde aos dados da tabela `ADR_Participant` do MariaDB
 
 ## Operações CRUD Principais
 
@@ -248,6 +258,14 @@ WHERE a.id = {instanceAId} AND b.id = {instanceBId}
 CREATE (a)-[:INSTANCE_CONNECTS_TO {protocol: {protocol}, port: {port}}]->(b);
 ```
 
+### Criar Relação de Participação em ADR
+
+```cypher
+MATCH (u:User), (a:ADR)
+WHERE u.id = {userId} AND a.id = {adrId}
+CREATE (u)-[:PARTICIPATES_IN {role: {participantRole}}]->(a);
+```
+
 ## Consultas Comuns
 
 ### Obter Componentes com suas Instâncias
@@ -273,6 +291,21 @@ WHERE t.name = {teamName}
 RETURN c.name as component, c.status as status
 ```
 
+### Obter Participantes de um ADR com seus Papéis
+
+```cypher
+MATCH (u:User)-[p:PARTICIPATES_IN]->(a:ADR)
+WHERE a.id = {adrId}
+RETURN u.full_name as participant, p.role as role
+ORDER BY 
+  CASE p.role 
+    WHEN 'owner' THEN 1
+    WHEN 'reviewer' THEN 2
+    WHEN 'consumer' THEN 3
+    ELSE 4
+  END, u.full_name
+```
+
 ## Considerações para Migração
 
 1. Novas entidades devem ser criadas primeiro (Environments, Teams)
@@ -280,6 +313,7 @@ RETURN c.name as component, c.status as status
 3. Instâncias de componentes devem ser criadas e vinculadas ao componente e ambiente
 4. Novas relações devem ser criadas entre componentes, times e instâncias
 5. Os relacionamentos existentes entre componentes devem ser mantidos
+6. Relações `PARTICIPATES_IN` devem ser criadas para manter a coerência com a tabela `ADR_Participant` do MariaDB
 
 ## Visualização do Grafo
 
@@ -291,7 +325,8 @@ A visualização do grafo agora suporta:
    - Nível de instância física
 3. Coloração por time responsável
 4. Visualização do impacto de ADRs em componentes ou instâncias específicas
+5. Visualização de participantes de ADRs e seus papéis
 
 ## Conclusão
 
-O schema Neo4j v2.0 amplia significativamente as capacidades analíticas do grafo de arquitetura, permitindo uma visão mais detalhada das instâncias específicas de componentes em diferentes ambientes. As novas relações entre times, componentes e instâncias proporcionam uma visualização mais rica e informativa da arquitetura empresarial. 
+O schema Neo4j v2.0 amplia significativamente as capacidades analíticas do grafo de arquitetura, permitindo uma visão mais detalhada das instâncias específicas de componentes em diferentes ambientes. As novas relações entre times, componentes e instâncias proporcionam uma visualização mais rica e informativa da arquitetura empresarial. A adição da relação `PARTICIPATES_IN` permite representar com precisão o modelo de colaboração em ADRs, mantendo a coerência com o modelo de dados relacional. 

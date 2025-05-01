@@ -93,6 +93,11 @@ MATCH (a:ADR), (ci:ComponentInstance)
 WHERE a.id = {adrId} AND ci.id = {instanceId}
 CREATE (a)-[:AFFECTS_INSTANCE {impact_level: {impactLevel}}]->(ci);
 
+// PARTICIPATES_IN: Usuário participa de um ADR com papel específico
+MATCH (u:User), (a:ADR)
+WHERE u.id = {userId} AND a.id = {adrId}
+CREATE (u)-[:PARTICIPATES_IN {role: {participantRole}}]->(a);
+
 // Criação/Atualização de Componentes
 // Upsert de um componente básico
 MERGE (c:Component {id: {id}})

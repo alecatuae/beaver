@@ -2,418 +2,304 @@
 
 ## Visão Geral
 
-O schema do MariaDB v2.0 para o Beaver introduz diversas melhorias estruturais que permitem maior flexibilidade, escalabilidade e capacidade de gestão. As principais mudanças incluem:
-
-1. Substituição de ENUMs por tabelas de lookup
-2. Introdução de ambientes e instâncias de componentes
-3. Refatoração do modelo de ADRs para suportar múltiplos participantes
-4. Suporte a metadados avançados para log de auditoria
-5. Modelo unificado de roadmap para desenvolvimento e infraestrutura
-
-Este documento detalha cada seção do schema e as principais alterações em relação à versão anterior.
-
-## Requisitos Técnicos
-
-- MariaDB 10.5 ou superior
-- Suporte a tipos de dados JSON
-- Suporte a CHECK constraints
-- Suporte a ENUM
-- Charset UTF-8 (utf8mb4)
-
-## Estrutura de Tabelas
-
-### 1. Entidades de Identidade
-
-#### Tabela User
-
-```sql
-CREATE TABLE `User` (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  username      VARCHAR(50)  NOT NULL UNIQUE,
-  email         VARCHAR(120) NOT NULL UNIQUE,
-  full_name     VARCHAR(120) NOT NULL,
-  password_hash CHAR(60)     NOT NULL,
-  role          ENUM('admin','architect','contributor','viewer') DEFAULT 'viewer',
-  created_at    DATETIME DEFAULT NOW()
-) COMMENT='Contas e perfis de acesso';
-```
-
-**Alterações na v2.0:**
-- Adicionado campo `full_name`
-- Refinamento nos papéis de usuário, agora mais especializados para arquitetura
-- Limitações de tamanho de campo otimizadas
-
-#### Tabela Team
-
-```sql
-CREATE TABLE Team (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(60) NOT NULL UNIQUE,
-  description VARCHAR(255),
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Grupos de pessoas responsáveis';
-```
-
-**Alterações na v2.0:**
-- Limitação de tamanho do campo `name` para 60 caracteres
-- Adição do campo `description`
-
-#### Tabela Team_Member (Nova)
-
-```sql
-CREATE TABLE Team_Member (
-  team_id   INT NOT NULL,
-  user_id   INT NOT NULL,
-  joined_at DATETIME DEFAULT NOW(),
-  PRIMARY KEY (team_id, user_id),
-  FOREIGN KEY (team_id) REFERENCES Team(id)   ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES `User`(id) ON DELETE CASCADE
-) COMMENT='Associação usuários ↔ times';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para relação N:N entre usuários e times
-- Rastreamento da data de ingresso do usuário no time
-
-### 2. Taxonomias
-
-#### Tabela Category
-
-```sql
-CREATE TABLE Category (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(60) NOT NULL UNIQUE,
-  description VARCHAR(255),
-  image       VARCHAR(120),
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Categorias de componentes';
-```
-
-**Alterações na v2.0:**
-- Limitação de tamanho do campo `name` para 60 caracteres
-- Limitação de tamanho do campo `image` para 120 caracteres
-
-#### Tabela GlossaryTerm
-
-```sql
-CREATE TABLE GlossaryTerm (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  term        VARCHAR(60) NOT NULL UNIQUE,
-  definition  TEXT NOT NULL,
-  status      ENUM('draft','approved','deprecated') DEFAULT 'draft',
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Glossário interno';
-```
-
-**Alterações na v2.0:**
-- Limitação de tamanho do campo `term` para 60 caracteres
-- Adição do campo `status` para rastrear ciclo de vida dos termos do glossário
-
-### 3. Ambientes e Componentes
-
-#### Tabela Environment (Nova)
-
-```sql
-CREATE TABLE Environment (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(50) NOT NULL UNIQUE,
-  description VARCHAR(255),
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Domínios físicos ou lógicos onde rodam instâncias';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para substituir o ENUM `env` do modelo anterior
-- Permite ambientes personalizáveis e específicos para cada organização
-
-#### Tabela Component
-
-```sql
-CREATE TABLE Component (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(120) NOT NULL UNIQUE,
-  description TEXT,
-  status      ENUM('planned','active','deprecated') DEFAULT 'active',
-  team_id     INT NULL,
-  category_id INT NULL,
-  created_at  DATETIME DEFAULT NOW(),
-  FOREIGN KEY (team_id)     REFERENCES Team(id),
-  FOREIGN KEY (category_id) REFERENCES Category(id)
-) COMMENT='Serviços, aplicativos ou recursos lógicos';
-```
-
-**Alterações na v2.0:**
-- Alterado ENUM `status` para incluir 'planned' em vez de 'inactive'
-- Adicionado campo `team_id` para associar responsabilidade direta
-- Campo `env` removido, substituído pelo modelo de instâncias
-
-#### Tabela Component_Instance (Nova)
-
-```sql
-CREATE TABLE Component_Instance (
-  id             INT AUTO_INCREMENT PRIMARY KEY,
-  component_id   INT NOT NULL,
-  environment_id INT NOT NULL,
-  hostname       VARCHAR(120),
-  specs          JSON,
-  created_at     DATETIME DEFAULT NOW(),
-  UNIQUE KEY uniq_comp_env (component_id, environment_id),
-  FOREIGN KEY (component_id)   REFERENCES Component(id)   ON DELETE CASCADE,
-  FOREIGN KEY (environment_id) REFERENCES Environment(id) ON DELETE RESTRICT
-) COMMENT='Manifestação física/lógica do componente';
-```
-
-**Novidade na v2.0:**
-- Nova tabela que separa o conceito de componente lógico de sua instância física
-- Campo `specs` em JSON permite armazenar metadados técnicos flexíveis
-- Chave única composta evita duplicidade de instâncias no mesmo ambiente
-
-### 4. Architecture Decision Records (ADR)
-
-#### Tabela ADR
-
-```sql
-CREATE TABLE ADR (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  title       VARCHAR(200) NOT NULL,
-  description TEXT,
-  status      ENUM('draft','accepted','superseded','rejected') DEFAULT 'draft',
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Decisões arquiteturais';
-```
-
-**Alterações na v2.0:**
-- Campo `decision` renomeado para `description`
-- Adicionado valor 'superseded' ao ENUM `status`
-- Removido campo `owner_id` da versão anterior
-
-#### Tabela ADR_Participant (Nova)
-
-```sql
-CREATE TABLE ADR_Participant (
-  id         INT AUTO_INCREMENT PRIMARY KEY,
-  adr_id     INT NOT NULL,
-  user_id    INT NOT NULL,
-  role       ENUM('owner','reviewer','consumer') DEFAULT 'reviewer',
-  created_at DATETIME DEFAULT NOW(),
-  UNIQUE KEY adr_user (adr_id, user_id),
-  FOREIGN KEY (adr_id)  REFERENCES ADR(id)      ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES `User`(id)   ON DELETE CASCADE
-) COMMENT='Quem participou de cada ADR';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para substituir o campo `owner_id` da versão anterior
-- Suporta múltiplos participantes em diferentes papéis
-- Chave única composta garante papel único por usuário em cada ADR
-
-#### Tabela ADR_ComponentInstance (Nova)
-
-```sql
-CREATE TABLE ADR_ComponentInstance (
-  adr_id       INT NOT NULL,
-  instance_id  INT NOT NULL,
-  impact_level ENUM('low','medium','high') DEFAULT 'medium',
-  PRIMARY KEY (adr_id, instance_id),
-  FOREIGN KEY (adr_id)      REFERENCES ADR(id)                ON DELETE CASCADE,
-  FOREIGN KEY (instance_id) REFERENCES Component_Instance(id) ON DELETE CASCADE
-) COMMENT='Impacto de ADR em instâncias específicas';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para associar ADRs a instâncias específicas de componentes
-- Inclui nível de impacto para análise refinada
-
-#### Tabela ADR_Component (Nova)
-
-```sql
-CREATE TABLE ADR_Component (
-  adr_id       INT NOT NULL,
-  component_id INT NOT NULL,
-  PRIMARY KEY (adr_id, component_id),
-  FOREIGN KEY (adr_id)       REFERENCES ADR(id)       ON DELETE CASCADE,
-  FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE CASCADE
-) COMMENT='ADR que afeta o componente inteiro';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para explicitamente relacionar ADRs a componentes
-
-### 5. Tagging Geral
-
-#### Tabela ComponentTag
-
-```sql
-CREATE TABLE ComponentTag (
-  id           INT AUTO_INCREMENT PRIMARY KEY,
-  component_id INT NOT NULL,
-  tag          VARCHAR(60) NOT NULL,
-  UNIQUE KEY cmp_tag (component_id, tag),
-  FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE CASCADE
-);
-```
-
-**Alterações na v2.0:**
-- Limitação de tamanho do campo `tag` para 60 caracteres
-- Chave única composta para evitar tags duplicadas no mesmo componente
-
-#### Tabela RelationshipTag (Nova)
-
-```sql
-CREATE TABLE RelationshipTag (
-  id        INT AUTO_INCREMENT PRIMARY KEY,
-  source_id INT NOT NULL,
-  target_id INT NOT NULL,
-  tag       VARCHAR(60) NOT NULL,
-  UNIQUE KEY rel_tag (source_id, target_id, tag),
-  FOREIGN KEY (source_id) REFERENCES Component(id) ON DELETE CASCADE,
-  FOREIGN KEY (target_id) REFERENCES Component(id) ON DELETE CASCADE
-);
-```
-
-**Novidade na v2.0:**
-- Nova tabela para tags associadas a relacionamentos entre componentes
-- Suporta a tripla unique de origem-destino-tag
-
-#### Tabela ADRTag
-
-```sql
-CREATE TABLE ADRTag (
-  id     INT AUTO_INCREMENT PRIMARY KEY,
-  adr_id INT NOT NULL,
-  tag    VARCHAR(60) NOT NULL,
-  UNIQUE KEY adr_tag (adr_id, tag),
-  FOREIGN KEY (adr_id) REFERENCES ADR(id) ON DELETE CASCADE
-);
-```
-
-**Alterações na v2.0:**
-- Limitação de tamanho do campo `tag` para 60 caracteres
-- Chave única composta para evitar tags duplicadas no mesmo ADR
-
-### 6. Roadmap / Backlog
-
-#### Tabela RoadmapType (Nova)
-
-```sql
-CREATE TABLE RoadmapType (
-  id          INT AUTO_INCREMENT PRIMARY KEY,
-  name        VARCHAR(40) NOT NULL UNIQUE,
-  description VARCHAR(120),
-  color_hex   CHAR(7),
-  created_at  DATETIME DEFAULT NOW()
-) COMMENT='Tipos de item de roadmap (dev & infra)';
-```
-
-**Novidade na v2.0:**
-- Nova tabela para substituir o ENUM `type` do modelo anterior
-- Suporte a cores personalizáveis para UI
-- Extensível para incluir novos tipos específicos da organização
-
-#### Tabela RoadmapItem
-
-```sql
-CREATE TABLE RoadmapItem (
-  id            INT AUTO_INCREMENT PRIMARY KEY,
-  title         VARCHAR(200) NOT NULL,
-  description   TEXT,
-  component_id  INT NULL,
-  type_id       INT NOT NULL,
-  status        ENUM('todo','in_progress','done','blocked') DEFAULT 'todo',
-  due_date      DATE,
-  created_at    DATETIME DEFAULT NOW(),
-  FOREIGN KEY (component_id) REFERENCES Component(id) ON DELETE SET NULL,
-  FOREIGN KEY (type_id)      REFERENCES RoadmapType(id) ON DELETE RESTRICT
-) COMMENT='Demandas planejadas ou em execução';
-```
-
-**Alterações na v2.0:**
-- Campo `type` substituído por `type_id` referenciando a tabela RoadmapType
-- Novo ENUM `status` mais detalhado
-- Adicionado campo `due_date` para planejamento
-- Adicionado campo `component_id` para vincular a componentes específicos
-
-### 7. Log / Auditoria
-
-```sql
-CREATE TABLE Log (
-  id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-  user_id    INT NULL,
-  level      ENUM('info','warn','error') DEFAULT 'info',
-  message    TEXT NOT NULL,
-  metadata   JSON,
-  created_at DATETIME DEFAULT NOW(),
-  FOREIGN KEY (user_id) REFERENCES `User`(id) ON DELETE SET NULL
-);
-```
-
-**Alterações na v2.0:**
-- Campo `action` substituído por `message` mais genérico
-- Adicionado campo `level` para categorizar diferentes tipos de log
-- Adicionado campo `metadata` JSON para armazenar contexto detalhado
-
-### 8. Índices e Otimizações
-
-```sql
-CREATE INDEX idx_component_status ON Component(status);
-CREATE INDEX idx_adr_status       ON ADR(status);
-CREATE INDEX idx_ci_env           ON Component_Instance(environment_id);
-CREATE INDEX idx_roadmap_status   ON RoadmapItem(status);
-```
-
-**Alterações na v2.0:**
-- Índices otimizados para consultas mais frequentes
-- Novo índice para busca de instâncias por ambiente
-- Novo índice para filtrar itens de roadmap por status
-
-### 9. Trigger - Regras de Negócio
-
-```sql
-DELIMITER $$
-CREATE TRIGGER trg_adr_owner_must_exist
-AFTER INSERT ON ADR_Participant
-FOR EACH ROW
-BEGIN
-  DECLARE owners INT;
-  SELECT COUNT(*) INTO owners
-  FROM ADR_Participant
-  WHERE adr_id = NEW.adr_id AND role = 'owner';
-  IF owners = 0 THEN
-    SIGNAL SQLSTATE '45000' 
-      SET MESSAGE_TEXT = 'Cada ADR precisa de pelo menos um participante com role=owner';
-  END IF;
-END$$
-DELIMITER ;
-```
-
-**Novidade na v2.0:**
-- Trigger para garantir que cada ADR tenha pelo menos um participante com papel de 'owner'
-- Aplicação de regras de negócio diretamente no banco de dados
-
-### 10. Seed Inicial
-
-O schema v2.0 inclui dados iniciais para:
-- Ambientes padrão (development, homologation, production)
-- Times básicos (Network, Operations, Platform)
-- Categorias iniciais (Networking, Security, Runtime)
-- Tipos de itens de roadmap para equipes de desenvolvimento e infraestrutura
-
-## Impacto na Migração de Dados
-
-Para migrar da versão anterior (v1.x) para a v2.0, é necessário:
-
-1. Converter ENUMs para registros nas novas tabelas de lookup
-2. Mover dados de campos singleton para tabelas de relacionamento (ex: ADR.owner_id → ADR_Participant)
-3. Criar instâncias de componente para cada componente existente, baseado no valor do campo `env`
-4. Remapear tipos de RoadmapItem para as novas entradas na tabela RoadmapType
-
-## Requisitos de Versão do MariaDB
-
-A nova estrutura requer MariaDB 10.5+ devido a:
-- Uso de colunas JSON para armazenamento flexível de metadados
-- Uso de CHECK constraints em triggers
-- Suporte avançado a ENUM com valores personalizados
+O schema MariaDB v2.0 para o Beaver representa uma evolução significativa em relação à versão 1.x, introduzindo suporte a múltiplos ambientes, instâncias de componentes, gerenciamento de times e estruturas mais flexíveis para dados de log e roadmap.
+
+## Requisitos de Sistema
+
+- MariaDB 10.5+ (recomendada 11.8)
+- Suporte a JSON e triggers
+- Configuração com charset UTF-8 (utf8mb4)
+
+## Principais Entidades
+
+### Entidades de Identidade
+
+#### User
+Armazena contas de usuário com controle de acesso baseado em papéis.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| username | VARCHAR(50) | Nome de usuário (único) |
+| email | VARCHAR(120) | E-mail do usuário (único) |
+| full_name | VARCHAR(120) | Nome completo |
+| password_hash | CHAR(60) | Hash da senha (BCrypt) |
+| role | ENUM | Papel: 'admin', 'architect', 'contributor', 'viewer' |
+| created_at | DATETIME | Data de criação |
+
+#### Team
+Equipes organizacionais responsáveis por componentes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| name | VARCHAR(80) | Nome do time (único) |
+| description | TEXT | Descrição do time |
+| created_at | DATETIME | Data de criação |
+
+#### Team_Member
+Associação entre usuários e times, com data de ingresso.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| team_id | INT | Referência ao time (FK) |
+| user_id | INT | Referência ao usuário (FK) |
+| join_date | DATE | Data de ingresso no time |
+| created_at | DATETIME | Data de criação |
+
+### Entidades de Categorização
+
+#### Category
+Categorias para classificação hierárquica de componentes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| name | VARCHAR(80) | Nome da categoria (único) |
+| description | TEXT | Descrição da categoria |
+| parent_id | INT | Referência à categoria pai (FK, opcional) |
+| image_path | VARCHAR(255) | Caminho para imagem representativa |
+| created_at | DATETIME | Data de criação |
+
+#### GlossaryTerm
+Termos padronizados do glossário organizacional.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| term | VARCHAR(80) | Termo (único) |
+| definition | TEXT | Definição do termo |
+| status | ENUM | Status: 'draft', 'approved', 'deprecated' |
+| created_at | DATETIME | Data de criação |
+
+### Entidades de Componentes e Ambientes
+
+#### Environment
+Ambientes onde componentes são implantados.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| name | VARCHAR(50) | Nome do ambiente (único) |
+| description | VARCHAR(255) | Descrição do ambiente |
+| created_at | DATETIME | Data de criação |
+
+#### Component
+Componentes lógicos da arquitetura.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| name | VARCHAR(120) | Nome do componente (único) |
+| description | TEXT | Descrição do componente |
+| status | ENUM | Status: 'planned', 'active', 'deprecated' |
+| team_id | INT | Referência ao time responsável (FK, opcional) |
+| category_id | INT | Referência à categoria (FK, opcional) |
+| created_at | DATETIME | Data de criação |
+
+#### Component_Instance
+Instâncias específicas de componentes em ambientes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| component_id | INT | Referência ao componente (FK) |
+| environment_id | INT | Referência ao ambiente (FK) |
+| hostname | VARCHAR(120) | Nome do host (opcional) |
+| specs | JSON | Especificações técnicas em formato JSON |
+| created_at | DATETIME | Data de criação |
+
+**Restrições:**
+- Chave única para (component_id, environment_id)
+- Exclusão em cascata quando o componente é excluído
+- Restrição na exclusão do ambiente (RESTRICT)
+
+### Entidades de Decisão Arquitetural
+
+#### ADR
+Registros de Decisão Arquitetural.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| title | VARCHAR(200) | Título da decisão |
+| description | TEXT | Conteúdo da decisão |
+| status | ENUM | Status: 'draft', 'accepted', 'superseded', 'rejected' |
+| created_at | DATETIME | Data de criação |
+
+#### ADR_Participant
+Participantes envolvidos em cada ADR.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| adr_id | INT | Referência ao ADR (FK) |
+| user_id | INT | Referência ao usuário (FK) |
+| role | ENUM | Papel: 'owner', 'reviewer', 'consumer' |
+| created_at | DATETIME | Data de criação |
+
+**Restrições:**
+- Chave única para (adr_id, user_id)
+- Exclusão em cascata quando o ADR ou o usuário é excluído
+- Trigger `trg_adr_owner_must_exist` garante que cada ADR tenha pelo menos um participante com papel 'owner'
+
+#### ADR_ComponentInstance
+Associação entre ADRs e instâncias de componentes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| adr_id | INT | Referência ao ADR (PK, FK) |
+| instance_id | INT | Referência à instância (PK, FK) |
+| impact_level | ENUM | Nível de impacto: 'low', 'medium', 'high' |
+
+**Restrições:**
+- Chave primária composta (adr_id, instance_id)
+- Exclusão em cascata quando o ADR ou a instância é excluído
+
+#### ADR_Component
+Associação entre ADRs e componentes (em todos os ambientes).
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| adr_id | INT | Referência ao ADR (PK, FK) |
+| component_id | INT | Referência ao componente (PK, FK) |
+
+**Restrições:**
+- Chave primária composta (adr_id, component_id)
+- Exclusão em cascata quando o ADR ou o componente é excluído
+
+### Entidades de Tagging
+
+#### ComponentTag
+Tags associadas a componentes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| component_id | INT | Referência ao componente (FK) |
+| tag | VARCHAR(60) | Tag aplicada |
+
+**Restrições:**
+- Chave única para (component_id, tag)
+- Exclusão em cascata quando o componente é excluído
+
+#### RelationshipTag
+Tags associadas a relacionamentos entre componentes.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| source_id | INT | Referência ao componente de origem (FK) |
+| target_id | INT | Referência ao componente de destino (FK) |
+| tag | VARCHAR(60) | Tag aplicada |
+
+**Restrições:**
+- Chave única para (source_id, target_id, tag)
+- Exclusão em cascata quando qualquer componente é excluído
+
+#### ADRTag
+Tags associadas a ADRs.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| adr_id | INT | Referência ao ADR (FK) |
+| tag | VARCHAR(60) | Tag aplicada |
+
+**Restrições:**
+- Chave única para (adr_id, tag)
+- Exclusão em cascata quando o ADR é excluído
+
+### Entidades de Roadmap
+
+#### RoadmapType
+Tipos flexíveis de itens de roadmap.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| name | VARCHAR(40) | Nome do tipo (único) |
+| description | VARCHAR(120) | Descrição do tipo |
+| color_hex | CHAR(7) | Código de cor hexadecimal |
+| created_at | DATETIME | Data de criação |
+
+#### RoadmapItem
+Itens de roadmap/backlog.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INT | Identificador único (PK) |
+| title | VARCHAR(200) | Título do item |
+| description | TEXT | Descrição detalhada |
+| component_id | INT | Referência ao componente (FK, opcional) |
+| type_id | INT | Referência ao tipo (FK) |
+| status | ENUM | Status: 'todo', 'in_progress', 'done', 'blocked' |
+| due_date | DATE | Data prevista (opcional) |
+| created_at | DATETIME | Data de criação |
+
+**Restrições:**
+- SET NULL quando o componente é excluído
+- RESTRICT quando o tipo é excluído (impede exclusão)
+
+### Entidades de Log
+
+#### Log
+Registros de auditoria para ações do sistema.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | BIGINT | Identificador único (PK) |
+| user_id | INT | Referência ao usuário (FK, opcional) |
+| level | ENUM | Nível: 'info', 'warn', 'error' |
+| message | TEXT | Mensagem de log |
+| metadata | JSON | Dados adicionais em formato JSON |
+| created_at | DATETIME | Data de criação |
+
+**Restrições:**
+- SET NULL quando o usuário é excluído
+
+## Índices
+
+O schema inclui os seguintes índices para otimização de consultas:
+
+- idx_component_status sobre Component(status)
+- idx_adr_status sobre ADR(status)
+- idx_ci_env sobre Component_Instance(environment_id)
+- idx_roadmap_status sobre RoadmapItem(status)
+
+## Triggers
+
+### trg_adr_owner_must_exist
+Garante que cada ADR tenha pelo menos um participante com papel 'owner'.
+
+**Operação:** AFTER INSERT em ADR_Participant
+**Ação:** Verifica se existe pelo menos um participante com papel 'owner' para o ADR. Se não, lança um erro.
+
+## Dados Iniciais (Seed)
+
+O schema inclui dados iniciais para:
+
+- Ambientes (development, homologation, production)
+- Times (Network, Operations, Platform)
+- Categorias (Networking, Security, Runtime)
+- Tipos de Roadmap (feature, refactor, technical debt, infra, maintenance, incident, capacity)
+
+## Considerações de Migração
+
+Ao migrar da v1.x para a v2.0:
+
+1. Os campos ENUM existentes são mantidos e padronizados:
+   - Component.status: 'planned', 'active', 'deprecated'
+   - ADR.status: 'draft', 'accepted', 'superseded', 'rejected'
+   - RoadmapItem.status: 'todo', 'in_progress', 'done', 'blocked'
+
+2. Novas tabelas como Environment, Team, Team_Member e RoadmapType substituem campos ENUM fixos
+
+3. Campos JSON são usados para armazenar dados flexíveis como specs e metadata
+
+4. O gerenciamento de ADRs agora é baseado em participantes múltiplos em vez de owner único
 
 ## Conclusão
 
-O schema MariaDB v2.0 proporciona maior flexibilidade, melhor organização e suporte mais robusto para casos de uso corporativos. As principais melhorias incluem a transformação de ENUMs em tabelas de lookup, separação entre componentes lógicos e suas instâncias físicas, e uma abordagem mais detalhada para rastrear decisões arquiteturais. 
+O schema MariaDB v2.0 traz flexibilidade e extensibilidade significativas à plataforma Beaver, permitindo o gerenciamento de múltiplos ambientes, instâncias específicas de componentes e uma estrutura mais rica para colaboração em ADRs. 
