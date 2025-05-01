@@ -1,0 +1,144 @@
+// Neo4j Schema v2.0
+
+// Constraints - Componentes
+CREATE CONSTRAINT ON (c:Component) ASSERT c.id IS UNIQUE;
+CREATE CONSTRAINT ON (c:Component) ASSERT exists(c.valid_from);
+CREATE CONSTRAINT ON (c:Component) ASSERT exists(c.valid_to);
+
+// Constraints - Instâncias de Componentes (Novo na v2.0)
+CREATE CONSTRAINT ON (ci:ComponentInstance) ASSERT ci.id IS UNIQUE;
+CREATE CONSTRAINT ON (ci:ComponentInstance) ASSERT exists(ci.component_id);
+CREATE CONSTRAINT ON (ci:ComponentInstance) ASSERT exists(ci.environment_id);
+
+// Constraints - Ambientes (Novo na v2.0)
+CREATE CONSTRAINT ON (e:Environment) ASSERT e.id IS UNIQUE;
+CREATE CONSTRAINT ON (e:Environment) ASSERT e.name IS UNIQUE;
+
+// Constraints - ADRs
+CREATE CONSTRAINT ON (a:ADR) ASSERT a.id IS UNIQUE;
+
+// Constraints - Times (Novo na v2.0)
+CREATE CONSTRAINT ON (t:Team) ASSERT t.id IS UNIQUE;
+
+// Constraints - GlossaryTerm
+CREATE CONSTRAINT ON (g:GlossaryTerm) ASSERT g.term IS UNIQUE;
+
+// Índices para melhorar performance
+CREATE INDEX ON :Component(status);
+CREATE INDEX ON :ComponentInstance(hostname);
+CREATE INDEX ON :Environment(name);
+CREATE INDEX ON :ADR(status);
+CREATE INDEX ON :Team(name);
+
+// Relações entre Componentes
+// DEPENDS_ON: Um componente depende de outro
+MATCH (a:Component), (b:Component)
+WHERE a.id = {componentAId} AND b.id = {componentBId}
+CREATE (a)-[:DEPENDS_ON {since: {since}, until: {until}}]->(b);
+
+// CONNECTS_TO: Um componente se conecta a outro
+MATCH (a:Component), (b:Component)
+WHERE a.id = {componentAId} AND b.id = {componentBId}
+CREATE (a)-[:CONNECTS_TO {protocol: {protocol}, port: {port}}]->(b);
+
+// RUNS_ON: Um componente roda em uma plataforma
+MATCH (a:Component), (b:Platform)
+WHERE a.id = {componentId} AND b.id = {platformId}
+CREATE (a)-[:RUNS_ON {since: {since}}]->(b);
+
+// STORES_DATA_IN: Um componente armazena dados em algum lugar
+MATCH (a:Component), (b:DataStore)
+WHERE a.id = {componentId} AND b.id = {dataStoreId}
+CREATE (a)-[:STORES_DATA_IN {data_type: {dataType}}]->(b);
+
+// CONTAINS: Um componente contém subcomponentes
+MATCH (a:Component), (b:SubComponent)
+WHERE a.id = {componentId} AND b.id = {subComponentId}
+CREATE (a)-[:CONTAINS]->(b);
+
+// PROTECTS: Um componente protege certos dados
+MATCH (a:Component), (b:Data)
+WHERE a.id = {componentId} AND b.id = {dataId}
+CREATE (a)-[:PROTECTS {mechanism: {mechanism}}]->(b);
+
+// HAS_DECISION: Um componente está associado a uma decisão (ADR)
+MATCH (a:Component), (b:ADR)
+WHERE a.id = {componentId} AND b.id = {adrId}
+CREATE (a)-[:HAS_DECISION {impact: {impact}}]->(b);
+
+// Novas relações na v2.0
+
+// INSTANTIATES: Componente para sua instância
+MATCH (c:Component), (ci:ComponentInstance)
+WHERE c.id = {componentId} AND ci.component_id = c.id
+CREATE (c)-[:INSTANTIATES]->(ci);
+
+// DEPLOYED_IN: Instância implantada em ambiente
+MATCH (ci:ComponentInstance), (e:Environment)
+WHERE ci.environment_id = e.id
+CREATE (ci)-[:DEPLOYED_IN]->(e);
+
+// MANAGED_BY: Componente gerenciado por time
+MATCH (c:Component), (t:Team)
+WHERE c.team_id = t.id
+CREATE (c)-[:MANAGED_BY]->(t);
+
+// INSTANCE_CONNECTS_TO: Relação entre instâncias específicas
+MATCH (a:ComponentInstance), (b:ComponentInstance)
+WHERE a.id = {instanceAId} AND b.id = {instanceBId}
+CREATE (a)-[:INSTANCE_CONNECTS_TO {protocol: {protocol}, port: {port}}]->(b);
+
+// AFFECTS_INSTANCE: ADR afeta instância específica
+MATCH (a:ADR), (ci:ComponentInstance)
+WHERE a.id = {adrId} AND ci.id = {instanceId}
+CREATE (a)-[:AFFECTS_INSTANCE {impact_level: {impactLevel}}]->(ci);
+
+// Criação/Atualização de Componentes
+// Upsert de um componente básico
+MERGE (c:Component {id: {id}})
+ON CREATE SET 
+  c.name = {name},
+  c.description = {description},
+  c.status = {status},
+  c.team_id = {teamId},
+  c.category_id = {categoryId},
+  c.valid_from = datetime(),
+  c.valid_to = datetime("9999-12-31")
+ON MATCH SET
+  c.name = {name},
+  c.description = {description},
+  c.status = {status},
+  c.team_id = {teamId},
+  c.category_id = {categoryId};
+
+// Upsert de instância de componente
+MERGE (ci:ComponentInstance {id: {id}})
+ON CREATE SET
+  ci.component_id = {componentId},
+  ci.environment_id = {environmentId},
+  ci.hostname = {hostname},
+  ci.specs = {specs},
+  ci.created_at = datetime()
+ON MATCH SET
+  ci.hostname = {hostname},
+  ci.specs = {specs};
+
+// Upsert de ambiente
+MERGE (e:Environment {id: {id}})
+ON CREATE SET
+  e.name = {name},
+  e.description = {description},
+  e.created_at = datetime()
+ON MATCH SET
+  e.name = {name},
+  e.description = {description};
+
+// Upsert de time
+MERGE (t:Team {id: {id}})
+ON CREATE SET
+  t.name = {name},
+  t.description = {description},
+  t.created_at = datetime()
+ON MATCH SET
+  t.name = {name},
+  t.description = {description}; 

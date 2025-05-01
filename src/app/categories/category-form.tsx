@@ -155,7 +155,7 @@ export default function CategoryForm({
                   alt="Imagem da categoria" 
                   className="w-16 h-16 object-contain"
                 />
-                <p className="ml-3 text-sm">{image}</p>
+                <p className="ml-3 text-sm hidden">{image}</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
