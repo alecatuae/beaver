@@ -29,10 +29,10 @@ This document outlines the data schema for the MariaDB database used in the Beav
 - **id**: Unique identifier for each category
 - **name**: Name of the category
 - **description**: Description of the category
-- **image**: Binary image data (only PNG or SVG, up to 256x256px)
+- **image**: Path to the image file (relativo ao /public/images/categories)
 - **created_at**: Timestamp of category creation
 
-**Restriction:** Only PNG or SVG images up to 256x256px should be stored in `image`.
+**Nota:** As imagens são armazenadas no sistema de arquivos em vez de no banco de dados, com o campo `image` apenas armazenando o caminho relativo.
 
 ## Conclusion
 This schema provides a comprehensive overview of the data structure for the MariaDB database, ensuring it supports the application's needs effectively. For more detailed information, refer to the `Architecture_v1.2_en_us.md` document. 

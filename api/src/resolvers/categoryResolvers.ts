@@ -1,298 +1,223 @@
 import { logger } from '../utils/logger';
+import fs from 'fs';
+import path from 'path';
+import { createReadStream } from 'fs';
+import { Categories } from './categories';
+import { builder } from '../builder';
+import { prisma } from '../prisma';
 
 export const categoryResolvers = (builder: any) => {
-  // Define o tipo Category, verificando se já existe
-  const Category = builder.objectRef<any>('Category');
-  
-  // Só define o tipo se não existir
-  if (!builder.configStore.hasConfigWithTypename('Category')) {
-    builder.objectType(Category, {
-      fields: (t: any) => ({
-        id: t.field({
-          type: 'Int',
-          resolve: (parent: any) => parent.id,
-        }),
-        name: t.field({
-          type: 'String',
-          resolve: (parent: any) => parent.name,
-        }),
-        description: t.field({
-          type: 'String',
-          nullable: true,
-          resolve: (parent: any) => parent.description,
-        }),
-        image: t.field({
-          type: 'String',
-          nullable: true,
-          resolve: (parent: any) => {
-            if (parent.image) {
-              // Converte Buffer para string base64 se existir
-              return Buffer.from(parent.image).toString('base64');
-            }
-            return null;
-          }
-        }),
-        createdAt: t.field({
-          type: 'Date',
-          resolve: (parent: any) => parent.createdAt || new Date(),
-        }),
-        components: t.field({
-          type: ['Component'],
-          resolve: async (parent: any, _args: any, ctx: any) => {
-            return await ctx.prisma.component.findMany({
-              where: { categoryId: parent.id }
-            });
-          }
-        }),
-      }),
-    });
-  }
+  // Note: Não definimos o tipo Category aqui pois já foi definido em componentResolvers.ts
 
-  // Input para criação/atualização de categoria
-  const CategoryInput = builder.inputRef<any>('CategoryInput');
-  
-  // Só define o tipo se não existir
-  if (!builder.configStore.hasConfigWithTypename('CategoryInput')) {
-    builder.inputType(CategoryInput, {
-      fields: (t: any) => ({
-        name: t.string({ required: true }),
-        description: t.string(),
-        image: t.string(),
-      }),
-    });
-  }
+  // Query para obter as imagens disponíveis para categorias
+  builder.queryField('categoryImages', (t: any) =>
+    t.field({
+      type: ['String'],
+      resolve: async () => {
+        try {
+          // Tenta primeiro o caminho da API e depois o caminho do frontend
+          const apiPath = path.join(process.cwd(), 'public/images/categories');
+          const frontendPath = path.join(process.cwd(), '../public/images/categories');
+          
+          let directoryPath = apiPath;
+          
+          // Verifica qual diretório existe e contém imagens
+          if (!fs.existsSync(apiPath)) {
+            logger.info(`Diretório da API não existe, tentando diretório frontend: ${frontendPath}`);
+            directoryPath = frontendPath;
+          }
+          
+          logger.info(`Buscando imagens no diretório: ${directoryPath}`);
 
-  // Query para listar categorias
+          if (!fs.existsSync(directoryPath)) {
+            logger.error(`Nenhum diretório válido encontrado`);
+            return [];
+          }
+          
+          const files = fs.readdirSync(directoryPath);
+          logger.info(`Encontrados ${files.length} arquivos no diretório`);
+          
+          // Filtra apenas arquivos de imagem e exclui arquivos ocultos (como .DS_Store)
+          const imageFiles = files.filter(file => 
+            !file.startsWith('.') && (
+              file.endsWith('.png') || 
+              file.endsWith('.jpg') || 
+              file.endsWith('.jpeg') || 
+              file.endsWith('.svg')
+            )
+          );
+          
+          logger.info(`Retornando ${imageFiles.length} imagens: ${imageFiles.join(', ')}`);
+          
+          // Retorna apenas os nomes dos arquivos
+          return imageFiles;
+        } catch (error: any) {
+          logger.error('Erro ao ler as imagens de categorias:', error);
+          return [];
+        }
+      },
+    })
+  );
+
+  // Query para obter a lista de categorias
   builder.queryField('categories', (t: any) =>
     t.field({
-      type: [Category],
-      resolve: async (_root: any, _args: any, ctx: any) => {
+      type: ['Category'],
+      resolve: async () => {
         try {
-          return await ctx.prisma.category.findMany({
-            orderBy: { name: 'asc' }
+          return await prisma.category.findMany({
+            orderBy: {
+              name: 'asc',
+            },
           });
         } catch (error: any) {
           logger.error('Erro ao buscar categorias:', error);
-          throw new Error(`Erro ao carregar as categorias: ${error.message}`);
+          return [];
         }
       },
     })
   );
 
-  // Query para buscar categoria por ID
+  // Query para obter uma categoria pelo ID
   builder.queryField('category', (t: any) =>
     t.field({
-      type: Category,
-      nullable: true,
+      type: 'Category',
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (_root: any, args: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          return await ctx.prisma.category.findUnique({
-            where: { id: args.id }
+          const category = await prisma.category.findUnique({
+            where: { id: args.id },
           });
-        } catch (error: any) {
-          logger.error(`Erro ao buscar categoria com ID ${args.id}:`, error);
-          throw new Error(`Erro ao carregar a categoria: ${error.message}`);
-        }
-      },
-    })
-  );
 
-  // Mutation para criar categoria
-  builder.mutationField('createCategory', (t: any) =>
-    t.field({
-      type: Category,
-      args: {
-        input: t.arg({
-          type: CategoryInput,
-          required: true,
-        }),
-      },
-      resolve: async (_root: any, { input }: any, ctx: any) => {
-        try {
-          const { name, description, image } = input;
-          
-          logger.info(`Criando nova categoria com nome: "${name}", descrição: "${description?.substring(0, 30)}..."`);
-          
-          // Verificar se o contexto e o cliente Prisma existem
-          if (!ctx.prisma) {
-            logger.error('Contexto do Prisma não disponível');
-            throw new Error('Erro interno do servidor: Cliente do banco de dados não disponível');
+          if (!category) {
+            throw new Error(`Categoria com ID ${args.id} não encontrada`);
           }
-          
-          // Converter a imagem de base64 para Buffer, se existir
-          let imageBuffer = null;
-          if (image) {
-            logger.info(`Imagem fornecida para categoria "${name}", convertendo de base64`);
-            try {
-              imageBuffer = Buffer.from(image, 'base64');
-              // Verifica se a conversão é válida
-              if (imageBuffer.length === 0) {
-                logger.warn(`Imagem fornecida para categoria "${name}" é inválida ou vazia`);
-                throw new Error('A imagem fornecida é inválida ou vazia');
-              }
-            } catch (error) {
-              logger.error(`Erro ao converter imagem para Buffer: ${error}`);
-              throw new Error('Erro ao processar a imagem');
-            }
-          }
-          
-          // Criar categoria no banco de dados
-          logger.info(`Executando prisma.category.create para categoria "${name}"`);
-          const category = await ctx.prisma.category.create({
-            data: {
-              name,
-              description,
-              image: imageBuffer,
-            },
-          });
-          
-          logger.info(`Categoria criada com sucesso: ID=${category.id}, nome="${category.name}"`);
-          
-          // Verificar se a categoria foi realmente persistida
-          const savedCategory = await ctx.prisma.category.findUnique({
-            where: { id: category.id }
-          });
-          
-          if (!savedCategory) {
-            logger.error(`Categoria aparentemente criada, mas não foi encontrada no banco: ID=${category.id}`);
-            throw new Error('Falha na persistência da categoria');
-          }
-          
-          // Verificar se a imagem foi persistida corretamente, se existir
-          if (image && (!savedCategory.image || savedCategory.image.length === 0)) {
-            logger.error(`Imagem da categoria não foi persistida corretamente: ID=${category.id}`);
-            throw new Error('Falha na persistência da imagem da categoria');
-          }
-          
+
           return category;
         } catch (error: any) {
-          logger.error(`Erro ao criar categoria:`, error);
-          logger.error(`Detalhes do erro: ${error.message}`);
-          if (error.code) {
-            logger.error(`Código do erro: ${error.code}`);
-          }
-          throw new Error(`Erro ao criar a categoria: ${error.message}`);
+          logger.error(`Erro ao buscar categoria ${args.id}:`, error);
+          throw error;
         }
       },
     })
   );
 
-  // Mutation para atualizar categoria
+  // Input type para criar/atualizar categorias
+  const CategoryInput = builder.inputType('CategoryInput', {
+    fields: (t: any) => ({
+      name: t.string({ required: true }),
+      description: t.string({ required: false }),
+      image: t.string({ required: false }),
+    }),
+  });
+
+  // Mutation para criar uma categoria
+  builder.mutationField('createCategory', (t: any) =>
+    t.field({
+      type: 'Category',
+      args: {
+        input: t.arg({ type: CategoryInput, required: true }),
+      },
+      resolve: async (_, args) => {
+        try {
+          return await prisma.category.create({
+            data: {
+              name: args.input.name,
+              description: args.input.description,
+              image: args.input.image,
+            },
+          });
+        } catch (error: any) {
+          logger.error('Erro ao criar a categoria:', error);
+          throw new Error(`Erro ao criar a categoria: \n${error.message}`);
+        }
+      },
+    })
+  );
+
+  // Mutation para atualizar uma categoria
   builder.mutationField('updateCategory', (t: any) =>
     t.field({
-      type: Category,
+      type: 'Category',
       args: {
         id: t.arg.int({ required: true }),
-        input: t.arg({
-          type: CategoryInput,
-          required: true,
-        }),
+        input: t.arg({ type: CategoryInput, required: true }),
       },
-      resolve: async (_root: any, { id, input }: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          // Ignore o id na entrada, use o id do argumento principal para a operação
-          const { name, description, image } = input;
-          
-          logger.info(`Atualizando categoria: ID=${id}, nome="${name}", descrição: "${description?.substring(0, 30)}..."`);
-          
-          // Verificar se o contexto e o cliente Prisma existem
-          if (!ctx.prisma) {
-            logger.error('Contexto do Prisma não disponível');
-            throw new Error('Erro interno do servidor: Cliente do banco de dados não disponível');
-          }
+          logger.info(`Atualizando categoria ID ${args.id}`);
+          logger.info(`Input recebido:`, JSON.stringify(args.input, null, 2));
           
           // Verificar se a categoria existe
-          logger.info(`Verificando se a categoria ID=${id} existe`);
-          const existingCategory = await ctx.prisma.category.findUnique({
-            where: { id },
+          const existingCategory = await prisma.category.findUnique({
+            where: { id: args.id },
           });
           
           if (!existingCategory) {
-            logger.error(`Categoria com ID ${id} não encontrada`);
-            throw new Error(`Categoria com ID ${id} não encontrada`);
+            throw new Error(`Categoria com ID ${args.id} não encontrada`);
           }
           
-          // Converter a imagem de base64 para Buffer, se existir
-          let imageBuffer = undefined;
-          if (image) {
-            logger.info(`Imagem fornecida para categoria ID=${id}, convertendo de base64`);
-            imageBuffer = Buffer.from(image, 'base64');
-          }
+          logger.info(`Categoria existente:`, JSON.stringify(existingCategory, null, 2));
           
           // Preparar dados para atualização
-          const updateData: any = {
-            name,
-            description,
+          const updateData = {
+            name: args.input.name,
+            description: args.input.description,
+            image: args.input.image
           };
           
-          // Só inclui imagem se tiver sido fornecida
-          if (imageBuffer !== undefined) {
-            updateData.image = imageBuffer;
+          // Realizar a atualização
+          try {
+            const updated = await prisma.category.update({
+              where: { id: args.id },
+              data: updateData,
+            });
+            
+            logger.info(`Categoria atualizada com sucesso:`, JSON.stringify(updated, null, 2));
+            return updated;
+          } catch (updateError: any) {
+            logger.error(`Erro ao atualizar: ${updateError.message || "Erro desconhecido"}`);
+            throw updateError;
           }
-          
-          // Atualizar a categoria no banco de dados
-          logger.info(`Executando prisma.category.update para categoria ID=${id}`);
-          const updatedCategory = await ctx.prisma.category.update({
-            where: { id },
-            data: updateData,
-          });
-          
-          logger.info(`Categoria atualizada com sucesso: ID=${id}, nome="${updatedCategory.name}"`);
-          return updatedCategory;
         } catch (error: any) {
-          logger.error(`Erro ao atualizar categoria ${id}:`, error);
-          logger.error(`Detalhes do erro: ${error.message}`);
-          if (error.code) {
-            logger.error(`Código do erro: ${error.code}`);
-          }
-          throw new Error(`Erro ao atualizar a categoria: ${error.message}`);
+          logger.error('Erro ao atualizar a categoria:', error);
+          logger.error('Mensagem do erro:', error.message || "Sem mensagem");
+          throw new Error(`Erro ao atualizar a categoria: \n${error.message || "Erro desconhecido"}`);
         }
       },
     })
   );
 
-  // Mutation para excluir categoria
+  // Mutation para excluir uma categoria
   builder.mutationField('deleteCategory', (t: any) =>
     t.field({
       type: 'Boolean',
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (_root: any, { id }: any, ctx: any) => {
+      resolve: async (_, args) => {
         try {
-          logger.info(`Excluindo categoria: ${id}`);
-          
-          // Verificar se a categoria existe
-          const existingCategory = await ctx.prisma.category.findUnique({
-            where: { id },
+          // Verificar se existem componentes associados à categoria
+          const componentsCount = await prisma.component.count({
+            where: { 
+              categoryId: args.id
+            }
           });
-          
-          if (!existingCategory) {
-            throw new Error(`Categoria com ID ${id} não encontrada`);
-          }
-          
-          // Verificar se existem componentes associados a esta categoria
-          const componentsCount = await ctx.prisma.component.count({
-            where: { categoryId: id },
-          });
-          
+
           if (componentsCount > 0) {
-            throw new Error(`Não é possível excluir a categoria pois existem ${componentsCount} componentes associados a ela`);
+            throw new Error(`Não é possível excluir a categoria pois existem ${componentsCount} componentes associados a ela.`);
           }
-          
-          // Excluir a categoria
-          await ctx.prisma.category.delete({
-            where: { id },
+
+          await prisma.category.delete({
+            where: { id: args.id },
           });
           
-          logger.info(`Categoria excluída com sucesso: ${id}`);
           return true;
         } catch (error: any) {
-          logger.error(`Erro ao excluir categoria ${id}:`, error);
-          throw new Error(`Erro ao excluir a categoria: ${error.message}`);
+          logger.error('Erro ao excluir a categoria:', error);
+          throw new Error(`Erro ao excluir a categoria: \n${error.message}`);
         }
       },
     })

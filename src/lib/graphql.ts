@@ -3,7 +3,7 @@ import { ApolloClient, InMemoryCache, gql, HttpLink } from '@apollo/client';
 // HTTP link para a API real
 // Usando o endpoint configurado na variável de ambiente ou um fallback para desenvolvimento local
 const apiUrl = process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT || 'http://localhost:4000/graphql';
-console.log('Usando endpoint GraphQL:', apiUrl);
+console.log('Conectando ao endpoint GraphQL:', apiUrl);
 
 const httpLink = new HttpLink({
   uri: apiUrl,
@@ -19,6 +19,13 @@ export const client = new ApolloClient({
       fetchPolicy: 'network-only',
       nextFetchPolicy: 'cache-first',
     },
+    query: {
+      fetchPolicy: 'network-only',
+      errorPolicy: 'all',
+    },
+    mutate: {
+      errorPolicy: 'all',
+    },
   },
 });
 
@@ -30,7 +37,13 @@ export const GET_COMPONENTS = gql`
       name
       description
       status
+      categoryId
       createdAt
+      category {
+        id
+        name
+        image
+      }
       tags {
         tag
       }
@@ -83,6 +96,7 @@ export const CREATE_COMPONENT = gql`
       name
       description
       status
+      categoryId
       createdAt
       tags {
         tag
@@ -98,6 +112,7 @@ export const UPDATE_COMPONENT = gql`
       name
       description
       status
+      categoryId
       createdAt
       tags {
         tag
@@ -108,12 +123,7 @@ export const UPDATE_COMPONENT = gql`
 
 export const DELETE_COMPONENT = gql`
   mutation DeleteComponent($id: Int!) {
-    deleteComponent(id: $id) {
-      id
-      name
-      description
-      status
-    }
+    deleteComponent(id: $id)
   }
 `;
 
@@ -228,6 +238,7 @@ export interface ComponentInput {
   name: string;
   description?: string;
   status?: ComponentStatus;
+  categoryId?: number | null;
   tags?: string[];
 }
 
@@ -296,6 +307,12 @@ export const GET_CATEGORY = gql`
       image
       createdAt
     }
+  }
+`;
+
+export const GET_CATEGORY_IMAGES = gql`
+  query GetCategoryImages {
+    categoryImages
   }
 `;
 

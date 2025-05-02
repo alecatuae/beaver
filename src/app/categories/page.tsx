@@ -30,13 +30,13 @@ import {
   ArrowUpDown,
   SortAsc,
   SortDesc,
-  Plus
+  Plus,
+  Filter
 } from 'lucide-react';
 import CategoryForm from './category-form';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
-import DeleteCategoryDialog from './delete-category-dialog';
 
 export default function CategoriesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -44,11 +44,11 @@ export default function CategoriesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<Partial<CategoryType> | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'components'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [visibleCount, setVisibleCount] = useState(12);
   const [hasMore, setHasMore] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
+  const [componentFilter, setComponentFilter] = useState<'all' | 'with' | 'without'>('all');
   
   const lastCategoryRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,10 +67,21 @@ export default function CategoriesPage() {
     componentCount: category.components?.length || 0
   })) || [];
 
-  // Filtragem de categorias pelo termo de busca
+  // Filtragem de categorias pelo termo de busca e filtro de componentes
   const filteredCategories = categories.filter((category: CategoryType) => {
-    return category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           category.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Filtro de pesquisa por texto
+    const matchesSearch = 
+      category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (category.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+    
+    // Filtro por componentes associados
+    if (componentFilter === 'all') {
+      return matchesSearch;
+    } else if (componentFilter === 'with') {
+      return matchesSearch && category.componentCount > 0;
+    } else {
+      return matchesSearch && category.componentCount === 0;
+    }
   });
 
   // Função para ordenar categorias
@@ -84,6 +95,10 @@ export default function CategoriesPage() {
         return sortDirection === 'asc'
           ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      } else if (sortBy === 'components') {
+        return sortDirection === 'asc'
+          ? a.componentCount - b.componentCount
+          : b.componentCount - a.componentCount;
       }
       return 0;
     });
@@ -116,60 +131,35 @@ export default function CategoriesPage() {
   }, [visibleCount, sortedCategories.length]);
 
   // Mutation para criar categoria
-  const [createCategory, { loading: createLoading }] = useMutation(CREATE_CATEGORY, {
-    onCompleted: (data) => {
-      console.log('Categoria criada com sucesso:', data);
+  const [createCategory] = useMutation(CREATE_CATEGORY, {
+    onCompleted: () => {
       setIsCreateDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao criar categoria:', error);
-      console.error('Mensagem de erro:', error.message);
-      if (error.graphQLErrors) {
-        console.error('GraphQL errors:', error.graphQLErrors);
-      }
-      if (error.networkError) {
-        console.error('Network error:', error.networkError);
-      }
-      alert(`Erro ao criar categoria: ${error.message}`);
     }
   });
 
   // Mutation para atualizar categoria
-  const [updateCategory, { loading: updateLoading }] = useMutation(UPDATE_CATEGORY, {
-    onCompleted: (data) => {
-      console.log('Categoria atualizada com sucesso:', data);
+  const [updateCategory] = useMutation(UPDATE_CATEGORY, {
+    onCompleted: () => {
       setIsEditDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao atualizar categoria:', error);
-      console.error('Mensagem de erro:', error.message);
-      if (error.graphQLErrors) {
-        console.error('GraphQL errors:', error.graphQLErrors);
-      }
-      if (error.networkError) {
-        console.error('Network error:', error.networkError);
-      }
-      alert(`Erro ao atualizar categoria: ${error.message}`);
     }
   });
 
   // Mutation para excluir categoria
   const [deleteCategory, { loading: deleteLoading }] = useMutation(DELETE_CATEGORY, {
-    onCompleted: () => {
+    onCompleted: (data) => {
       setIsDeleteDialogOpen(false);
       refetch();
     },
     onError: (error) => {
       console.error('Erro ao excluir categoria:', error);
-      console.error('Mensagem de erro:', error.message);
-      if (error.graphQLErrors) {
-        console.error('GraphQL errors:', error.graphQLErrors);
-      }
-      if (error.networkError) {
-        console.error('Network error:', error.networkError);
-      }
       alert(`Erro ao excluir categoria: ${error.message}`);
     }
   });
@@ -179,54 +169,34 @@ export default function CategoriesPage() {
     setIsCreateDialogOpen(true);
   };
 
-  // Manipulador para abrir o diálogo de detalhes
-  const handleCategoryClick = (category: CategoryType) => {
-    setCurrentCategory(category);
-    setShowDetails(true);
-  };
-
   // Manipulador para abrir o diálogo de edição
-  const handleOpenEditDialog = (event?: React.MouseEvent) => {
+  const handleOpenEditDialog = (category: CategoryType, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    setShowDetails(false);
+    setCurrentCategory(category);
     setIsEditDialogOpen(true);
   };
 
   // Manipulador para abrir o diálogo de exclusão
-  const handleOpenDeleteDialog = (event?: React.MouseEvent) => {
+  const handleOpenDeleteDialog = (category: CategoryType, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    setShowDetails(false);
+    setCurrentCategory(category);
     setIsDeleteDialogOpen(true);
   };
 
   // Manipulador para submeter o formulário de criação
-  const handleCreateSubmit = (formData: CategoryInput, onFormSubmitted: () => void) => {
-    console.log('Enviando dados para criação:', formData);
+  const handleCreateSubmit = (formData: CategoryInput) => {
     createCategory({
-      variables: { input: formData },
-      onCompleted: () => {
-        onFormSubmitted();
-      },
-      onError: () => {
-        onFormSubmitted();
-      }
+      variables: { input: formData }
     });
   };
 
   // Manipulador para submeter o formulário de edição
-  const handleUpdateSubmit = (formData: CategoryInput, onFormSubmitted: () => void) => {
+  const handleUpdateSubmit = (formData: CategoryInput) => {
     if (currentCategory?.id) {
-      console.log('Enviando dados para atualização:', formData, 'ID:', currentCategory.id);
       updateCategory({
         variables: {
           id: currentCategory.id,
           input: formData
-        },
-        onCompleted: () => {
-          onFormSubmitted();
-        },
-        onError: () => {
-          onFormSubmitted();
         }
       });
     }
@@ -235,15 +205,14 @@ export default function CategoriesPage() {
   // Manipulador para confirmar exclusão
   const handleDeleteConfirm = () => {
     if (currentCategory?.id) {
-      console.log('Enviando solicitação para excluir categoria com ID:', currentCategory.id);
       deleteCategory({
-        variables: { id: currentCategory.id }
+        variables: { id: parseInt(currentCategory.id.toString()) }
       });
     }
   };
 
   // Função para alternar a ordenação
-  const toggleSort = (field: 'name' | 'date') => {
+  const toggleSort = (field: 'name' | 'date' | 'components') => {
     if (sortBy === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -259,37 +228,9 @@ export default function CategoriesPage() {
     }
   };
 
-  // Renderizar mensagem de carregamento se necessário
-  if (loading && !data) {
-    return (
-      <AppLayout>
-        <div className="flex justify-center items-center h-96">
-          <p className="text-lg">Carregando categorias...</p>
-        </div>
-      </AppLayout>
-    );
-  }
-
-  // Renderizar mensagem de erro se necessário
-  if (error) {
-    return (
-      <AppLayout>
-        <div className="flex justify-center items-center h-96 flex-col gap-4">
-          <p className="text-lg text-destructive">Erro ao carregar as categorias</p>
-          <p className="text-sm text-muted-foreground">
-            {error.message === 'Failed to fetch' 
-              ? 'Erro de conexão com a API. Verifique se o servidor está em execução.' 
-              : error.message}
-          </p>
-          <Button onClick={() => refetch()}>Tentar novamente</Button>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout>
-      <div className="pb-8">
+      <div className="container mx-auto py-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Gerenciamento de Categorias</h1>
           <Button onClick={handleOpenCreateDialog}>
@@ -314,6 +255,35 @@ export default function CategoriesPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
+                  <Filter size={16} />
+                  Filtrar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setComponentFilter('all')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Todas as categorias</span>
+                    {componentFilter === 'all' && <span className="ml-2">✓</span>}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setComponentFilter('with')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Com componentes</span>
+                    {componentFilter === 'with' && <span className="ml-2">✓</span>}
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setComponentFilter('without')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Sem componentes</span>
+                    {componentFilter === 'without' && <span className="ml-2">✓</span>}
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
                   <ArrowUpDown size={16} />
                   Ordenar
                 </Button>
@@ -335,6 +305,14 @@ export default function CategoriesPage() {
                     )}
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toggleSort('components')}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Número de componentes</span>
+                    {sortBy === 'components' && (
+                      sortDirection === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />
+                    )}
+                  </div>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -344,7 +322,17 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        {sortedCategories.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-10">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-2 text-muted-foreground">Carregando categorias...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-10 text-destructive">
+            <p>Erro ao carregar categorias.</p>
+            <p className="text-sm">{error.message}</p>
+          </div>
+        ) : sortedCategories.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
             <p>Nenhuma categoria encontrada.</p>
           </div>
@@ -355,14 +343,14 @@ export default function CategoriesPage() {
                 key={category.id}
                 ref={(el) => setLastCategoryRef(el, index)}
                 className="bg-card rounded-lg border shadow-sm p-4 h-[180px] flex flex-col hover:border-primary transition-colors cursor-pointer"
-                onClick={() => handleCategoryClick(category)}
+                onClick={() => handleOpenEditDialog(category)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2 max-w-[100%]">
+                  <div className="flex items-center space-x-2 max-w-[70%]">
                     {category.image ? (
                       <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
                         <img 
-                          src={`data:image/png;base64,${category.image}`} 
+                          src={`/images/categories/${category.image}`} 
                           alt={category.name} 
                           className="w-full h-full object-cover"
                         />
@@ -385,9 +373,15 @@ export default function CategoriesPage() {
                 </div>
                 
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <TagIcon size={12} className="mr-1" />
-                    {category.componentCount} componente{category.componentCount !== 1 ? 's' : ''}
+                  <div className="flex items-center">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      category.componentCount > 0 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      <TagIcon size={12} className="mr-1" />
+                      {category.componentCount} componente{category.componentCount !== 1 ? 's' : ''}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {format(new Date(category.createdAt), 'dd/MM/yyyy')}
@@ -404,122 +398,96 @@ export default function CategoriesPage() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Modal de detalhes da categoria */}
-      {showDetails && currentCategory && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-card rounded-lg border shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                {currentCategory.image ? (
-                  <div className="w-12 h-12 rounded overflow-hidden">
-                    <img 
-                      src={`data:image/png;base64,${currentCategory.image}`} 
-                      alt={currentCategory.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
-                    <TagIcon size={24} className="text-muted-foreground" />
-                  </div>
-                )}
-                <h2 className="text-2xl font-semibold">{currentCategory.name}</h2>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowDetails(false)} 
-                >
-                  ✕
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
-                <p className="text-foreground">{currentCategory.description || 'Sem descrição'}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Detalhes</h3>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <div className="text-sm text-muted-foreground">ID:</div>
-                  <div className="text-sm">{currentCategory.id}</div>
-                  <div className="text-sm text-muted-foreground">Data de Criação:</div>
-                  <div className="text-sm">{format(new Date(currentCategory.createdAt), "dd/MM/yyyy")}</div>
-                  <div className="text-sm text-muted-foreground">Componentes Associados:</div>
-                  <div className="text-sm">{currentCategory.componentCount || 0}</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t flex justify-end gap-4">
-              <Button 
-                variant="outline"
-                onClick={handleOpenEditDialog}
-              >
-                Editar
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={handleOpenDeleteDialog}
-                disabled={currentCategory.componentCount > 0}
-                title={currentCategory.componentCount > 0 ? "Não é possível excluir uma categoria com componentes associados" : "Excluir categoria"}
-              >
-                Excluir
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Diálogo de criação de categoria */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Nova Categoria</DialogTitle>
-            <DialogDescription>
-              Preencha os campos abaixo para criar uma nova categoria.
-            </DialogDescription>
-          </DialogHeader>
-          <CategoryForm 
-            onSubmit={handleCreateSubmit}
-            onCancel={() => setIsCreateDialogOpen(false)} 
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo de edição de categoria */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Categoria</DialogTitle>
-            <DialogDescription>
-              Atualize os dados da categoria.
-            </DialogDescription>
-          </DialogHeader>
-          {currentCategory && (
+        {/* Diálogo de criação de categoria */}
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nova Categoria</DialogTitle>
+              <DialogDescription>
+                Preencha os campos abaixo para criar uma nova categoria.
+              </DialogDescription>
+            </DialogHeader>
             <CategoryForm 
-              initialData={currentCategory} 
-              onSubmit={handleUpdateSubmit}
-              onCancel={() => setIsEditDialogOpen(false)} 
+              onSubmit={handleCreateSubmit} 
+              onCancel={() => setIsCreateDialogOpen(false)} 
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
 
-      {/* Diálogo de confirmação de exclusão */}
-      <DeleteCategoryDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        category={currentCategory as CategoryType}
-        onConfirm={handleDeleteConfirm}
-        isLoading={deleteLoading}
-      />
+        {/* Diálogo de edição de categoria */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Categoria</DialogTitle>
+              <DialogDescription>
+                Atualize os dados da categoria.
+              </DialogDescription>
+            </DialogHeader>
+            {currentCategory && (
+              <CategoryForm 
+                initialData={currentCategory} 
+                onSubmit={handleUpdateSubmit} 
+                onCancel={() => setIsEditDialogOpen(false)}
+                onDelete={() => {
+                  setIsEditDialogOpen(false);
+                  setIsDeleteDialogOpen(true);
+                }}
+                hasComponents={(currentCategory as any).componentCount > 0}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo de confirmação de exclusão */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription className="pt-2">
+                Tem certeza de que deseja excluir esta categoria? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {currentCategory && (currentCategory as any).componentCount > 0 ? (
+                <p className="text-sm font-medium text-destructive">
+                  Esta categoria possui {(currentCategory as any).componentCount} componente(s) associado(s).
+                  Por favor, remova ou reatribua os componentes antes de excluir a categoria.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Se esta categoria possuir componentes associados, a exclusão será rejeitada.
+                  Você precisará remover ou reassociar todos os componentes primeiro.
+                </p>
+              )}
+            </div>
+            <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={deleteLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleDeleteConfirm}
+                disabled={currentCategory && ((currentCategory as any).componentCount > 0 || deleteLoading)}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {deleteLoading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-r-transparent"></div>
+                    Excluindo...
+                  </>
+                ) : (
+                  'Excluir'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </AppLayout>
   );
 } 

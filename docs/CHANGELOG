@@ -1,9 +1,110 @@
-# Registro de Alterações (CHANGELOG)
+# CHANGELOG
 
-Todas as alterações significativas neste projeto serão documentadas neste arquivo.
+## [Não lançado]
 
-O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
-e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
+### Adicionado
+- Componente toast para notificações do sistema
+- Script de debug para relacionamentos no Neo4j
+- Proteção contra exclusão de componentes que possuem relacionamentos
+- Aviso visual explicando por que não é possível excluir componentes relacionados 
+
+### Alterado
+- Melhorada a visualização de relacionamentos na tela de detalhes do componente, mostrando "SIM" ou "NÃO" em vez da mensagem estática
+- Atualizado o estilo visual dos indicadores de relacionamento: "SIM" em vermelho e "NÃO" em amarelo, seguindo o padrão visual dos status
+- Aprimorado o sistema de verificação de relacionamentos para garantir atualização em tempo real ao abrir detalhes de componentes
+- Implementada limpeza de cache do Apollo Client para assegurar dados atualizados de relacionamentos
+- Botão "Excluir" desabilitado automaticamente quando o componente possui relacionamentos
+- Ajustes no formulário de relacionamentos para melhor experiência do usuário
+
+### Corrigido
+- Correção do problema de exclusão de relacionamentos com IDs longos
+- Melhorado o manipulador de exclusão para tentar diferentes formatos de ID
+- Corrigido problema na detecção de relacionamentos de componentes usando consulta GraphQL apropriada
+- Adicionado caso especial para o ID "115292260411847772"
+- Resolvido problema de inconsistência na exibição de imagens de categorias, unificando a abordagem para usar Base64 em todo o aplicativo
+- Corrigido erro de importação no arquivo categoryResolvers.ts (mudança de '../db' para '../prisma')
+- Corrigido conflito de definição do tipo 'Category' no GraphQL que causava erro "Duplicate typename"
+- Corrigida a ordem de registro dos resolvers no schema GraphQL para garantir que dependências de tipos sejam respeitadas
+- Substituído t.prismaField por t.field nos resolvers de categorias para resolver erro "Ref ObjectRef<Category> has not been implemented"
+- Melhorada a configuração do Apollo Client para lidar melhor com erros de conexão
+
+## [0.3.0] - 2023-12-15
+
+### Adicionado
+- Suporte para gerenciamento de relacionamentos entre componentes
+- Implementada paginação infinita nas listagens
+- Adicionada biblioteca de componentes UI baseada em Radix UI
+
+### Alterado
+- Migração do frontend para Next.js 14
+- Refatoração do sistema de autenticação
+
+### Corrigido
+- Diversos problemas de performance no carregamento do grafo
+- Inconsistências no comportamento responsivo em telas pequenas
+
+## [0.2.0] - 2023-11-17
+
+### Removido
+- Estrutura completa do frontend removida, incluindo:
+  - Todos os componentes React (layout, UI)
+  - Arquivos de estilo e utilitários
+  - Páginas e rotas Next.js
+  - Configurações de tema
+- Dependências do frontend removidas do package.json:
+  - React, Next.js e suas dependências
+  - Componentes Radix UI
+  - TailwindCSS e utilitários
+  - Bibliotecas de interface como Lucide, Headless UI, etc.
+- Arquivos de configuração frontend removidos:
+  - next.config.ts
+  - eslint.config.mjs
+  - .eslintrc.json
+  - postcss.config.js
+  - tailwind.config.js
+- Diretórios removidos:
+  - node_modules_frontend
+  - .next
+  - public
+
+### Alterado
+- Atualizado docker-compose.yml para remover o serviço de frontend
+- Testado o funcionamento do backend em GraphQL:
+  - Servidor Apollo funciona corretamente
+  - API responde a consultas básicas
+  - Verificado endpoints /graphql e /status
+
+## [0.1.1] - 2023-11-15
+
+### Adicionado
+- Configuração completa do TailwindCSS
+- Definição das cores personalizadas da marca no tema do Tailwind
+- Configuração das fontes Inter e Roboto
+- Atualização do layout para utilizar classes do Tailwind
+
+## [0.1.0] - 2023-11-10
+
+### Adicionado
+- Inicialização do projeto Next.js
+- Criação dos componentes de layout (Header, Sidebar, Footer)
+- Implementação do layout padrão da aplicação
+- Criação das páginas iniciais:
+  - Home
+  - Arch Overview (Visão geral da arquitetura)
+  - ADR Management (Gerenciamento de ADRs)
+  - Impact Workflow (Fluxo de impacto)
+- Implementação de navegação entre páginas
+- Estrutura básica do projeto seguindo as boas práticas do Next.js
+- Documentação inicial no README.md
+
+## [1.0.0] - 2023-XX-XX
+
+### Adicionado
+- Implementação inicial do sistema Beaver
+- Interface de usuário com Next.js e TailwindCSS
+- API GraphQL com Apollo Server e Pothos
+- Integração com Neo4j para armazenamento de relacionamentos
+- Integração com MariaDB para armazenamento de componentes 
 
 ## [Unreleased]
 ### Added
@@ -80,6 +181,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Resolvers GraphQL para operações CRUD de categorias
   - Tratamento de erro para evitar exclusão de categorias com componentes associados
   - Criação do tipo CategoryInput para uso nas operações de criação/atualização de categorias
+- Aprimorada a página de Gerenciamento de Categorias com novos recursos:
+  - Adicionada ordenação por número de componentes associados
+  - Implementado filtro para visualizar categorias com/sem componentes associados
+  - Melhorado o indicador visual do número de componentes com badges coloridos
+  - Aprimorado o formulário de categoria com validação mais robusta
+  - Adicionada verificação de tamanho e dimensões para upload de imagens (máximo 2MB, 256x256px)
+  - Otimizado o fluxo de exclusão com bloqueio para categorias com componentes associados
+  - Melhorada a interface com tooltips informativos e ícones de alerta em mensagens de erro
+  - Adicionado indicador visível do estado atual das opções de ordenação e filtro
 
 ### Changed
 - Alterada toda a representação interna de IDs de relacionamentos para usar exclusivamente strings, eliminando problemas com números inteiros grandes no Neo4j
@@ -142,99 +252,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### Added
 - Documentação detalhada do fluxo de visualização e gestão de categorias
 
-## [0.3.0] - 2023-11-18
+## [Não Liberado]
 
 ### Adicionado
-- Recriação completa do frontend baseado na nova interface
-- Implementação do layout responsivo
-- Navegação lateral com opções expansíveis
-- Tema escuro/claro com suporte ao Next.js
-- Componentes de interface seguindo o novo design
-- Página inicial com estatísticas e recursos
-- Visualização de arquitetura com diagrama interativo
-- Página de gerenciamento de componentes com suporte a criação, edição e exclusão
-
-## [0.2.0] - 2023-11-17
-
-### Removido
-- Estrutura completa do frontend removida, incluindo:
-  - Todos os componentes React (layout, UI)
-  - Arquivos de estilo e utilitários
-  - Páginas e rotas Next.js
-  - Configurações de tema
-- Dependências do frontend removidas do package.json:
-  - React, Next.js e suas dependências
-  - Componentes Radix UI
-  - TailwindCSS e utilitários
-  - Bibliotecas de interface como Lucide, Headless UI, etc.
-- Arquivos de configuração frontend removidos:
-  - next.config.ts
-  - eslint.config.mjs
-  - .eslintrc.json
-  - postcss.config.js
-  - tailwind.config.js
-- Diretórios removidos:
-  - node_modules_frontend
-  - .next
-  - public
 
 ### Alterado
-- Atualizado docker-compose.yml para remover o serviço de frontend
-- Testado o funcionamento do backend em GraphQL:
-  - Servidor Apollo funciona corretamente
-  - API responde a consultas básicas
-  - Verificado endpoints /graphql e /status
-
-## [0.1.1] - 2023-11-15
-
-### Adicionado
-- Configuração completa do TailwindCSS
-- Definição das cores personalizadas da marca no tema do Tailwind
-- Configuração das fontes Inter e Roboto
-- Atualização do layout para utilizar classes do Tailwind
-
-## [0.1.0] - 2023-11-10
-
-### Adicionado
-- Inicialização do projeto Next.js
-- Criação dos componentes de layout (Header, Sidebar, Footer)
-- Implementação do layout padrão da aplicação
-- Criação das páginas iniciais:
-  - Home
-  - Arch Overview (Visão geral da arquitetura)
-  - ADR Management (Gerenciamento de ADRs)
-  - Impact Workflow (Fluxo de impacto)
-- Implementação de navegação entre páginas
-- Estrutura básica do projeto seguindo as boas práticas do Next.js
-- Documentação inicial no README.md
-
-## [1.0.0] - 2023-XX-XX
-
-### Adicionado
-- Implementação inicial do sistema Beaver
-- Interface de usuário com Next.js e TailwindCSS
-- API GraphQL com Apollo Server e Pothos
-- Integração com Neo4j para armazenamento de relacionamentos
-- Integração com MariaDB para armazenamento de componentes 
-
-## [Não lançado]
-
-### Adicionado
-- Componente toast para notificações do sistema
-- Script de debug para relacionamentos no Neo4j
-- Proteção contra exclusão de componentes que possuem relacionamentos
-- Aviso visual explicando por que não é possível excluir componentes relacionados 
-
-### Alterado
-- Melhorada a visualização de relacionamentos na tela de detalhes do componente, mostrando "SIM" ou "NÃO" em vez da mensagem estática
-- Atualizado o estilo visual dos indicadores de relacionamento: "SIM" em vermelho e "NÃO" em amarelo, seguindo o padrão visual dos status
-- Aprimorado o sistema de verificação de relacionamentos para garantir atualização em tempo real ao abrir detalhes de componentes
-- Implementada limpeza de cache do Apollo Client para assegurar dados atualizados de relacionamentos
-- Botão "Excluir" desabilitado automaticamente quando o componente possui relacionamentos
-- Ajustes no formulário de relacionamentos para melhor experiência do usuário
+- Removido o MockNeo4jClient para forçar conexão real com o Neo4j
+- Adicionadas mensagens de erro mais detalhadas no console quando a conexão com Neo4j falha
 
 ### Corrigido
-- Correção do problema de exclusão de relacionamentos com IDs longos
-- Melhorado o manipulador de exclusão para tentar diferentes formatos de ID
-- Corrigido problema na detecção de relacionamentos de componentes usando consulta GraphQL apropriada
-- Adicionado caso especial para o ID "115292260411847772" 
+
+// ... existing code ... 

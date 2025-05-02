@@ -62,13 +62,20 @@ builder.mutationType({
 });
 
 // Importando os módulos de resolvers
+// IMPORTANTE: A ordem de importação e registro é crucial devido a dependências entre tipos
+// componentResolvers deve ser registrado primeiro, pois define o tipo Category usado por categoryResolvers
 import { componentResolvers } from '../resolvers/componentResolvers';
+import { categoryResolvers } from '../resolvers/categoryResolvers';
 import { userResolvers } from '../resolvers/userResolvers';
 import { adrResolvers } from '../resolvers/adrResolvers';
 import { glossaryResolvers } from '../resolvers/glossaryResolvers';
 
-// Registra os resolvers
+// Registra os resolvers na ordem correta para garantir que as dependências sejam satisfeitas
+// componentResolvers define o tipo Category
 componentResolvers(builder);
+// categoryResolvers usa o tipo Category definido acima
+categoryResolvers(builder);
+// Outros resolvers
 userResolvers(builder);
 adrResolvers(builder);
 glossaryResolvers(builder);

@@ -149,21 +149,75 @@ A interface de gerenciamento de componentes oferece uma experiência intuitiva p
   - Editing a relationship updates the corresponding graph edge in real-time.
   - Deleting a relationship removes the corresponding edge immediately from the graph without requiring full reload.
 
-A funcionalidade de gerenciamento de relacionamentos permite definir e gerenciar conexões entre componentes no sistema. Características principais incluem:
+### Relationship Management
+The relationship management functionality enables defining and managing connections between components within the system. Key features include:
 
-- Interface completa para CRUD (Criar, Ler, Atualizar, Excluir) de relacionamentos
-- Cards de relacionamento com altura fixa (160px) para visualização consistente
-- Badges coloridos por tipo de relacionamento para identificação visual rápida
-- Indicador direcional claro entre componentes de origem e destino
-- Formulário de criação/edição com:
-  - Seleção facilitada de componentes com campo de busca
-  - Escolha intuitiva de tipos de relacionamento com indicadores visuais
-  - Campo de descrição opcional (limite de 256 caracteres)
-  - Validação completa de formulários
-- Filtragem de relacionamentos por tipo e componentes envolvidos
-- Confirmação de exclusão para prevenir remoções acidentais
-- Atualização em tempo real após ações do usuário (criar, editar, excluir)
-- Integração completa com o banco de dados de grafos Neo4j para persistência de relacionamentos
+- Complete interface for CRUD (Create, Read, Update, Delete) operations on relationships
+- Fixed-height relationship cards (160px) for consistent visualization
+- Color-coded badges by relationship type for quick visual identification
+- Clear directional indicator between source and target components
+- Create/Edit form with:
+  - Easy component selection with a searchable field
+  - Intuitive relationship type selection with visual indicators
+  - Optional description field (up to 256 characters)
+  - Full form validation
+- Filtering of relationships by type and involved components
+- Deletion confirmation to prevent accidental removals
+- Real-time updates after user actions (create, edit, delete)
+- Full integration with the Neo4j graph database for relationship persistence
+
+
+### Category Management
+- **Description**: Page for managing component categories within the architecture.
+- **Features**:
+  - Full CRUD operations for categories (Create, Read, Update, Delete).
+  - Interactive interface with field validations:
+    - Required fields: Category name.
+    - Optional field for detailed description (up to 256 characters) with a visual counter.
+    - Selection of a representative image for the category:
+      - Only `.png` format is accepted.
+      - Images are stored statically under the `public/images/categories` directory on the frontend.
+      - Users can select an image from a predefined list.
+      - Selected images are used to visually represent the nodes in the graph.
+  - Real-time list updates after creating, editing, or deleting a category.
+  - Modal-based interface for detailed viewing and editing.
+  - Responsive card-based layout:
+    - Cards with fixed height (180px) displaying name, description, and image.
+    - Smart truncation for long names and descriptions.
+    - Visual indicator showing the number of components associated with each category.
+    - Compact display format for creation date.
+  - Performance-optimized interface:
+    - Infinite scroll implementation, initially loading 12 categories.
+    - Additional categories automatically loaded (8 at a time) on scroll.
+    - API Intersection Observer used for efficient scroll position detection.
+    - Visual loading indicator during data fetching.
+    - Responsive grid layout adapting to different screen sizes.
+  - Enhanced user protection:
+    - Confirmation dialog for delete operations with a warning about irreversible action.
+    - Safety check preventing deletion of categories with associated components.
+    - Consistent positioning of confirm and cancel buttons.
+  - Flexible data organization:
+    - Advanced sorting capabilities for listing categories:
+      - Sort by name (alphabetical), date (chronological), or number of components.
+      - Visual indication of the active sorting field and direction (ascending/descending).
+      - Persistent sorting state during the user's session.
+    - Compact interface with a dropdown menu for sorting options.
+  - Advanced filtering:
+    - Search by category name (partial matches allowed).
+    - Filter for categories with or without associated components.
+
+The category management functionality enables the logical organization of components within the system. Key features include:
+
+- Complete interface for category CRUD operations
+- Support for predefined representative images loaded from the `public/images/categories` directory
+- Full validation on create/edit forms
+- Visualization of components associated with each category
+- Protection against deletion of categories in use
+- Advanced search and filtering
+- Responsive and visually consistent layout
+- Full integration with MariaDB database for persistence
+- Static frontend-based image management for scalable node representation
+
 
 ### Team Management
 - **Description**: Manage teams within the organization.

@@ -12,9 +12,8 @@ export interface IRelation {
   updatedAt: Date;
 }
 
-export class Neo4jClient {
+export default class Neo4jClient {
   private driver: Driver;
-  public mockMode: boolean = false;
 
   constructor(driver: Driver) {
     this.driver = driver;
@@ -50,6 +49,11 @@ export class Neo4jClient {
     }
   }
 
+  /**
+   * Obtém dados do grafo com profundidade específica
+   * @param depth Profundidade máxima do grafo
+   * @returns Dados do grafo
+   */
   async getGraphData(depth: number = 2): Promise<any> {
     const query = `
       MATCH path = (n)-[*0..${depth}]->(m)
@@ -58,6 +62,11 @@ export class Neo4jClient {
     return this.run(query);
   }
 
+  /**
+   * Obtém um componente pelo ID
+   * @param id ID do componente
+   * @returns Dados do componente
+   */
   async getComponentById(id: number): Promise<any> {
     const query = `
       MATCH (c:Component {id: $id})
@@ -195,12 +204,11 @@ export class Neo4jClient {
     return this.run(query, { id });
   }
 
-  // Obter todos os relacionamentos
+  /**
+   * Obtém todos os relacionamentos
+   * @returns Lista de relacionamentos
+   */
   async getRelations(): Promise<IRelation[]> {
-    if (this.mockMode) {
-      return this.getMockRelations();
-    }
-
     const session = this.driver.session();
     try {
       const result = await session.run(`
@@ -236,57 +244,53 @@ export class Neo4jClient {
     }
   }
 
-  // Função utilitária para normalizar IDs do Neo4j
+  /**
+   * Função utilitária para normalizar IDs do Neo4j
+   * @param id ID a ser normalizado
+   * @returns ID normalizado
+   */
   normalizeNeo4jId(id: string): string {
+    // Garantir que o ID seja string
+    const stringId = id.toString();
+    
     // Verificar se é um ID grande com possível erro de conversão
     // IDs grandes no Neo4j podem ter problemas de representação em JavaScript
-    if (id.length >= 15) {
+    if (stringId.length >= 15) {
+      // Caso específico para o ID problemático conhecido
+      if (stringId === "6917536724222476290") {
+        return "16917536724222476290";
+      }
+      
       // Se já começa com 1, retornar como está
-      if (id.startsWith('1')) {
-        return id;
+      if (stringId.startsWith('1')) {
+        return stringId;
       }
       
       // Tentar adicionar 1 no início se o ID parecer truncado
       // Isso acontece devido à limitação de precisão de números grandes em JavaScript
-      return '1' + id;
+      return `1${stringId}`;
     }
-    
-    return id;
+    return stringId;
   }
 
-  // Obter um relacionamento pelo ID
+  /**
+   * Obtém um relacionamento pelo ID
+   * @param id ID do relacionamento
+   * @returns Dados do relacionamento ou null se não encontrado
+   */
   async getRelationById(id: string): Promise<IRelation | null> {
-    if (this.mockMode) {
-      return this.getMockRelationById(id);
-    }
-
-    // Normalizar o ID para garantir o formato correto
-    const normalizedId = this.normalizeNeo4jId(id);
-    logger.debug(`Buscando relacionamento com ID normalizado: ${normalizedId} (original: ${id})`);
-    
     const session = this.driver.session();
     try {
-      // Primeiro tentar com o ID como fornecido
-      let result = await session.run(`
-        MATCH (source)-[r]->(target)
-        WHERE toString(id(r)) = $id
-        RETURN 
-          toString(id(r)) AS id, 
-          type(r) AS type, 
-          source.id AS sourceId, 
-          target.id AS targetId,
-          r.properties AS properties,
-          r.createdAt AS createdAt,
-          r.updatedAt AS updatedAt
-      `, { id: normalizedId });
-
-      // Se não encontrar e o ID não começa com 1, tentar com "1" adicionado
-      if (result.records.length === 0 && !normalizedId.startsWith('1')) {
-        const alternativeId = '1' + normalizedId;
-        logger.debug(`ID não encontrado, tentando ID alternativo: ${alternativeId}`);
-        
-        result = await session.run(`
-          MATCH (source)-[r]->(target)
+      // Normaliza o ID para garantir formato correto
+      const normalizedId = this.normalizeNeo4jId(id);
+      
+      // Determinar se estamos lidando com um ID potencialmente muito grande
+      const isVeryLargeId = normalizedId.length >= 15;
+      
+      // Usar abordagem baseada em string para IDs muito grandes
+      const query = isVeryLargeId 
+        ? `
+          MATCH (source:Component)-[r]->(target:Component)
           WHERE toString(id(r)) = $id
           RETURN 
             toString(id(r)) AS id, 
@@ -294,25 +298,75 @@ export class Neo4jClient {
             source.id AS sourceId, 
             target.id AS targetId,
             r.properties AS properties,
-            r.createdAt AS createdAt,
-            r.updatedAt AS updatedAt
-        `, { id: alternativeId });
-      }
+            COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+            COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
+          LIMIT 1
+          `
+        : `
+          MATCH (source:Component)-[r]->(target:Component)
+          WHERE id(r) = toInteger($id)
+          RETURN 
+            toString(id(r)) AS id, 
+            type(r) AS type, 
+            source.id AS sourceId, 
+            target.id AS targetId,
+            r.properties AS properties,
+            COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+            COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
+          LIMIT 1
+          `;
+      
+      const result = await session.run(query, { id: normalizedId });
 
       if (result.records.length === 0) {
+        // Se não encontrou e não é um ID muito grande, tenta com a versão alternativa
+        if (!isVeryLargeId) {
+          const alternativeId = normalizedId.startsWith('1') 
+            ? normalizedId.substring(1) 
+            : '1' + normalizedId;
+          
+          logger.info(`Tentando buscar relacionamento com ID alternativo: ${alternativeId}`);
+          
+          const alternativeResult = await session.run(`
+            MATCH (source:Component)-[r]->(target:Component)
+            WHERE id(r) = toInteger($id)
+            RETURN 
+              toString(id(r)) AS id, 
+              type(r) AS type, 
+              source.id AS sourceId, 
+              target.id AS targetId,
+              r.properties AS properties,
+              COALESCE(r.createdAt, toString(datetime())) AS createdAt,
+              COALESCE(r.updatedAt, toString(datetime())) AS updatedAt
+            LIMIT 1
+          `, { id: alternativeId });
+          
+          if (alternativeResult.records.length > 0) {
+            const record = alternativeResult.records[0];
+            return {
+              id: record.get('id').toString(),
+              type: record.get('type'),
+              sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
+              targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
+              properties: record.get('properties') || {},
+              createdAt: new Date(record.get('createdAt')),
+              updatedAt: new Date(record.get('updatedAt'))
+            };
+          }
+        }
+        
         return null;
       }
 
       const record = result.records[0];
-      const idValue = record.get('id').toString();
       return {
-        id: idValue,
+        id: record.get('id').toString(),
         type: record.get('type'),
         sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
         targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
         properties: record.get('properties') || {},
-        createdAt: record.get('createdAt') ? new Date(record.get('createdAt')) : new Date(),
-        updatedAt: record.get('updatedAt') ? new Date(record.get('updatedAt')) : new Date()
+        createdAt: new Date(record.get('createdAt')),
+        updatedAt: new Date(record.get('updatedAt'))
       };
     } catch (error) {
       logger.error(`Erro ao obter relacionamento com ID ${id}:`, error);
@@ -322,74 +376,57 @@ export class Neo4jClient {
     }
   }
 
-  // Criar um novo relacionamento
+  /**
+   * Cria um novo relacionamento
+   * @param sourceId ID do componente de origem
+   * @param targetId ID do componente de destino
+   * @param type Tipo do relacionamento
+   * @param properties Propriedades adicionais do relacionamento
+   * @returns O relacionamento criado
+   */
   async createRelation(
     sourceId: number,
     targetId: number,
     type: string,
     properties: any = {}
   ): Promise<IRelation> {
-    if (this.mockMode) {
-      return this.createMockRelation(sourceId, targetId, type, properties);
-    }
-
-    // Garantir que properties seja um objeto plano com valores primitivos
-    const sanitizedProperties = {};
-    if (properties && typeof properties === 'object') {
-      // Extrair propriedades para garantir tipos primitivos
-      Object.keys(properties).forEach(key => {
-        if (properties[key] !== null && typeof properties[key] !== 'object') {
-          sanitizedProperties[key] = properties[key];
-        } else if (typeof properties[key] === 'object' && !(properties[key] instanceof Map) && !(properties[key] instanceof Date)) {
-          // Tentar converter para string em caso de objetos não-Map
-          try {
-            sanitizedProperties[key] = JSON.stringify(properties[key]);
-          } catch (e) {
-            logger.warn(`Ignorando propriedade não primitiva: ${key}`);
-          }
-        }
-      });
-    }
-
     const session = this.driver.session();
     try {
-      const now = new Date().toISOString();
-      
-      // Usar o objeto sanitizado nas propriedades
+      // Adiciona timestamps às propriedades
+      const timestamp = new Date().toISOString();
+      properties = {
+        ...properties,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+
       const result = await session.run(`
         MATCH (source:Component {id: $sourceId})
         MATCH (target:Component {id: $targetId})
-        CREATE (source)-[r:${type} {createdAt: $now, updatedAt: $now}]->(target)
-        SET r += $properties
+        CREATE (source)-[r:${type} $properties]->(target)
         RETURN 
           toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
-          r AS relationship,
+          r.properties AS properties,
           r.createdAt AS createdAt,
           r.updatedAt AS updatedAt
-      `, { 
-        sourceId, 
-        targetId, 
-        properties: sanitizedProperties, 
-        now 
+      `, {
+        sourceId,
+        targetId,
+        properties
       });
 
-      if (result.records.length === 0) {
-        throw new Error('Falha ao criar relacionamento');
-      }
-
       const record = result.records[0];
-      const idValue = record.get('id');
       return {
-        id: idValue,
-        type: record.get('type'),
-        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
-        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
-        properties: sanitizedProperties,
-        createdAt: new Date(now),
-        updatedAt: new Date(now)
+        id: record.get('id').toString(),
+        type,
+        sourceId,
+        targetId,
+        properties,
+        createdAt: new Date(record.get('createdAt')),
+        updatedAt: new Date(record.get('updatedAt'))
       };
     } catch (error) {
       logger.error('Erro ao criar relacionamento:', error);
@@ -399,7 +436,15 @@ export class Neo4jClient {
     }
   }
 
-  // Atualizar um relacionamento existente
+  /**
+   * Atualiza um relacionamento existente
+   * @param id ID do relacionamento
+   * @param sourceId Novo ID do componente de origem
+   * @param targetId Novo ID do componente de destino
+   * @param type Novo tipo do relacionamento
+   * @param properties Novas propriedades do relacionamento
+   * @returns O relacionamento atualizado
+   */
   async updateRelation(
     id: string,
     sourceId: number,
@@ -407,286 +452,141 @@ export class Neo4jClient {
     type: string,
     properties: any = {}
   ): Promise<IRelation> {
-    if (this.mockMode) {
-      return this.updateMockRelation(id, sourceId, targetId, type, properties);
-    }
-
-    // Garantir que properties seja um objeto plano com valores primitivos
-    const sanitizedProperties = {};
-    if (properties && typeof properties === 'object') {
-      // Extrair propriedades para garantir tipos primitivos
-      Object.keys(properties).forEach(key => {
-        if (properties[key] !== null && typeof properties[key] !== 'object') {
-          sanitizedProperties[key] = properties[key];
-        } else if (typeof properties[key] === 'object' && !(properties[key] instanceof Map) && !(properties[key] instanceof Date)) {
-          // Tentar converter para string em caso de objetos não-Map
-          try {
-            sanitizedProperties[key] = JSON.stringify(properties[key]);
-          } catch (e) {
-            logger.warn(`Ignorando propriedade não primitiva: ${key}`);
-          }
-        }
-      });
-    }
-
     const session = this.driver.session();
     try {
-      // Primeiro, excluímos o relacionamento existente
-      await session.run(`
-        MATCH ()-[r]->()
-        WHERE id(r) = $id
-        DELETE r
-      `, { id });
-
-      // Em seguida, criamos um novo relacionamento com os mesmos dados
-      const now = new Date().toISOString();
+      // Normaliza o ID para garantir formato correto
+      const normalizedId = this.normalizeNeo4jId(id);
       
-      // Usar o objeto sanitizado nas propriedades
-      const result = await session.run(`
+      // Atualiza o timestamp
+      properties = {
+        ...properties,
+        updatedAt: new Date().toISOString()
+      };
+
+      // A atualização de relacionamentos no Neo4j é mais complexa
+      // Precisamos excluir o antigo e criar um novo
+      const deleteResult = await session.run(`
+        MATCH (source:Component)-[r]->(target:Component)
+        WHERE id(r) = toInteger($id)
+        WITH r, source, target
+        DELETE r
+        RETURN source.id AS sourceId, target.id AS targetId
+      `, { id: normalizedId });
+
+      if (deleteResult.records.length === 0) {
+        throw new Error(`Relacionamento com ID ${id} não encontrado`);
+      }
+
+      // Vamos manter os dados do relacionamento original para logs
+      const oldSourceId = deleteResult.records[0].get('sourceId');
+      const oldTargetId = deleteResult.records[0].get('targetId');
+      
+      logger.info(`Relacionamento excluído: ${oldSourceId} -> ${oldTargetId}`);
+
+      // Agora criamos o novo relacionamento
+      const createResult = await session.run(`
         MATCH (source:Component {id: $sourceId})
         MATCH (target:Component {id: $targetId})
-        CREATE (source)-[r:${type} {createdAt: $createdAt, updatedAt: $now}]->(target)
-        SET r += $properties
+        CREATE (source)-[r:${type} $properties]->(target)
         RETURN 
           toString(id(r)) AS id, 
           type(r) AS type, 
           source.id AS sourceId, 
           target.id AS targetId,
-          r AS relationship,
-          r.createdAt AS createdAt,
+          r.properties AS properties,
+          COALESCE(r.createdAt, $timestamp) AS createdAt,
           r.updatedAt AS updatedAt
-      `, { 
-        sourceId, 
-        targetId, 
-        properties: sanitizedProperties,
-        // Preservamos a data de criação original se existir
-        createdAt: (await this.getRelationById(id))?.createdAt.toISOString() || now,
-        now 
+      `, {
+        sourceId,
+        targetId,
+        properties,
+        timestamp: new Date().toISOString()
       });
 
-      if (result.records.length === 0) {
-        throw new Error('Falha ao atualizar relacionamento');
-      }
-
-      const record = result.records[0];
-      const idValue = record.get('id');
+      const record = createResult.records[0];
       return {
-        id: idValue,
-        type: record.get('type'),
-        sourceId: typeof record.get('sourceId') === 'number' ? record.get('sourceId') : parseInt(record.get('sourceId')),
-        targetId: typeof record.get('targetId') === 'number' ? record.get('targetId') : parseInt(record.get('targetId')),
-        properties: sanitizedProperties,
+        id: record.get('id').toString(),
+        type,
+        sourceId,
+        targetId,
+        properties,
         createdAt: new Date(record.get('createdAt')),
-        updatedAt: new Date(now)
+        updatedAt: new Date(record.get('updatedAt'))
       };
     } catch (error) {
-      logger.error(`Erro ao atualizar relacionamento ${id}:`, error);
+      logger.error(`Erro ao atualizar relacionamento com ID ${id}:`, error);
       throw error;
     } finally {
       await session.close();
     }
   }
 
-  // Excluir um relacionamento
-  async deleteRelation(id: string): Promise<boolean> {
-    if (this.mockMode) {
-      return this.deleteMockRelation(id);
-    }
-
-    // Normalizar o ID como string, pois é como o Neo4j o armazena internamente
-    const originalId = id;
+  /**
+   * Exclui um relacionamento pelo ID
+   * @param id ID do relacionamento
+   * @returns true se excluído com sucesso
+   */
+  async deleteRelation(id: string | number): Promise<boolean> {
     const session = this.driver.session();
-    
     try {
-      logger.debug(`Tentando excluir relacionamento com ID: ${originalId}`);
+      // Normaliza o ID para garantir formato correto
+      const normalizedId = this.normalizeNeo4jId(id.toString());
       
-      // Primeiro verificamos se o relacionamento existe usando toString(id(r))
-      let findResult = await session.run(`
-        MATCH ()-[r]->()
-        WHERE toString(id(r)) = $id
-        RETURN r
-      `, { id: originalId });
-      
-      // Se não encontrou com o ID original, tenta com prefixo '1'
-      if (findResult.records.length === 0 && !originalId.startsWith('1')) {
-        const alternativeId = '1' + originalId;
-        logger.debug(`Relacionamento não encontrado com ID ${originalId}, tentando com ID alternativo: ${alternativeId}`);
-        
-        findResult = await session.run(`
-          MATCH ()-[r]->()
-          WHERE toString(id(r)) = $id
-          RETURN r
-        `, { id: alternativeId });
-        
-        // Se encontrou com o ID alternativo, atualiza o ID para usar na exclusão
-        if (findResult.records.length > 0) {
-          logger.info(`Relacionamento encontrado com ID alternativo ${alternativeId}`);
-          
-          // Excluir usando o ID alternativo
-          const result = await session.run(`
-            MATCH ()-[r]->()
-            WHERE toString(id(r)) = $id
-            DELETE r
-            RETURN count(r) as count
-          `, { id: alternativeId });
-          
-          const deleted = result.records[0].get('count').toNumber() > 0;
-          if (deleted) {
-            logger.info(`Relacionamento com ID ${alternativeId} excluído com sucesso.`);
-          } else {
-            logger.error(`Falha ao excluir relacionamento com ID ${alternativeId}.`);
-          }
-          return deleted;
-        }
-      }
-      
-      // Se encontrou com o ID original, exclui normalmente
-      if (findResult.records.length > 0) {
-        // O relacionamento existe, vamos excluí-lo usando a mesma condição
-        logger.debug(`Relacionamento encontrado, excluindo...`);
+      try {
+        // Tenta primeiro com toInteger
         const result = await session.run(`
           MATCH ()-[r]->()
-          WHERE toString(id(r)) = $id
+          WHERE id(r) = toInteger($id)
           DELETE r
-          RETURN count(r) as count
-        `, { id: originalId });
-        
-        const deleted = result.records[0].get('count').toNumber() > 0;
-        if (deleted) {
-          logger.info(`Relacionamento com ID ${originalId} excluído com sucesso.`);
-        } else {
-          logger.error(`Falha ao excluir relacionamento com ID ${originalId}.`);
+          RETURN count(r) AS deleted
+        `, { id: normalizedId });
+
+        const deleted = result.records[0].get('deleted').toNumber();
+        if (deleted > 0) {
+          return true;
         }
-        return deleted;
-      }
-      
-      // Tenta uma última abordagem usando id(r) diretamente com toString
-      logger.debug(`Relacionamento não encontrado com nenhum formato de ID string, tentando outras abordagens`);
-      
-      // Caso especial para o ID "115292260411847772"
-      if (originalId === "115292260411847772") {
-        logger.debug("Tentando ID especial 1152922604118474772 (completo)");
-        const specialId = "1152922604118474772";
-        findResult = await session.run(`
-          MATCH ()-[r]->()
-          WHERE toString(id(r)) = $id
-          RETURN r
-        `, { id: specialId });
-        
-        if (findResult.records.length > 0) {
-          logger.debug(`Relacionamento encontrado usando ID corrigido ${specialId}`);
-          const result = await session.run(`
+      } catch (error) {
+        // Se ocorrer erro "too large", tenta a abordagem alternativa
+        if (error.message && error.message.includes("too large")) {
+          logger.warn(`Erro "too large" ao excluir relacionamento. Tentando abordagem alternativa para ID: ${normalizedId}`);
+          
+          // Usa string de comparação direta em vez de converter para integer
+          const alternativeResult = await session.run(`
             MATCH ()-[r]->()
             WHERE toString(id(r)) = $id
             DELETE r
-            RETURN count(r) as count
-          `, { id: specialId });
+            RETURN count(r) AS deleted
+          `, { id: normalizedId });
           
-          const deleted = result.records[0].get('count').toNumber() > 0;
-          if (deleted) {
-            logger.info(`Relacionamento com ID corrigido ${specialId} excluído com sucesso.`);
-          } else {
-            logger.error(`Falha ao excluir relacionamento com ID corrigido ${specialId}.`);
-          }
-          return deleted;
+          const deletedAlt = alternativeResult.records[0].get('deleted').toNumber();
+          return deletedAlt > 0;
+        } else {
+          // Se for outro tipo de erro, propaga
+          throw error;
         }
       }
       
-      // Relacionamento não encontrado com nenhuma tentativa, registrar erro
-      logger.error(`Relacionamento com ID ${originalId} não encontrado após múltiplas tentativas.`);
-      throw new Error(`Relacionamento com ID ${originalId} não encontrado`);
+      // Se chegou aqui sem sucesso, tenta com a versão alternativa do ID
+      const alternativeId = normalizedId.startsWith('1') 
+        ? normalizedId.substring(1) 
+        : '1' + normalizedId;
+      
+      logger.info(`Tentando exclusão com ID alternativo: ${alternativeId}`);
+      
+      const altResult = await session.run(`
+        MATCH ()-[r]->()
+        WHERE id(r) = toInteger($id)
+        DELETE r
+        RETURN count(r) AS deleted
+      `, { id: alternativeId });
+
+      const altDeleted = altResult.records[0].get('deleted').toNumber();
+      return altDeleted > 0;
     } catch (error) {
-      logger.error(`Erro ao excluir relacionamento ${id}:`, error);
+      logger.error(`Erro ao excluir relacionamento com ID ${id}:`, error);
       throw error;
     } finally {
       await session.close();
     }
   }
-
-  // --- Mock methods para testes e desenvolvimento ---
-  
-  private mockRelations: IRelation[] = [
-    {
-      id: "1",
-      sourceId: 1, // Frontend
-      targetId: 2, // API
-      type: 'CONNECTS_TO',
-      properties: { description: 'Frontend se conecta à API' },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: "2",
-      sourceId: 2, // API
-      targetId: 3, // Database
-      type: 'DEPENDS_ON',
-      properties: { description: 'API depende do Banco de Dados' },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  ];
-
-  private getMockRelations(): IRelation[] {
-    return this.mockRelations;
-  }
-
-  private getMockRelationById(id: string): IRelation | null {
-    return this.mockRelations.find(r => r.id === id) || null;
-  }
-
-  private createMockRelation(
-    sourceId: number,
-    targetId: number,
-    type: string,
-    properties: any = {}
-  ): IRelation {
-    const now = new Date();
-    const newRelation: IRelation = {
-      id: (this.mockRelations.length + 1).toString(),
-      sourceId,
-      targetId,
-      type,
-      properties,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    this.mockRelations.push(newRelation);
-    return newRelation;
-  }
-
-  private updateMockRelation(
-    id: string,
-    sourceId: number,
-    targetId: number,
-    type: string,
-    properties: any = {}
-  ): IRelation {
-    const index = this.mockRelations.findIndex(r => r.id === id);
-    if (index === -1) {
-      throw new Error(`Relacionamento com ID ${id} não encontrado`);
-    }
-
-    const now = new Date();
-    const updatedRelation: IRelation = {
-      ...this.mockRelations[index],
-      sourceId,
-      targetId,
-      type,
-      properties,
-      updatedAt: now
-    };
-
-    this.mockRelations[index] = updatedRelation;
-    return updatedRelation;
-  }
-
-  private deleteMockRelation(id: string): boolean {
-    const initialLength = this.mockRelations.length;
-    this.mockRelations = this.mockRelations.filter(r => r.id !== id);
-    return initialLength > this.mockRelations.length;
-  }
-}
-
-// Exportando a classe Neo4jClient
-export default Neo4jClient; 
+} 

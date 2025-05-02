@@ -7,208 +7,77 @@ import { logger } from './utils/logger';
 // Instância do Prisma
 const prisma = new PrismaClient();
 
-// Classe Mock para Neo4j - temporária para desenvolver sem o banco Neo4j
-class MockNeo4jClient extends Neo4jClient {
-  constructor() {
-    // Passa um driver falso para o construtor da classe pai
-    // @ts-ignore - Ignorando a tipagem para criar um mock
-    super(null);
-    this.mockMode = true;
-  }
-
-  async verifyConnectivity(): Promise<void> {
-    logger.info('Mock: Simulando conexão com Neo4j');
-    // Método void, sem retorno
-  }
-
-  async close(): Promise<void> {
-    logger.info('Mock: Simulando fechamento de conexão com Neo4j');
-    // Método void, sem retorno
-  }
-
-  async run(cypher: string, params?: any) {
-    logger.info(`Mock: Simulando consulta Cypher: ${cypher}`);
-    if (cypher.includes('MATCH (source:Component)-[r]->(target:Component)')) {
-      // Simula dados de relacionamentos para a query relations
-      return [
-        {
-          id: 1,
-          type: 'DEPENDS_ON',
-          sourceId: 1,
-          targetId: 2,
-          sourceName: 'Frontend',
-          targetName: 'API',
-          properties: { description: 'Frontend consome API' },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 2,
-          type: 'CONNECTS_TO',
-          sourceId: 2,
-          targetId: 3,
-          sourceName: 'API',
-          targetName: 'Database',
-          properties: { description: 'API se conecta ao banco de dados' },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-    }
-    return [];
-  }
-
-  async upsertComponent(component: any) {
-    logger.info(`Mock: Simulando upsert de componente: ${component.name}`);
-    return component;
-  }
-
-  async createRelationship(sourceId: number, targetId: number, relationType: string, properties: any = {}) {
-    logger.info(`Mock: Simulando criação de relacionamento de ${sourceId} para ${targetId} do tipo ${relationType}`);
-    return {
-      id: Date.now(),
-      type: relationType,
-      sourceId,
-      targetId,
-      properties
-    };
-  }
-
-  async findComponents(filters: any = {}) {
-    logger.info(`Mock: Simulando busca de componentes com filtros: ${JSON.stringify(filters)}`);
-    return [];
-  }
-
-  async deleteNode(label: string, id: number) {
-    logger.info(`Mock: Simulando exclusão de nó ${label} com id ${id}`);
-    return true;
-  }
-
-  // Implementar todos os métodos utilizados em neo4jClient
-  async getRelations() {
-    logger.info('Mock: Simulando obtenção de relacionamentos');
-    return [
-      {
-        id: 1,
-        sourceId: 1,
-        targetId: 2,
-        type: 'DEPENDS_ON',
-        properties: { description: 'Frontend depende da API' },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
-        id: 2,
-        sourceId: 2,
-        targetId: 3,
-        type: 'CONNECTS_TO',
-        properties: { description: 'API se conecta ao Database' },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-    ];
-  }
-
-  async getRelationById(id: number) {
-    logger.info(`Mock: Simulando obtenção de relacionamento com ID ${id}`);
-    return {
-      id,
-      sourceId: 1,
-      targetId: 2,
-      type: 'DEPENDS_ON',
-      properties: { description: 'Relacionamento de exemplo' },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
-  async createRelation(sourceId: number, targetId: number, type: string, properties: any = {}) {
-    logger.info(`Mock: Simulando criação de relacionamento ${type} entre ${sourceId} e ${targetId}`);
-    return {
-      id: Date.now(),
-      sourceId,
-      targetId,
-      type,
-      properties,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
-  async updateRelation(id: number, sourceId: number, targetId: number, type: string, properties: any = {}) {
-    logger.info(`Mock: Simulando atualização de relacionamento ${id}`);
-    return {
-      id,
-      sourceId,
-      targetId,
-      type,
-      properties,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-  }
-
-  async deleteRelation(id: number) {
-    logger.info(`Mock: Simulando exclusão de relacionamento ${id}`);
-    return true;
-  }
-}
-
-// Inicialização do Neo4j (versão sem await no top-level)
-// Inicialmente criamos uma instância do Neo4jClient com mockMode=true
-let neo4j = new MockNeo4jClient();
-export let neo4jClient = neo4j;
+// Instância do Neo4j
+let neo4jClient: Neo4jClient;
 
 // Função para inicializar a conexão com o Neo4j
 async function initNeo4j() {
   try {
-    // Tenta criar uma conexão real com o Neo4j
+    // Determinar se estamos executando dentro do Docker ou localmente
+    const isRunningInDocker = process.env.RUNNING_IN_DOCKER === 'true';
+    
+    // Usar configurações apropriadas com base no ambiente
+    // No Docker: neo4j:7687 (nome do serviço)
+    // Local: localhost:7687 (máquina local)
+    const neo4jHost = isRunningInDocker ? 'neo4j' : 'localhost';
+    const neo4jUrl = process.env.NEO4J_URL || `bolt://${neo4jHost}:7687`;
+    const neo4jUser = process.env.NEO4J_USER || 'neo4j';
+    const neo4jPassword = process.env.NEO4J_PASSWORD || 'beaver12345';
+    
+    console.log('🔌 Tentando conectar ao Neo4j...');
+    console.log(`📡 URL: ${neo4jUrl}`);
+    
+    // Cria o driver do Neo4j
     const neo4jDriver = driver(
-      process.env.NEO4J_URL || 'bolt://neo4j:7687',
-      auth.basic(
-        process.env.NEO4J_USER || 'neo4j',
-        process.env.NEO4J_PASSWORD || 'beaver12345'
-      )
+      neo4jUrl,
+      auth.basic(neo4jUser, neo4jPassword)
     );
     
-    // Cria o cliente Neo4j usando o driver real
-    const realNeo4j = new Neo4jClient(neo4jDriver);
-    realNeo4j.mockMode = false;
-    
-    // Testa a conexão
-    logger.info('Tentando conectar ao Neo4j...');
+    // Testa a conectividade
     await neo4jDriver.verifyConnectivity();
+    
+    // Cria o cliente Neo4j usando o driver
+    neo4jClient = new Neo4jClient(neo4jDriver);
+    
+    console.log('✅ Conexão com Neo4j estabelecida com sucesso!');
     logger.info('Conexão com Neo4j estabelecida com sucesso!');
     
-    // Substitui a instância mock pela real
-    neo4j = realNeo4j as any; // Usando type assertion para contornar a verificação de tipos
-    neo4jClient = realNeo4j;
-    
-    return realNeo4j;
+    return neo4jClient;
   } catch (error) {
-    // Se a conexão falhar, mantém o mock
-    logger.warn(`Falha ao conectar com Neo4j: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-    logger.warn('Usando MockNeo4jClient como fallback');
+    // Mensagens de erro no console e nos logs
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error('❌ ERRO CRÍTICO: Falha ao conectar com Neo4j');
+    console.error(`❗ Mensagem de erro: ${errorMessage}`);
+    console.error('📢 O aplicativo requer uma conexão com Neo4j para funcionar corretamente.');
+    console.error('🔍 Verifique se:');
+    console.error('   - O servidor Neo4j está em execução');
+    console.error('   - As configurações de URL, usuário e senha estão corretas');
+    console.error('   - Não há regras de firewall bloqueando a conexão');
+    console.error('');
+    console.error('Se você está executando o aplicativo localmente (fora do Docker), tenha certeza que:');
+    console.error('   - Neo4j está em execução na porta 7687');
+    console.error('   - O host configurado é "localhost" (ambiente local) ou "neo4j" (dentro do Docker)');
+    console.error('   - Para forçar o uso de "localhost", defina a variável de ambiente RUNNING_IN_DOCKER=false');
     
-    // Garante que estamos usando o cliente com mockMode=true
-    neo4j.mockMode = true;
-    neo4jClient = neo4j;
+    logger.error(`Falha ao conectar com Neo4j: ${errorMessage}`);
     
-    return neo4j;
+    // Encerra o processo com erro
+    process.exit(1);
   }
 }
 
-// Chama a inicialização, mas não espera por ela no top-level
+// Chama a inicialização do Neo4j
 initNeo4j().then(() => {
   logger.info('Inicialização do Neo4j concluída');
 }).catch(error => {
   logger.error(`Erro na inicialização do Neo4j: ${error}`);
+  process.exit(1);
 });
 
 // Tipo do contexto
 export interface Context {
   prisma: PrismaClient;
-  neo4j: any;
+  neo4j: Neo4jClient;
   userId?: number;
   userRole?: string;
 }
@@ -218,7 +87,7 @@ export async function createContext({ req }: { req: any }): Promise<Context> {
   // Contexto básico
   const context: Context = {
     prisma,
-    neo4j,
+    neo4j: neo4jClient,
   };
 
   // Extrai e verifica o token de autenticação se existir
@@ -237,4 +106,7 @@ export async function createContext({ req }: { req: any }): Promise<Context> {
   }
 
   return context;
-} 
+}
+
+// Exportar cliente Neo4j para uso em outros módulos
+export { neo4jClient, prisma }; 

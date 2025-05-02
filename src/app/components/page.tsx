@@ -24,9 +24,11 @@ import {
   DELETE_COMPONENT,
   CHECK_COMPONENT_RELATIONS,
   GET_RELATIONS,
+  GET_CATEGORIES,
   ComponentStatus,
   ComponentType,
-  ComponentInput
+  ComponentInput,
+  CategoryType
 } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
 import { useApolloClient } from '@apollo/client';
@@ -47,6 +49,7 @@ export default function ComponentsPage() {
   const [componentToDelete, setComponentToDelete] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Obter cliente Apollo para manipulação de cache
   const client = useApolloClient();
@@ -114,7 +117,8 @@ export default function ComponentsPage() {
     }
   });
 
-  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(GET_RELATIONS, {
+  // Consulta específica para verificar relacionamentos (usando a query CHECK_COMPONENT_RELATIONS)
+  const [checkComponentRelations, { loading: relationsLoading }] = useLazyQuery(CHECK_COMPONENT_RELATIONS, {
     fetchPolicy: 'network-only',
     onError: (error) => {
       console.error("Erro ao verificar relacionamentos do componente:", error);
@@ -295,7 +299,14 @@ export default function ComponentsPage() {
   // Função para iniciar o processo de exclusão
   const confirmDeleteComponent = async (id: number) => {
     // Verificar se o componente tem relacionamentos antes de permitir a exclusão
-    if (hasRelations) {
+    const { data } = await checkComponentRelations({ 
+      variables: { id },
+      fetchPolicy: 'network-only' 
+    });
+    
+    const hasComponentRelations = data?.componentRelations?.hasRelations || false;
+    
+    if (hasComponentRelations) {
       toast({
         title: "Operação não permitida",
         description: "Não é possível excluir um componente que possui relacionamentos. Remova os relacionamentos primeiro.",
@@ -304,7 +315,7 @@ export default function ComponentsPage() {
       return;
     }
     
-    // Versão simplificada sem verificação de relacionamentos
+    // Prosseguir com a exclusão
     setComponentToDelete(id);
     setShowDeleteConfirm(true);
     setShowDetails(false); // Fechar o modal de detalhes
@@ -314,17 +325,30 @@ export default function ComponentsPage() {
   const handleConfirmedDelete = () => {
     if (componentToDelete === null) return;
     
+    setIsDeleting(true);
+    
     deleteComponent({
       variables: { id: componentToDelete },
       onCompleted: () => {
         console.log("Componente excluído com sucesso");
         setShowDeleteConfirm(false);
         setComponentToDelete(null);
+        setIsDeleting(false);
+        toast({
+          title: "Componente excluído",
+          description: "O componente foi excluído com sucesso.",
+        });
         // Atualiza a lista após excluir
-        setTimeout(() => refetch(), 300);
+        refetch();
       },
       onError: (error) => {
         console.error("Erro ao excluir componente:", error);
+        setIsDeleting(false);
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Ocorreu um erro ao excluir o componente.",
+          variant: "destructive"
+        });
       }
     });
   };
@@ -552,7 +576,21 @@ export default function ComponentsPage() {
                     </span>
                   </div>
                 </div>
-                <p className="text-muted-foreground text-sm mb-4 line-clamp-2 flex-grow">{component.description}</p>
+                <p className="text-muted-foreground text-sm mb-2 line-clamp-2 flex-grow">{component.description}</p>
+                {component.category && (
+                  <div className="flex items-center mb-2">
+                    <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
+                      {component.category.image ? (
+                        <img 
+                          src={`/images/categories/${component.category.image}`} 
+                          alt={component.category.name}
+                          className="w-3 h-3 mr-1 object-contain"
+                        />
+                      ) : null}
+                      {component.category.name}
+                    </span>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center justify-between mt-auto">
                   <div className="flex flex-wrap gap-2 max-w-[70%]">
                     {component.tags.slice(0, 3).map((tag, index) => (
@@ -628,6 +666,12 @@ export default function ComponentsPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <div className="text-sm text-muted-foreground">ID:</div>
                     <div className="text-sm">{selectedComponent.id}</div>
+                    
+                    <div className="text-sm text-muted-foreground">Categoria:</div>
+                    <div className="text-sm">
+                      {selectedComponent.category ? selectedComponent.category.name : 'Sem categoria'}
+                    </div>
+                    
                     <div className="text-sm text-muted-foreground">Data de Criação:</div>
                     <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
                   </div>
@@ -709,11 +753,20 @@ export default function ComponentsPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex justify-end gap-4 pt-4 mt-4 border-t">
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
                 Cancelar
               </Button>
-              <Button variant="default" onClick={handleConfirmedDelete}>
-                Excluir
+              <Button 
+                variant="default" 
+                onClick={handleConfirmedDelete} 
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-r-transparent"></div>
+                    Excluindo...
+                  </>
+                ) : "Excluir"}
               </Button>
             </DialogFooter>
           </DialogContent>
