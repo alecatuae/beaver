@@ -12,7 +12,7 @@ O sidebar do Beaver v2.0 foi redesenhado para acomodar as novas funcionalidades 
 ### Logo e Marca
 - **Logo Beaver**: Ícone quadrado roxo com a letra "B" (posicionado no canto superior esquerdo)
 - **Nome da Aplicação**: "Beaver" exibido à direita do logo em tipografia clara
-
+aq
 ### Itens de Menu Principal
 
 1. **Home**
