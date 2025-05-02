@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Este documento apresenta os requisitos para a versão 2.0 da plataforma Beaver, uma ferramenta de gerenciamento de arquitetura empresarial. A v2.0 representa uma evolução significativa da plataforma, introduzindo novos recursos como o modelo TRM (Technical Reference Model), gerenciamento de instâncias específicas de componentes em múltiplos ambientes, sistema aprimorado de ADRs com múltiplos participantes, e capacidade de referência direta a termos do Glossário.
+Este documento apresenta os requisitos para a versão 2.0 da plataforma Beaver, uma ferramenta de gerenciamento de arquitetura de tecnologia. A v2.0 representa uma evolução significativa da plataforma, introduzindo novos recursos como o modelo TRM (Technical Reference Model), gerenciamento de instâncias específicas de componentes em múltiplos ambientes, sistema aprimorado de ADRs com múltiplos participantes, e capacidade de referência direta a termos do Glossário.
 
 O Beaver foi projetado para centralizar a documentação arquitetural, facilitar a colaboração entre equipes de tecnologia, e permitir uma visão abrangente da infraestrutura corporativa. Esta versão expande essas capacidades com foco em:
 

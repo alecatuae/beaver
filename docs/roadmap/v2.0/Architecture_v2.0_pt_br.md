@@ -5,7 +5,7 @@
 
 ## Visão Geral
 
-O Beaver é uma plataforma de gerenciamento de arquitetura empresarial que permite visualizar, documentar e gerenciar componentes de software, decisões arquiteturais (ADRs) e relacionamentos entre os diferentes elementos da arquitetura de TI. A versão 2.0 introduz melhorias significativas na estrutura de dados e na capacidade de gerenciamento de múltiplos ambientes e instâncias de componentes.
+O Beaver é uma plataforma de gerenciamento de arquitetura de tecnologia que permite visualizar, documentar e gerenciar componentes de software, decisões arquiteturais (ADRs) e relacionamentos entre os diferentes elementos da arquitetura de TI. A versão 2.0 introduz melhorias significativas na estrutura de dados e na capacidade de gerenciamento de múltiplos ambientes e instâncias de componentes.
 
 ---
 
