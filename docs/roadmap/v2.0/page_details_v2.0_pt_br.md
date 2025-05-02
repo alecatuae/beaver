@@ -242,17 +242,17 @@
     - Diálogo de confirmação para operações de exclusão com aviso sobre ação irreversível.
     - Verificação de segurança prevenindo exclusão de categorias com componentes associados.
     - Posicionamento consistente de botões de confirmar e cancelar.
-  - Organização flexível de dados:
-    - Capacidades avançadas de ordenação para listar categorias:
-      - Ordenar por nome (alfabético), data (cronológico) ou número de componentes.
-      - Indicação visual do campo de ordenação ativo e direção (ascendente/descendente).
-      - Estado de ordenação persistente durante a sessão do usuário.
+    - Organização flexível de dados:
+      - Capacidades avançadas de ordenação para listar categorias:
+        - Ordenar por nome (alfabético), data (cronológico) ou número de componentes.
+        - Indicação visual do campo de ordenação ativo e direção (ascendente/descendente).
+        - Estado de ordenação persistente durante a sessão do usuário.
     - Interface compacta com menu dropdown para opções de ordenação.
   - Filtragem avançada:
     - Pesquisar por nome de categoria (correspondências parciais permitidas).
     - Filtrar para categorias com ou sem componentes associados.
     - **Novo na v2.0**: Filtro por nível TRM.
-  - Visualização alternativa em formato de árvore hierárquica mostrando a estrutura TRM.
+    - Visualização alternativa em formato de árvore hierárquica mostrando a estrutura TRM.
 
 ### Gerenciamento de Ambientes
 - **Descrição**: **Novo na v2.0**: Página para gerenciar ambientes onde componentes são implantados.
@@ -297,10 +297,163 @@
 
 ---
 
+## Sistema de Mensagens de Erro e Logs
+
+### Mensagens de Erro para Usuários
+
+- **Descrição**: Sistema padronizado de apresentação de erros e alertas em toda a plataforma.
+- **Componentes Principais**:
+  - **ToastContainer**: Componente global para mensagens temporárias
+  - **ErrorBoundary**: Captura exceções não tratadas em React
+  - **FormErrorMessage**: Componente padronizado para erros de formulário
+  - **GlobalErrorAlert**: Banner de erro para problemas críticos do sistema
+
+- **Funcionalidades**:
+  - **Categorização por Tipo**:
+    - **Validação**: Entrada inválida em formulários com destaque do campo específico
+    - **Autenticação**: Problemas relacionados a login, permissões ou sessão expirada
+    - **Comunicação**: Falhas de rede, timeout de API ou recursos indisponíveis
+    - **Operacional**: Erros em operações do sistema (CRUD, análises, etc.)
+    - **Sistema**: Falhas internas não esperadas
+
+  - **Apresentação Contextual**:
+    - **Inline**: Erros próximos aos campos específicos em formulários
+    - **Toast**: Mensagens temporárias no canto superior direito (duração: 5s)
+    - **Modal**: Para erros que requerem atenção imediata ou impedem continuidade
+    - **Banner**: Para erros globais que afetam múltiplas páginas
+
+  - **Design Visual Padronizado**:
+    - **Validação**: Ícone triangular amarelo com ponto de exclamação
+    - **Erro**: Ícone circular vermelho com "X"
+    - **Sucesso**: Ícone circular verde com marca de verificação
+    - **Informação**: Ícone circular azul com "i"
+    - Cada mensagem inclui título, descrição e ação recomendada
+    - Formato consistente: `[Tipo]: [Mensagem] | [Ação Sugerida]`
+
+  - **Customizações por Página**:
+    - **ADR Management**: Erros específicos de validação de participantes
+    - **Componentes**: Validação de duplicatas e categorias inválidas
+    - **Relacionamentos**: Validação de ciclos e referências inválidas
+
+  - **Implementação Visual**:
+    - Fundo: Vermelho leve (#FEE2E2) para erros, cores específicas para outros tipos
+    - Borda: Vermelho médio (#EF4444) com espessura de 1px
+    - Ícone: Círculo com "X" (#DC2626) posicionado à esquerda
+    - Texto de Erro: Preto de alto contraste (#1F2937)
+    - Texto de Solução: Cinza escuro (#4B5563)
+    - Raio de Borda: 6px
+    - Padding: 16px
+    - Margens: 16px superior/inferior
+
+  - **Comportamento**:
+    - Posicionamento: Topo da página para erros globais, próximo ao campo para erros de formulário
+    - Duração: Erros globais permanecem até serem fechados pelo usuário
+    - Animação: Fade-in suave (0.3s ease-in) na aparição
+    - Prioridade: Apenas uma mensagem de erro global exibida por vez
+    - Dispensabilidade: Todas as mensagens podem ser fechadas pelo usuário
+    - Botão de fechar (X) sempre presente no canto superior direito
+    - Código de erro técnico de referência (formato: ERR-XXXX-YY-ZZ) discreto no canto inferior direito
+
+### Logs Detalhados para Desenvolvimento
+
+- **Descrição**: Sistema abrangente de logging para ambiente de desenvolvimento.
+- **Funcionalidades**:
+  - Ambiente de desenvolvimento (`NODE_ENV=development`) habilita logs detalhados.
+  - Console do navegador recebe logs estruturados e formatados.
+  - Cada log segue um formato padronizado que inclui:
+    ```javascript
+    {
+      timestamp: "2024-06-18T14:32:45.121Z",
+      level: "error",
+      errorCode: "ERR-4021-02-API",
+      component: "ComponentManager.saveComponent",
+      context: {
+        userId: "user_123",
+        componentId: "comp_456",
+        requestData: { /* dados enviados */ },
+        requestParams: { /* parâmetros da requisição */ }
+      },
+      message: "Falha ao salvar componente: Duplicate key violation",
+      stackTrace: "...",
+      httpStatus: 409,
+      source: "api" // 'ui', 'api', 'db'
+    }
+    ```
+
+  - **Níveis de Log**:
+    - **error**: Erros críticos que impedem operações principais
+    - **warn**: Problemas não críticos que permitem operação continuada
+    - **info**: Informações importantes de fluxo e operações bem-sucedidas
+    - **debug**: Detalhes adicionais úteis para depuração
+    - **trace**: Informações extremamente detalhadas
+
+  - **Utilidades para Desenvolvedores**:
+    - **Filtragem**: Console permite filtrar por nível e módulo (categoria)
+    - **Agrupamento**: Logs relacionados são agrupados para facilitar análise
+    - **Colorização**: Diferentes níveis têm cores distintas no console
+    - **Links para Código**: Clicáveis e levam à linha exata no debugger
+    - **Exportação**: Logs podem ser exportados para análise posterior
+
+  - **Integrações**:
+    - Ambiente de produção envia logs para sistema de monitoramento
+    - Logs críticos em produção geram alertas para equipe de suporte
+    - Métricas de erro são exibidas no dashboard de observabilidade
+    - Erros repetidos são agrupados para evitar spam
+    - Logs estruturados como objetos para fácil filtragem no console
+    - Em ambiente de produção, os erros são registrados sem informações sensíveis
+    - Hook global de erro para capturar exceções não tratadas
+
+  - **Boas Práticas para Desenvolvedores**:
+    - Sempre incluir contexto suficiente para reproduzir o problema
+    - Nunca registrar senhas, tokens ou dados pessoais sensíveis
+    - Usar níveis de log apropriadamente, evitando poluição em produção
+    - Garantir que códigos de erro sejam únicos e bem documentados
+
+### Códigos de Erro Padronizados
+
+- **Descrição**: Sistema de codificação padronizada para facilitar identificação e diagnóstico de erros.
+- **Estrutura de Códigos**:
+  - Formato: `ERR-XXXX-YY-ZZ`
+    - **XXXX**: Código de módulo
+      - 1000-1999: Autenticação e Autorização
+      - 2000-2999: Gerenciamento de ADRs
+      - 3000-3999: Análise de Impacto
+      - 4000-4999: Gerenciamento de Componentes
+      - 5000-5999: Gerenciamento de Relacionamentos
+      - 6000-6999: TRM e Categorias
+      - 7000-7999: Glossário
+      - 8000-8999: Sistema e Configuração
+      - 9000-9999: Integração e Comunicação
+    
+    - **YY**: Tipo de erro
+      - 01: Validação de entrada
+      - 02: Permissão/Autorização
+      - 03: Não encontrado
+      - 04: Conflito/Duplicação
+      - 05: Timeout/Performance
+      - 06: Formato inválido
+      - 07: Dependência externa
+      - 08: Estado inválido
+      - 09: Limite excedido
+      - 10: Recurso indisponível
+    
+    - **ZZ**: Origem
+      - UI: Interface do usuário
+      - API: Backend/API
+      - DB: Banco de dados
+      - EXT: Serviço externo
+
+  - **Documentação de Erros**:
+    - Cada código tem uma página dedicada na documentação interna
+    - Inclui descrição, causas comuns, passos para reprodução e soluções
+    - Acessível através do link na mensagem de erro pelo ícone "?"
+
+---
+
 ## Conclusão
 
 Este documento fornece uma visão detalhada das principais páginas do aplicativo Beaver v2.0, incluindo as funcionalidades administrativas e de autenticação. As melhorias da v2.0 estão focadas em maior flexibilidade do schema, melhor gerenciamento de ambientes e instâncias de componentes (Component_Instance), e aprimoramento do trabalho colaborativo em ADRs com validação automática de participantes. 
 
-A introdução do sistema de referência a termos do Glossário usando "#" nos textos de ADRs facilita a padronização terminológica e melhora a compreensão dos documentos arquiteturais.
+A introdução do sistema de referência a termos do Glossário usando "#" nos textos de ADRs facilita a padronização terminológica e melhora a compreensão dos documentos arquiteturais. Além disso, o sistema padronizado de mensagens de erro e logs detalhados para desenvolvedores contribui para uma melhor experiência tanto dos usuários finais quanto da equipe de desenvolvimento.
 
 Para mais informações técnicas detalhadas, consulte o documento `Architecture_v2.0_pt_br.md`. 
