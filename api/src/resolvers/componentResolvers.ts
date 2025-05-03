@@ -564,4 +564,164 @@ export const componentResolvers = (builder: any) => {
       },
     })
   );
+
+  // Queries para instâncias de componentes
+  builder.queryField('componentInstance', (t) =>
+    t.prismaField({
+      type: 'ComponentInstance',
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { id }, { prisma }) => {
+        return prisma.componentInstance.findUniqueOrThrow({
+          ...query,
+          where: { id },
+        });
+      },
+    })
+  );
+
+  builder.queryField('componentInstances', (t) =>
+    t.prismaField({
+      type: ['ComponentInstance'],
+      args: {
+        componentId: t.arg.int({ required: false }),
+        environmentId: t.arg.int({ required: false }),
+        skip: t.arg.int({ required: false }),
+        take: t.arg.int({ required: false }),
+      },
+      resolve: async (query, _root, { componentId, environmentId, skip, take }, { prisma }) => {
+        const where: any = {};
+        
+        if (componentId) {
+          where.componentId = componentId;
+        }
+        
+        if (environmentId) {
+          where.environmentId = environmentId;
+        }
+        
+        return prisma.componentInstance.findMany({
+          ...query,
+          where,
+          skip,
+          take: take ?? 50,
+          orderBy: { id: 'asc' },
+        });
+      },
+    })
+  );
+
+  // Mutations para instâncias de componentes
+  builder.mutationField('createComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ComponentInstance',
+      args: {
+        input: t.arg({ 
+          type: 'ComponentInstanceInput',
+          required: true 
+        }),
+      },
+      resolve: async (query, _root, { input }, { prisma }) => {
+        // Verificar se o componente existe
+        const component = await prisma.component.findUnique({
+          where: { id: input.componentId },
+        });
+
+        if (!component) {
+          throw new Error(`Componente com ID ${input.componentId} não encontrado.`);
+        }
+
+        // Verificar se o ambiente existe
+        const environment = await prisma.environment.findUnique({
+          where: { id: input.environmentId },
+        });
+
+        if (!environment) {
+          throw new Error(`Ambiente com ID ${input.environmentId} não encontrado.`);
+        }
+
+        // Verificar se já existe uma instância deste componente neste ambiente
+        const existingInstance = await prisma.componentInstance.findFirst({
+          where: {
+            componentId: input.componentId,
+            environmentId: input.environmentId,
+          },
+        });
+
+        if (existingInstance) {
+          throw new Error(`Já existe uma instância deste componente neste ambiente.`);
+        }
+
+        return prisma.componentInstance.create({
+          ...query,
+          data: {
+            componentId: input.componentId,
+            environmentId: input.environmentId,
+            hostname: input.hostname,
+            specs: input.specs,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('updateComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ComponentInstance',
+      args: {
+        id: t.arg.int({ required: true }),
+        input: t.arg({ 
+          type: 'ComponentInstanceUpdateInput',
+          required: true 
+        }),
+      },
+      resolve: async (query, _root, { id, input }, { prisma }) => {
+        return prisma.componentInstance.update({
+          ...query,
+          where: { id },
+          data: {
+            hostname: input.hostname,
+            specs: input.specs,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('deleteComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ComponentInstance',
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { id }, { prisma }) => {
+        // Verificar se a instância existe
+        const instance = await prisma.componentInstance.findUnique({
+          where: { id },
+        });
+
+        if (!instance) {
+          throw new Error(`Instância com ID ${id} não encontrada.`);
+        }
+
+        // Verificar se existem ADRs associados a esta instância
+        const adrCount = await prisma.aDRComponentInstance.count({
+          where: { instanceId: id },
+        });
+
+        if (adrCount > 0) {
+          // Excluir as relações ADR -> Instância antes
+          await prisma.aDRComponentInstance.deleteMany({
+            where: { instanceId: id },
+          });
+        }
+
+        return prisma.componentInstance.delete({
+          ...query,
+          where: { id },
+        });
+      },
+    })
+  );
 }; 

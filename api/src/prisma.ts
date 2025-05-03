@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from './utils/logger';
+import { driver } from './neo4j';
+import { Neo4jIntegrationV2 } from './db/neo4j_integration_v2';
 
 // Função para inicializar o cliente Prisma com tratamento de erros
 const initPrismaClient = () => {
@@ -8,7 +10,24 @@ const initPrismaClient = () => {
     logger.info(`DATABASE_URL: ${process.env.DATABASE_URL?.replace(/:.+@/, ':***@')}`);
     
     const prismaClient = new PrismaClient({
-      log: ['error', 'warn'],
+      log: [
+        {
+          emit: 'event',
+          level: 'query',
+        },
+        {
+          emit: 'event',
+          level: 'error',
+        },
+        {
+          emit: 'event',
+          level: 'info',
+        },
+        {
+          emit: 'event',
+          level: 'warn',
+        },
+      ],
     });
     
     // Evento para log de queries (opcional, descomente se quiser logs detalhados)
@@ -45,6 +64,80 @@ const initPrismaClient = () => {
 
 // Inicializa um único cliente Prisma para reutilização
 const prisma = initPrismaClient();
+
+// Inicializar integração Neo4j v2.0
+const neo4jIntegration = new Neo4jIntegrationV2(driver);
+
+// Log de erros
+prisma.$on('error', (e) => {
+  logger.error('Erro Prisma', { error: e });
+});
+
+// Log de queries lentas (mais de 500ms)
+prisma.$on('query', (e) => {
+  if (e.duration > 500) {
+    logger.warn('Query Prisma lenta', {
+      query: e.query,
+      params: e.params,
+      duration: `${e.duration}ms`,
+    });
+  }
+});
+
+// Middleware para sincronização com Neo4j
+prisma.$use(async (params, next) => {
+  const result = await next(params);
+  
+  try {
+    // Sincronização com Neo4j para entidades da v2.0
+    
+    // Ambientes
+    if (params.model === 'Environment' && ['create', 'update', 'delete'].includes(params.action)) {
+      logger.debug('Sincronizando ambientes com Neo4j');
+      await neo4jIntegration.syncEnvironments();
+    }
+    
+    // Times
+    if (params.model === 'Team' && ['create', 'update', 'delete'].includes(params.action)) {
+      logger.debug('Sincronizando times com Neo4j');
+      await neo4jIntegration.syncTeams();
+    }
+    
+    // Component (para relação MANAGED_BY)
+    if (params.model === 'Component' && ['create', 'update'].includes(params.action) && 
+        (params.args.data.teamId !== undefined)) {
+      logger.debug('Sincronizando times com Neo4j (atualização de componente)');
+      await neo4jIntegration.syncTeams();
+    }
+    
+    // Instâncias de componentes
+    if (params.model === 'ComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
+      logger.debug('Sincronizando instâncias de componentes com Neo4j');
+      await neo4jIntegration.syncComponentInstances();
+    }
+    
+    // Participantes de ADRs
+    if (params.model === 'ADRParticipant' && ['create', 'update', 'delete'].includes(params.action)) {
+      logger.debug('Sincronizando participantes de ADRs com Neo4j');
+      await neo4jIntegration.syncADRParticipants();
+    }
+    
+    // Relações ADR-Instância
+    if (params.model === 'ADRComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
+      logger.debug('Sincronizando relações ADR-Instância com Neo4j');
+      await neo4jIntegration.syncADRComponentInstances();
+    }
+  } catch (error) {
+    // Log do erro, mas não falha a operação original do Prisma
+    logger.error('Erro ao sincronizar com Neo4j', { 
+      error,
+      model: params.model,
+      action: params.action
+    });
+  }
+  
+  return result;
+});
 
 // Configuração para lidar com o desligamento do servidor
 process.on('beforeExit', async () => {

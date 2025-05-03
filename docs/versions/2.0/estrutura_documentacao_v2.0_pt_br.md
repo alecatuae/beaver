@@ -70,4 +70,17 @@ A documentação faz parte do controle de versão do projeto e deve ser mantida 
 
 ## Conclusão
 
-Esta estrutura de documentação foi projetada para fornecer uma visão abrangente do sistema Beaver v2.0, facilitando o entendimento e a implementação por parte da equipe de desenvolvimento. Recomenda-se que qualquer nova funcionalidade ou alteração seja devidamente documentada seguindo o mesmo padrão e estrutura. 
+Esta estrutura de documentação foi projetada para fornecer uma visão abrangente do sistema Beaver v2.0, facilitando o entendimento e a implementação por parte da equipe de desenvolvimento. Recomenda-se que qualquer nova funcionalidade ou alteração seja devidamente documentada seguindo o mesmo padrão e estrutura.
+
+## Documentação Técnica
+
+### Arquitetura e Design
+- [Arquitetura v2.0](Architecture_v2.0_pt_br.md)
+- [Schema MariaDB v2.0](mariadb_schema_v2.0_pt_br.md)
+- [Schema Neo4j v2.0](neo4j_schema_v2.0_pt_br.md)
+- [Documentação da API v2.0](api_docs_v2.0_pt_br.md)
+
+### Implementação
+- [Guia de Desenvolvimento v2.0](dev_guide_v2.0_pt_br.md)
+- [Implementação Backend v2.0](implementacao_backend_v2.0_pt_br.md)
+- [Implementação Frontend v2.0](implementacao_frontend_v2.0_pt_br.md) 

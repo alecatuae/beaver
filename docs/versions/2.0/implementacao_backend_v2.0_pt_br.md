@@ -665,15 +665,15 @@ export async function getRoadmapTypeIdFromLegacyEnum(
 
 ## Checklist de Implementação
 
-- [ ] Modificar schema do Prisma
-- [ ] Criar scripts de migração de dados
-- [ ] Atualizar schema do GraphQL (Pothos)
-- [ ] Implementar novas queries e mutations
-- [ ] Estender integração com Neo4j
-- [ ] Implementar testes para novas funcionalidades
-- [ ] Verificar impacto em APIs existentes
-- [ ] Atualizar documentação da API
-- [ ] Revisar e atualizar testes automatizados
+- [x] Modificar schema do Prisma
+- [x] Atualizar schema do GraphQL (Pothos)
+- [x] Criar scripts de migração de dados
+- [x] Implementar novas queries e mutations
+- [x] Estender integração com Neo4j
+- [x] Implementar testes para novas funcionalidades
+- [x] Verificar impacto em APIs existentes
+- [x] Atualizar documentação da API
+- [x] Revisar e atualizar testes automatizados
 
 ## Considerações Finais
 

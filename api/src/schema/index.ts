@@ -20,6 +20,10 @@ export const builder = new SchemaBuilder<{
       Input: any;
       Output: any;
     };
+    BigInt: {
+      Input: BigInt;
+      Output: string;
+    };
   };
 }>({
   plugins: [PrismaPlugin],
@@ -39,6 +43,12 @@ builder.scalarType('Date', {
 builder.scalarType('JSON', {
   serialize: (value) => value,
   parseValue: (value) => value,
+});
+
+// Define o escalar BigInt
+builder.scalarType('BigInt', {
+  serialize: (value) => String(value),
+  parseValue: (value) => BigInt(value),
 });
 
 // Tipo Query raiz
@@ -61,24 +71,43 @@ builder.mutationType({
   }),
 });
 
+// Importa e registra todos os enums
+import './enums';
+
 // Importando os módulos de resolvers
 // IMPORTANTE: A ordem de importação e registro é crucial devido a dependências entre tipos
-// componentResolvers deve ser registrado primeiro, pois define o tipo Category usado por categoryResolvers
+
+// Importa os resolvers básicos
+import { environmentResolvers } from '../resolvers/environmentResolvers';
+import { teamResolvers } from '../resolvers/teamResolvers';
 import { componentResolvers } from '../resolvers/componentResolvers';
+import { componentInstanceResolvers } from '../resolvers/componentInstanceResolvers';
 import { categoryResolvers } from '../resolvers/categoryResolvers';
 import { userResolvers } from '../resolvers/userResolvers';
 import { adrResolvers } from '../resolvers/adrResolvers';
+import { adrParticipantResolvers } from '../resolvers/adrParticipantResolvers';
+import { adrComponentInstanceResolvers } from '../resolvers/adrComponentInstanceResolvers';
 import { glossaryResolvers } from '../resolvers/glossaryResolvers';
+import { roadmapResolvers } from '../resolvers/roadmapResolvers';
 
 // Registra os resolvers na ordem correta para garantir que as dependências sejam satisfeitas
-// componentResolvers define o tipo Category
+// Primeiro os tipos fundamentais
+environmentResolvers(builder);
+teamResolvers(builder);
+// componentResolvers define o tipo Component
 componentResolvers(builder);
+// Registrar componentInstance após Component
+componentInstanceResolvers(builder);
 // categoryResolvers usa o tipo Category definido acima
 categoryResolvers(builder);
 // Outros resolvers
 userResolvers(builder);
 adrResolvers(builder);
+// Novos resolvers para v2.0
+adrParticipantResolvers(builder);
+adrComponentInstanceResolvers(builder);
 glossaryResolvers(builder);
+roadmapResolvers(builder);
 
 // Definição do tipo RelationInput que é usado em vários resolvers
 builder.inputType('RelationInput', {

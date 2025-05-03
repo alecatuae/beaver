@@ -1,0 +1,58 @@
+# Beaver v2.0 Changelog
+
+All notable changes to the Beaver project version 2.0 will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- New GraphQL schema with support for Environments, ComponentInstances, Teams, ADR participants, roadmap items, and glossary terms
+- New enumeration types: ImpactLevel, GlossaryStatus, and LogLevel
+- Migration scripts for automatic data migration from v1.x to v2.0:
+  - Database schema migration script for MariaDB
+  - Data migration script for creating environments, teams and instances
+  - Neo4j synchronization script to keep graph database in sync
+  - References update script to fix and enhance entity relationships
+- Support for environments (development, homologation, production)
+- Component instances per environment
+- Team-based organization
+- ADR participants model (owner, reviewer, consumer)
+- Updated relationship mapping in Neo4j
+- GraphQL resolvers for new entities (ComponentInstance, ADRParticipant, ADRComponentInstance)
+- Queries and mutations for component instances, ADR participants, and impacts on instances
+- Migration scripts for data compatibility between v1 and v2
+- Enhanced Neo4j integration with new node types and relationships
+- Automatic Neo4j synchronization via Prisma middleware
+- Integrity validation and automatic repair for Neo4j graph
+- Neo4j CLI tool for v2.0 entity management and synchronization
+- Comprehensive API documentation with migration guide and compatibility information
+- Expanded test suite with coverage for all new v2.0 features:
+  - Environment CRUD tests
+  - Team and Team Member management tests
+  - ADR Participant validation tests
+  - API compatibility and backward compatibility tests
+
+### Changed
+- Updated Prisma schema with new enums and model refinements
+- Changed ADR model's "description" field to "decision"
+- Modified impactLevel in ADR_ComponentInstance to use enum instead of string
+- Updated Log model to use LogLevel enum for level field
+- Changed GlossaryTerm status to use GlossaryStatus enum with default value 'DRAFT'
+- Modified Prisma schema to support new entity relationships
+- ADR model now supports multiple participants with different roles
+- ADRs now reference specific component instances instead of just components
+- Updated TypeScript types for GraphQL schema
+- RoadmapType moved from enum to database table
+- Improved error handling with standardized error codes
+
+### Fixed
+- N/A
+- Issue with component relationships in Neo4j
+- Data consistency between MariaDB and Neo4j
+
+### Security
+- Added role-based permissions for instance management
+- Enhanced validation for ADR ownership changes
+
+## [2.0.0] - YYYY-MM-DD (Not released yet)
+
+Initial release of Beaver v2.0 

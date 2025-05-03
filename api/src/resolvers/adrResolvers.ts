@@ -192,4 +192,299 @@ export const adrResolvers = (builder: any) => {
       },
     })
   );
+
+  // Queries para participantes de ADR
+  builder.queryField('adrParticipants', (t) =>
+    t.prismaField({
+      type: ['ADRParticipant'],
+      args: {
+        adrId: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { adrId }, { prisma }) => {
+        return prisma.aDRParticipant.findMany({
+          ...query,
+          where: { adrId },
+        });
+      },
+    })
+  );
+
+  // Mutations para participantes de ADR
+  builder.mutationField('addADRParticipant', (t) =>
+    t.prismaField({
+      type: 'ADRParticipant',
+      args: {
+        input: t.arg({ 
+          type: 'ADRParticipantInput',
+          required: true 
+        }),
+      },
+      resolve: async (query, _root, { input }, { prisma, userId }) => {
+        // Verificar se o ADR existe
+        const adr = await prisma.aDR.findUnique({
+          where: { id: input.adrId },
+        });
+
+        if (!adr) {
+          throw new Error(`ADR com ID ${input.adrId} não encontrado.`);
+        }
+
+        // Verificar se o usuário existe
+        const user = await prisma.user.findUnique({
+          where: { id: input.userId },
+        });
+
+        if (!user) {
+          throw new Error(`Usuário com ID ${input.userId} não encontrado.`);
+        }
+
+        // Verificar se já existe um participante com este usuário neste ADR
+        const existingParticipant = await prisma.aDRParticipant.findFirst({
+          where: {
+            adrId: input.adrId,
+            userId: input.userId,
+          },
+        });
+
+        if (existingParticipant) {
+          throw new Error(`Usuário já é participante deste ADR.`);
+        }
+
+        return prisma.aDRParticipant.create({
+          ...query,
+          data: {
+            adrId: input.adrId,
+            userId: input.userId,
+            role: input.role,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('updateADRParticipant', (t) =>
+    t.prismaField({
+      type: 'ADRParticipant',
+      args: {
+        id: t.arg.int({ required: true }),
+        input: t.arg({ 
+          type: 'ADRParticipantUpdateInput',
+          required: true 
+        }),
+      },
+      resolve: async (query, _root, { id, input }, { prisma }) => {
+        // Verificar quantos participantes com papel "OWNER" existem neste ADR
+        const participant = await prisma.aDRParticipant.findUnique({
+          where: { id },
+        });
+
+        if (!participant) {
+          throw new Error(`Participante com ID ${id} não encontrado.`);
+        }
+
+        // Se estiver alterando de OWNER para outro papel, verificar se é o último owner
+        if (participant.role === 'OWNER' && input.role !== 'OWNER') {
+          const ownerCount = await prisma.aDRParticipant.count({
+            where: {
+              adrId: participant.adrId,
+              role: 'OWNER',
+            },
+          });
+
+          // Se só existe um owner, não permitir a alteração
+          if (ownerCount <= 1) {
+            throw new Error(
+              `Não é possível alterar o papel do último owner do ADR. Cada ADR precisa ter pelo menos um participante com papel de owner.`
+            );
+          }
+        }
+
+        return prisma.aDRParticipant.update({
+          ...query,
+          where: { id },
+          data: {
+            role: input.role,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('removeADRParticipant', (t) =>
+    t.prismaField({
+      type: 'ADRParticipant',
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { id }, { prisma }) => {
+        const participant = await prisma.aDRParticipant.findUnique({
+          where: { id },
+        });
+
+        if (!participant) {
+          throw new Error(`Participante com ID ${id} não encontrado.`);
+        }
+
+        // Se for um owner, verificar se é o último
+        if (participant.role === 'OWNER') {
+          const ownerCount = await prisma.aDRParticipant.count({
+            where: {
+              adrId: participant.adrId,
+              role: 'OWNER',
+            },
+          });
+
+          // Se só existe um owner, não permitir a remoção
+          if (ownerCount <= 1) {
+            throw new Error(
+              `Não é possível remover o último owner do ADR. Cada ADR precisa ter pelo menos um participante com papel de owner.`
+            );
+          }
+        }
+
+        return prisma.aDRParticipant.delete({
+          ...query,
+          where: { id },
+        });
+      },
+    })
+  );
+
+  // Mutations para associação entre ADR e instâncias de componentes
+  builder.mutationField('addADRComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ADRComponentInstance',
+      args: {
+        adrId: t.arg.int({ required: true }),
+        instanceId: t.arg.int({ required: true }),
+        impactLevel: t.arg.string({ required: true }),
+      },
+      resolve: async (query, _root, { adrId, instanceId, impactLevel }, { prisma }) => {
+        // Verificar se o ADR existe
+        const adr = await prisma.aDR.findUnique({
+          where: { id: adrId },
+        });
+
+        if (!adr) {
+          throw new Error(`ADR com ID ${adrId} não encontrado.`);
+        }
+
+        // Verificar se a instância existe
+        const instance = await prisma.componentInstance.findUnique({
+          where: { id: instanceId },
+        });
+
+        if (!instance) {
+          throw new Error(`Instância com ID ${instanceId} não encontrada.`);
+        }
+
+        // Verificar se já existe uma associação entre este ADR e esta instância
+        const existingAssociation = await prisma.aDRComponentInstance.findUnique({
+          where: {
+            adrId_instanceId: {
+              adrId,
+              instanceId,
+            },
+          },
+        });
+
+        if (existingAssociation) {
+          throw new Error(`Esta instância já está associada a este ADR.`);
+        }
+
+        // Validar o nível de impacto
+        if (!['LOW', 'MEDIUM', 'HIGH'].includes(impactLevel)) {
+          throw new Error(`Nível de impacto inválido. Use 'LOW', 'MEDIUM' ou 'HIGH'.`);
+        }
+
+        return prisma.aDRComponentInstance.create({
+          ...query,
+          data: {
+            adrId,
+            instanceId,
+            impactLevel,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('updateADRComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ADRComponentInstance',
+      args: {
+        adrId: t.arg.int({ required: true }),
+        instanceId: t.arg.int({ required: true }),
+        impactLevel: t.arg.string({ required: true }),
+      },
+      resolve: async (query, _root, { adrId, instanceId, impactLevel }, { prisma }) => {
+        // Verificar se a associação existe
+        const association = await prisma.aDRComponentInstance.findUnique({
+          where: {
+            adrId_instanceId: {
+              adrId,
+              instanceId,
+            },
+          },
+        });
+
+        if (!association) {
+          throw new Error(`Associação entre ADR ${adrId} e instância ${instanceId} não encontrada.`);
+        }
+
+        // Validar o nível de impacto
+        if (!['LOW', 'MEDIUM', 'HIGH'].includes(impactLevel)) {
+          throw new Error(`Nível de impacto inválido. Use 'LOW', 'MEDIUM' ou 'HIGH'.`);
+        }
+
+        return prisma.aDRComponentInstance.update({
+          ...query,
+          where: {
+            adrId_instanceId: {
+              adrId,
+              instanceId,
+            },
+          },
+          data: {
+            impactLevel,
+          },
+        });
+      },
+    })
+  );
+
+  builder.mutationField('removeADRComponentInstance', (t) =>
+    t.prismaField({
+      type: 'ADRComponentInstance',
+      args: {
+        adrId: t.arg.int({ required: true }),
+        instanceId: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { adrId, instanceId }, { prisma }) => {
+        // Verificar se a associação existe
+        const association = await prisma.aDRComponentInstance.findUnique({
+          where: {
+            adrId_instanceId: {
+              adrId,
+              instanceId,
+            },
+          },
+        });
+
+        if (!association) {
+          throw new Error(`Associação entre ADR ${adrId} e instância ${instanceId} não encontrada.`);
+        }
+
+        return prisma.aDRComponentInstance.delete({
+          ...query,
+          where: {
+            adrId_instanceId: {
+              adrId,
+              instanceId,
+            },
+          },
+        });
+      },
+    })
+  );
 }; 
