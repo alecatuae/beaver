@@ -85,22 +85,35 @@ src/
 
 ### `/docs` - Documentação
 
-Contém toda a documentação do projeto, incluindo arquitetura, guias de desenvolvimento e especificações.
+Contém toda a documentação do projeto, incluindo arquitetura, guias de desenvolvimento e especificações, organizadas por versões.
 
 ```
 docs/
-├── roadmap/           # Roadmap e planejamento do projeto
-│   └── v2.0/          # Documentação específica da versão 2.0
-└── ...                # Outros documentos gerais
+└── versions/          # Documentação organizada por versões
+    ├── 1.2/           # Documentação da versão 1.2
+    └── 2.0/           # Documentação específica da versão 2.0
 ```
+
+#### Documentação da v1.2:
+
+- `Architecture_v1.2_en_us.md`: Arquitetura da versão 1.2
+- `dev_guide_en_us.md`: Guia de desenvolvimento
+- `components_Neo4j-between-MariaDB.md`: Integração entre os bancos de dados
+- `CHANGELOG`: Registro de alterações
+- Documentos de fluxos e processos: `fluxo_*.md`
+- Schemas: `mariadb_schema.md/sql`, `neo4j_schema.md/txt`
 
 #### Documentação da v2.0:
 
-- Arquivos de arquitetura: `Architecture_v2.0_*.md`
-- Especificações de banco de dados: `mariadb_schema_v2.0_*.md`, `neo4j_schema_v2.0_*.md`
-- Scripts de banco de dados: `mariadb_script_full_v2.0.sql`, `neo4j_schema_script_v2.0.txt`
-- Documentação de impacto: `impacto_aplicacao.md`
-- Detalhes de implementação: `implementacao_frontend_v2.0_*.md`, `implementacao_backend_v2.0_*.md`
+- `Architecture_v2.0_pt_br.md`: Documento principal de arquitetura
+- `impacto_aplicacao.md`: Análise de impacto da migração para v2.0
+- `page_details_v2.0_pt_br.md`: Detalhes das páginas e funcionalidades
+- `estrutura_documentacao_v2.0_pt_br.md`: Guia da estrutura da documentação
+- `estrutura_diretorios_projeto_beaver_v2.0.md`: Documento atual
+- Implementação: `implementacao_frontend_v2.0_pt_br.md`, `implementacao_backend_v2.0_pt_br.md`
+- Schemas: `mariadb_schema_v2.0_pt_br.md`, `neo4j_schema_v2.0_pt_br.md`
+- Scripts: `mariadb_script_full_v2.0.sql`, `neo4j_schema_script_v2.0.txt`
+- Design: `ui_ux_style_guide_pt_br.md`, `sidebar_layout_v2.0_pt_br.md`
 
 ### `/observability` - Monitoramento
 
