@@ -806,14 +806,15 @@ A seguir está um checklist detalhado para orientar a implantação das alteraç
 - [x] Atualizar componentes de visualização de grafo para incluir instâncias
 - [x] Implementar sistema padronizado de mensagens de erro
 - [x] Atualizar o sidebar para incluir novas seções
+- [x] Criar páginas para gerenciamento de ambientes
 
 ### 5. Páginas e Rotas
 
-- [ ] Criar páginas para gerenciamento de ambientes
-- [ ] Criar páginas para gerenciamento de times
+- [x] Criar páginas para gerenciamento de ambientes
+- [x] Criar páginas para gerenciamento de times
 - [x] Criar visualização de TRM (camadas e categorias)
 - [x] Atualizar páginas de componentes para mostrar instâncias
-- [ ] Atualizar páginas de ADRs para mostrar participantes
+- [x] Atualizar páginas de ADRs para mostrar participantes
 - [x] Implementar visualização filtrada do grafo por ambiente/time
 
 ### 6. Testes

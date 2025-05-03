@@ -82,26 +82,36 @@ All notable changes to the Beaver project version 2.0 will be documented in this
   - Codificação por cores para diferentes tipos de relacionamentos (INSTANTIATES, DEPLOYED_IN)
   - Ajuste automático de visualização baseado no ambiente selecionado
   - Melhoria na experiência do usuário com estados de carregamento e erro
+- Implementação de visualização completa do TRM (Technical Reference Model) com suporte a camadas e categorias hierárquicas, incluindo visualização em árvore e em grid, filtros por camada e exibição de componentes associados a cada categoria
+- Atualização da página de componentes para exibir informações sobre instâncias, incluindo contadores de instâncias e badges de ambientes onde cada componente está implantado, com tooltips informativos, além de uma visualização detalhada de instâncias com especificações técnicas em uma interface com abas
+- Atualização das páginas de ADRs para mostrar múltiplos participantes com diferentes papéis (owner, reviewer, consumer), incluindo avatares, tooltips informativos e sistema de abas para visualização detalhada
 - Implementação do sistema padronizado de mensagens de erro:
   - Definição de códigos de erro no formato ERR-XXXX-YY-ZZ para rastreabilidade
   - Componentes de UI para exibição consistente de mensagens de erro
   - Mensagens de erro formatadas com título, descrição, solução e código
   - Hook personalizado para gerenciamento centralizado de erros (useErrorHandler)
   - Integração com Apollo Client para tratamento padronizado de erros de API
-  - Diferentes variantes de mensagens de erro (global, formulário, inline)
-  - Contexto global de erro para gerenciamento de mensagens em toda a aplicação
-  - Logs estruturados para facilitar depuração
-  - Suporte a diferentes níveis de detalhe baseado no ambiente (desenvolvimento/produção)
-  - Sanitização de dados sensíveis em logs de erro
-- Atualização do sidebar para incluir todas as novas seções da v2.0:
-  - Reorganização da navegação em estrutura hierárquica com submenus expansíveis
-  - Suporte a navegação facilitada entre módulos relacionados
-  - Inclusão de novos menus: Environment Management, Backlog Unificado
-  - Estruturação de submenus para Arch Overview (Graph View, TRM View, Timeline View)
-  - Detalhamento de opções para cada módulo principal conforme especificação
-  - Expansão da área Admin & Settings com submenus dedicados
-  - Implementação do sistema de highlight visual para item atual
-  - Suporte a expansão/retração do sidebar para maximizar a área útil da tela
+  - Diferentes variantes de mensagens de erro (global, toast, inline)
+  - Exemplo de página para demonstração do sistema de erros
+- Atualização do sidebar para incluir novas seções conforme especificações da v2.0
+- Codificação por cores diferentes para cada tipo de nó no grafo
+- Suporte a diferentes layouts de grafo (cola, em largura, concêntrico)
+- Codificação por cores para diferentes tipos de relacionamentos (INSTANTIATES, DEPLOYED_IN)
+- Ajuste automático de visualização baseado no ambiente selecionado
+- Melhoria na experiência do usuário com estados de carregamento e erro
+- Implementação de páginas para gerenciamento de ambientes:
+  - Página principal de listagem de ambientes com cards informativos
+  - Página de criação de ambientes com validação de formulário
+  - Página de detalhes do ambiente com listagem de instâncias
+  - Página de edição de ambiente com formulário pré-preenchido
+  - Dashboard de status com métricas e tabela de instâncias
+  - Visualização de fluxo de deployment com pipeline e histórico
+- Implementação completa do módulo de gerenciamento de times:
+  - Página principal de listagem de times com cards informativos
+  - Página de criação de times com validação de formulário
+  - Página de detalhes do time com informações e listagem de membros/componentes
+  - Página de edição de time com formulário pré-preenchido
+  - Página de gerenciamento de membros com adição/remoção de usuários
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements

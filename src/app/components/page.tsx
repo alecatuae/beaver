@@ -5,7 +5,7 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, SortAsc, SortDesc, Link as LinkIcon, RefreshCw } from 'lucide-react';
+import { Search, Plus, Filter, Download, Tag, Edit, Trash2, ChevronDown, ArrowUpDown, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,13 +25,18 @@ import {
   CHECK_COMPONENT_RELATIONS,
   GET_RELATIONS,
   GET_CATEGORIES,
+  GET_ENVIRONMENTS,
   ComponentStatus,
   ComponentType,
   ComponentInput,
-  CategoryType
+  CategoryType,
+  EnvironmentType
 } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
 import { useApolloClient } from '@apollo/client';
+import { ServerIcon } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import Image from 'next/image';
 
 export default function ComponentsPage() {
   // Estados para filtros e busca
@@ -67,6 +72,21 @@ export default function ComponentsPage() {
     }
   });
   
+  // Consulta de ambientes para mostrar nomes nos badges
+  const { data: environmentsData } = useQuery(GET_ENVIRONMENTS, {
+    fetchPolicy: 'cache-first'
+  });
+  
+  const environments = environmentsData?.environments || [];
+  
+  // Função para obter o nome do ambiente pelo ID
+  const getEnvironmentName = (environmentId: number): string => {
+    const environment = environments.find(
+      (env: EnvironmentType) => env.id === environmentId
+    );
+    return environment?.name || `Env-${environmentId}`;
+  };
+
   // Efeito para logar quando os dados mudam
   useEffect(() => {
     console.log('Dados recebidos:', data);
@@ -552,62 +572,107 @@ export default function ComponentsPage() {
         </div>
 
         {/* Grid de componentes */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {sortedComponents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground col-span-full">
               Nenhum componente encontrado.
             </div>
           ) : (
             sortedComponents.slice(0, visibleCount).map((component: ComponentType, index: number) => (
-              <div 
+              <div
                 key={component.id}
                 ref={(el) => setLastComponentRef(el, index)}
-                className="bg-card rounded-lg border shadow-sm p-4 cursor-pointer hover:border-primary transition-colors h-[180px] flex flex-col"
+                className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 ${
+                  selectedComponent?.id === component.id ? 'ring-2 ring-primary' : ''
+                }`}
                 onClick={() => handleComponentClick(component)}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-medium truncate max-w-[70%]">
-                    {component.name}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(component.status)}`}>
-                      {component.status === ComponentStatus.ACTIVE ? 'Ativo' : 
-                       component.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
-                    </span>
+                <div className="p-4 flex flex-col h-[180px]">
+                  {/* Header com nome e status */}
+                  <div className="flex justify-between mb-2">
+                    <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1">
+                      {component.name}
+                    </h3>
+                    <div className="ml-2 flex-shrink-0">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        component.status === ComponentStatus.ACTIVE
+                          ? 'bg-green-100 dark:bg-green-800/20 text-green-800 dark:text-green-400'
+                          : component.status === ComponentStatus.INACTIVE
+                          ? 'bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-400'
+                          : 'bg-amber-100 dark:bg-amber-800/20 text-amber-800 dark:text-amber-400'
+                      }`}>
+                        {component.status === ComponentStatus.ACTIVE
+                          ? 'Ativo'
+                          : component.status === ComponentStatus.INACTIVE
+                          ? 'Inativo'
+                          : 'Depreciado'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <p className="text-muted-foreground text-sm mb-2 line-clamp-2 flex-grow">{component.description}</p>
-                {component.category && (
-                  <div className="flex items-center mb-2">
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
-                      {component.category.image ? (
-                        <img 
-                          src={`/images/categories/${component.category.image}`} 
-                          alt={component.category.name}
-                          className="w-3 h-3 mr-1 object-contain"
-                        />
-                      ) : null}
-                      {component.category.name}
-                    </span>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-center justify-between mt-auto">
-                  <div className="flex flex-wrap gap-2 max-w-[70%]">
-                    {component.tags.slice(0, 3).map((tag, index) => (
-                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs truncate max-w-[100px]">
-                        <Tag size={12} className="mr-1 flex-shrink-0" />
-                        <span className="truncate">{tag}</span>
+
+                  {/* Descrição truncada */}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 flex-grow">
+                    {component.description || 'Sem descrição.'}
+                  </p>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {component.tags.slice(0, 3).map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary dark:bg-primary/20"
+                      >
+                        #{tag}
                       </span>
                     ))}
                     {component.tags.length > 3 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                         +{component.tags.length - 3}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {format(component.created_at, "dd/MM/yyyy")}
-                  </span>
+                  
+                  {/* Instâncias por ambiente */}
+                  {component.totalInstances > 0 && (
+                    <div className="mt-auto">
+                      <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <ServerIcon className="h-3.5 w-3.5 mr-1" />
+                        <span>{component.totalInstances} instância{component.totalInstances !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {component.instancesByEnvironment?.map((env) => (
+                          <span 
+                            key={env.environmentId}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
+                            title={`${env.count} instância${env.count !== 1 ? 's' : ''} em ${getEnvironmentName(env.environmentId)}`}
+                          >
+                            {getEnvironmentName(env.environmentId)}: {env.count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Categoria e time */}
+                  <div className="flex justify-between items-center mt-auto text-xs text-gray-500 dark:text-gray-400">
+                    {component.category && (
+                      <div className="flex items-center">
+                        <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
+                          {component.category.image ? (
+                            <img 
+                              src={`/images/categories/${component.category.image}`} 
+                              alt={component.category.name}
+                              className="w-3 h-3 mr-1 object-contain"
+                            />
+                          ) : null}
+                          {component.category.name}
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {format(component.created_at, "dd/MM/yyyy")}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))
@@ -643,62 +708,171 @@ export default function ComponentsPage() {
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
-                  <p className="text-foreground">{selectedComponent.description}</p>
-                </div>
+              <Tabs defaultValue="overview" className="mt-4">
+                <TabsList>
+                  <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                  <TabsTrigger value="instances">
+                    Instâncias {selectedComponent?.instances?.length ? `(${selectedComponent.instances.length})` : ''}
+                  </TabsTrigger>
+                  <TabsTrigger value="relations">Relacionamentos</TabsTrigger>
+                </TabsList>
 
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Tags</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedComponent.tags.map((tag, index) => (
-                      <span key={index} className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-sm">
-                        <Tag size={14} className="mr-1" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Detalhes</h3>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <div className="text-sm text-muted-foreground">ID:</div>
-                    <div className="text-sm">{selectedComponent.id}</div>
-                    
-                    <div className="text-sm text-muted-foreground">Categoria:</div>
-                    <div className="text-sm">
-                      {selectedComponent.category ? selectedComponent.category.name : 'Sem categoria'}
+                <TabsContent value="overview" className="mt-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium">Descrição</h4>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {selectedComponent?.description || 'Sem descrição disponível.'}
+                      </p>
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground">Data de Criação:</div>
-                    <div className="text-sm">{format(selectedComponent.created_at, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</div>
-                  </div>
-                </div>
 
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>
-                  {relationsLoading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                      <p className="text-sm text-muted-foreground">Verificando...</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium">Status</h4>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {selectedComponent?.status === ComponentStatus.ACTIVE ? 'Ativo' : 
+                           selectedComponent?.status === ComponentStatus.INACTIVE ? 'Inativo' : 'Depreciado'}
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium">Data de Criação</h4>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {selectedComponent?.createdAt ? format(new Date(selectedComponent.createdAt), 'dd/MM/yyyy') : '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Categoria */}
+                    {selectedComponent?.category ? (
+                      <div>
+                        <h4 className="text-sm font-medium">Categoria</h4>
+                        <div className="mt-1 flex items-center">
+                          {selectedComponent.category.image && (
+                            <div className="h-6 w-6 mr-2 bg-muted rounded flex items-center justify-center">
+                              <Image 
+                                src={selectedComponent.category.image} 
+                                alt={selectedComponent.category.name} 
+                                width={20} 
+                                height={20} 
+                              />
+                            </div>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            {selectedComponent.category.name}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Time responsável */}
+                    {selectedComponent?.team ? (
+                      <div>
+                        <h4 className="text-sm font-medium">Time Responsável</h4>
+                        <div className="mt-1 flex items-center">
+                          <span className="text-sm text-muted-foreground">
+                            {selectedComponent.team.name}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Tags */}
+                    {selectedComponent?.tags && selectedComponent.tags.length > 0 ? (
+                      <div>
+                        <h4 className="text-sm font-medium">Tags</h4>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {selectedComponent.tags.map((tag, index) => (
+                            <span 
+                              key={index} 
+                              className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary dark:bg-primary/20"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="instances" className="mt-4">
+                  {selectedComponent?.instances && selectedComponent.instances.length > 0 ? (
+                    <div className="space-y-4">
+                      {selectedComponent.instances.map((instance) => (
+                        <div
+                          key={instance.id}
+                          className="p-3 border rounded-md bg-muted/10"
+                        >
+                          <div className="flex justify-between">
+                            <div className="flex items-center">
+                              <div className="p-1.5 bg-primary/10 rounded mr-2">
+                                <ServerIcon className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <h5 className="text-sm font-medium">
+                                  {instance.hostname || `Instância ${instance.id}`}
+                                </h5>
+                                <p className="text-xs text-muted-foreground">
+                                  {instance.environment?.name || "Ambiente desconhecido"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(instance.createdAt), "dd/MM/yyyy")}
+                            </div>
+                          </div>
+                          
+                          {instance.specs && Object.keys(instance.specs).length > 0 && (
+                            <div className="mt-2 border-t pt-2">
+                              <h6 className="text-xs font-medium mb-1">Especificações</h6>
+                              <div className="grid grid-cols-2 gap-2">
+                                {Object.entries(instance.specs).map(([key, value]) => (
+                                  <div key={key} className="text-xs">
+                                    <span className="font-medium">{key}:</span>{" "}
+                                    <span className="text-muted-foreground">{value?.toString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <p className="text-sm">
-                      {hasRelations ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-destructive text-destructive-foreground font-medium">
-                          SIM
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-warning text-warning-foreground font-medium">
-                          NÃO
-                        </span>
-                      )}
-                    </p>
+                    <div className="text-center py-8">
+                      <ServerIcon className="h-12 w-12 mx-auto text-muted-foreground opacity-20" />
+                      <h3 className="mt-2 text-sm font-medium">Nenhuma instância</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Este componente não possui instâncias em nenhum ambiente.
+                      </p>
+                    </div>
                   )}
-                </div>
-              </div>
+                </TabsContent>
+
+                <TabsContent value="relations" className="mt-4">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Relacionamentos</h3>
+                    {relationsLoading ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        <p className="text-sm text-muted-foreground">Verificando...</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm">
+                        {hasRelations ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-destructive text-destructive-foreground font-medium">
+                            SIM
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs rounded-full bg-warning text-warning-foreground font-medium">
+                            NÃO
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <div className="mt-6 pt-4 border-t flex flex-col gap-4">
                 {hasRelations && (
