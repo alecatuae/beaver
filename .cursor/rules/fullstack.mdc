@@ -12,7 +12,7 @@ Siga os princípios arquiteturais, padrões de UI e práticas de desenvolvimento
 ## Diretrizes Gerais
 - **Consistência de Código**: Siga os padrões de codificação descritos no documento `Architecture_v2.0_pt_br.md`. 
 - Certifique-se de que todo o código esteja minuciosamente comentado em inglês (en-us).
-- **Documentação**: Atualize o `docs/2.0/CHANGELOG` com cada mudança significativa na base de código.
+- **Documentação**: Atualize (em en-us) o `docs/2.0/CHANGELOG` com cada mudança significativa na base de código.
 
 ## Desenvolvimento Frontend
 - Use **Next.js 14.1.x** para server-side rendering e **React 18.2.x** para construção de componentes UI.
