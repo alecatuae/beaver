@@ -47,6 +47,15 @@ export const GET_COMPONENTS = gql`
       tags {
         tag
       }
+      team {
+        id
+        name
+      }
+      totalInstances
+      instancesByEnvironment {
+        environmentId
+        count
+      }
     }
   }
 `;
@@ -59,16 +68,54 @@ export const GET_COMPONENT = gql`
       description
       status
       createdAt
+      category {
+        id
+        name
+        image
+      }
+      team {
+        id
+        name
+        description
+      }
       tags {
         tag
       }
+      instances {
+        id
+        hostname
+        specs
+        createdAt
+        environment {
+          id
+          name
+        }
+      }
+      referencedGlossaryTerms {
+        id
+        term
+        definition
+        status
+      }
+      relatedComponents {
+        id
+        name
+        status
+      }
+      lastUpdatedAt
+      lastUpdatedBy {
+        id
+        fullName
+      }
+      validFrom
+      validTo
     }
   }
 `;
 
 export const GET_GRAPH_DATA = gql`
-  query GetGraphData($depth: Int) {
-    graphData(depth: $depth) {
+  query GetGraphData($depth: Int, $environmentId: Int, $teamId: Int) {
+    graphData(depth: $depth, environmentId: $environmentId, teamId: $teamId) {
       nodes {
         id
         name
@@ -76,12 +123,19 @@ export const GET_GRAPH_DATA = gql`
         type
         validFrom
         validTo
+        status
+        teamId
+        environmentId
+        componentId
+        categoryId
+        properties
       }
       edges {
         id
         source
         target
         label
+        type
         properties
       }
     }
@@ -97,10 +151,16 @@ export const CREATE_COMPONENT = gql`
       description
       status
       categoryId
+      team {
+        id
+        name
+      }
       createdAt
       tags {
         tag
       }
+      validFrom
+      validTo
     }
   }
 `;
@@ -113,10 +173,17 @@ export const UPDATE_COMPONENT = gql`
       description
       status
       categoryId
+      team {
+        id
+        name
+      }
       createdAt
       tags {
         tag
       }
+      validFrom
+      validTo
+      lastUpdatedAt
     }
   }
 `;
@@ -229,9 +296,37 @@ export interface ComponentType {
   name: string;
   description: string;
   status: ComponentStatus;
+  categoryId?: number | null;
+  category?: CategoryType;
+  teamId?: number | null;
+  team?: TeamType;
   createdAt: Date;
   tags: string[];
   hasRelations?: boolean;
+  instances?: ComponentInstanceType[];
+  totalInstances?: number;
+  instancesByEnvironment?: {
+    environmentId: number;
+    count: number;
+  }[];
+  referencedGlossaryTerms?: {
+    id: number;
+    term: string;
+    definition: string;
+    status: string;
+  }[];
+  relatedComponents?: {
+    id: number;
+    name: string;
+    status: ComponentStatus;
+  }[];
+  lastUpdatedAt?: string;
+  lastUpdatedBy?: {
+    id: number;
+    fullName: string;
+  };
+  validFrom?: string;
+  validTo?: string;
 }
 
 export interface ComponentInput {
@@ -239,7 +334,11 @@ export interface ComponentInput {
   description?: string;
   status?: ComponentStatus;
   categoryId?: number | null;
+  teamId?: number | null;
   tags?: string[];
+  validFrom?: string;
+  validTo?: string;
+  referencedTerms?: string[];
 }
 
 export interface RelationInput {
@@ -272,12 +371,19 @@ export interface GraphData {
     type: string;
     validFrom?: string;
     validTo?: string;
+    status?: string;
+    teamId?: number;
+    environmentId?: number;
+    componentId?: number;
+    categoryId?: number;
+    properties?: Record<string, any>;
   }>;
   edges: Array<{
     id: string;
     source: string;
     target: string;
     label: string;
+    type?: string;
     properties?: Record<string, any>;
   }>;
 }
@@ -291,9 +397,6 @@ export const GET_CATEGORIES = gql`
       description
       image
       createdAt
-      components {
-        id
-      }
     }
   }
 `;
@@ -310,40 +413,304 @@ export const GET_CATEGORY = gql`
   }
 `;
 
+// Novas queries para ambientes
+export const GET_ENVIRONMENTS = gql`
+  query GetEnvironments {
+    environments {
+      id
+      name
+      description
+      createdAt
+      instances {
+        id
+        hostname
+        component {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
+export const GET_ENVIRONMENT = gql`
+  query GetEnvironment($id: Int!) {
+    environment(id: $id) {
+      id
+      name
+      description
+      createdAt
+      instances {
+        id
+        hostname
+        specs
+        createdAt
+        component {
+          id
+          name
+          status
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_ENVIRONMENT = gql`
+  mutation CreateEnvironment($input: EnvironmentInput!) {
+    createEnvironment(input: $input) {
+      id
+      name
+      description
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_ENVIRONMENT = gql`
+  mutation UpdateEnvironment($id: Int!, $input: EnvironmentInput!) {
+    updateEnvironment(id: $id, input: $input) {
+      id
+      name
+      description
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_ENVIRONMENT = gql`
+  mutation DeleteEnvironment($id: Int!) {
+    deleteEnvironment(id: $id)
+  }
+`;
+
+// Query para obter instâncias de componentes em um ambiente específico
+export const GET_COMPONENT_INSTANCES_BY_ENVIRONMENT = gql`
+  query GetComponentInstancesByEnvironment($environmentId: Int!) {
+    componentInstancesByEnvironment(environmentId: $environmentId) {
+      id
+      hostname
+      specs
+      createdAt
+      component {
+        id
+        name
+        status
+        description
+      }
+    }
+  }
+`;
+
+// Queries e mutations para instâncias de componentes
+export const GET_COMPONENT_INSTANCES = gql`
+  query GetComponentInstances {
+    componentInstances {
+      id
+      hostname
+      specs
+      createdAt
+      component {
+        id
+        name
+        status
+      }
+      environment {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const GET_COMPONENT_INSTANCE = gql`
+  query GetComponentInstance($id: Int!) {
+    componentInstance(id: $id) {
+      id
+      hostname
+      specs
+      createdAt
+      component {
+        id
+        name
+        status
+        description
+      }
+      environment {
+        id
+        name
+        description
+      }
+    }
+  }
+`;
+
+export const CREATE_COMPONENT_INSTANCE = gql`
+  mutation CreateComponentInstance($input: ComponentInstanceInput!) {
+    createComponentInstance(input: $input) {
+      id
+      hostname
+      specs
+      createdAt
+      component {
+        id
+        name
+      }
+      environment {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const UPDATE_COMPONENT_INSTANCE = gql`
+  mutation UpdateComponentInstance($id: Int!, $input: ComponentInstanceInput!) {
+    updateComponentInstance(id: $id, input: $input) {
+      id
+      hostname
+      specs
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_COMPONENT_INSTANCE = gql`
+  mutation DeleteComponentInstance($id: Int!) {
+    deleteComponentInstance(id: $id)
+  }
+`;
+
+// Queries e mutations para times
+export const GET_TEAMS = gql`
+  query GetTeams {
+    teams {
+      id
+      name
+      description
+      createdAt
+      members {
+        id
+        user {
+          id
+          fullName
+          email
+        }
+        joinDate
+      }
+      components {
+        id
+        name
+        status
+      }
+    }
+  }
+`;
+
+export const GET_TEAM = gql`
+  query GetTeam($id: Int!) {
+    team(id: $id) {
+      id
+      name
+      description
+      createdAt
+      members {
+        id
+        user {
+          id
+          fullName
+          email
+          role
+        }
+        joinDate
+      }
+      components {
+        id
+        name
+        description
+        status
+        instances {
+          id
+          hostname
+          environment {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_TEAM = gql`
+  mutation CreateTeam($input: TeamInput!) {
+    createTeam(input: $input) {
+      id
+      name
+      description
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_TEAM = gql`
+  mutation UpdateTeam($id: Int!, $input: TeamInput!) {
+    updateTeam(id: $id, input: $input) {
+      id
+      name
+      description
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_TEAM = gql`
+  mutation DeleteTeam($id: Int!) {
+    deleteTeam(id: $id)
+  }
+`;
+
+// Queries e mutations para membros de times
+export const ADD_TEAM_MEMBER = gql`
+  mutation AddTeamMember($input: TeamMemberInput!) {
+    addTeamMember(input: $input) {
+      id
+      team {
+        id
+        name
+      }
+      user {
+        id
+        fullName
+      }
+      joinDate
+    }
+  }
+`;
+
+export const REMOVE_TEAM_MEMBER = gql`
+  mutation RemoveTeamMember($teamId: Int!, $userId: Int!) {
+    removeTeamMember(teamId: $teamId, userId: $userId)
+  }
+`;
+
+export const GET_USERS_NOT_IN_TEAM = gql`
+  query GetUsersNotInTeam($teamId: Int!) {
+    usersNotInTeam(teamId: $teamId) {
+      id
+      fullName
+      email
+      role
+    }
+  }
+`;
+
+// Queries para categorias
 export const GET_CATEGORY_IMAGES = gql`
   query GetCategoryImages {
-    categoryImages
-  }
-`;
-
-// Mutations para categorias
-export const CREATE_CATEGORY = gql`
-  mutation CreateCategory($input: CategoryInput!) {
-    createCategory(input: $input) {
-      id
+    categoryImages {
       name
-      description
-      image
-      createdAt
+      url
     }
-  }
-`;
-
-export const UPDATE_CATEGORY = gql`
-  mutation UpdateCategory($id: Int!, $input: CategoryInput!) {
-    updateCategory(id: $id, input: $input) {
-      id
-      name
-      description
-      image
-      createdAt
-    }
-  }
-`;
-
-export const DELETE_CATEGORY = gql`
-  mutation DeleteCategory($id: Int!) {
-    deleteCategory(id: $id)
   }
 `;
 
@@ -361,4 +728,81 @@ export interface CategoryInput {
   name: string;
   description?: string;
   image?: string;
+}
+
+// Interface para Environment
+export interface EnvironmentType {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  instances?: ComponentInstanceType[];
+}
+
+// Interface para EnvironmentInput
+export interface EnvironmentInput {
+  name: string;
+  description?: string;
+}
+
+// Interface para ComponentInstance
+export interface ComponentInstanceType {
+  id: number;
+  componentId: number;
+  environmentId: number;
+  hostname?: string;
+  specs?: Record<string, any>;
+  createdAt: Date;
+  component?: ComponentType;
+  environment?: EnvironmentType;
+}
+
+// Interface para ComponentInstanceInput
+export interface ComponentInstanceInput {
+  componentId: number;
+  environmentId: number;
+  hostname?: string;
+  specs?: Record<string, any>;
+}
+
+// Interface para Team
+export interface TeamType {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  members?: TeamMemberType[];
+  components?: ComponentType[];
+}
+
+// Interface para TeamInput
+export interface TeamInput {
+  name: string;
+  description?: string;
+  members?: TeamMemberInput[];
+}
+
+// Interface para TeamMember
+export interface TeamMemberType {
+  id: number;
+  teamId: number;
+  userId: number;
+  joinDate: Date;
+  user?: {
+    id: number;
+    fullName: string;
+    email: string;
+    role?: string;
+  };
+  team?: TeamType;
+}
+
+// Interface para TeamMemberInput
+export interface TeamMemberInput {
+  teamId: number;
+  userId: number;
+  joinDate?: Date;
 } 
+
+// Exportar todas as queries, mutations e definições relacionadas a ADRs
+export * from './graphql-adr';

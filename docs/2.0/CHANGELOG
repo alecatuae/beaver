@@ -38,6 +38,24 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - Melhorias nos tipos ADRInput e ComponentInput para suportar termos do glossário, tags e relacionamentos entre entidades
 - Expansão dos filtros GraphQL para permitir consultas mais granulares por ambiente, time e papel de participante
 - Verificação da compatibilidade de tipagem com hooks personalizados existentes e componentes que utilizam os tipos atualizados
+- Implementação de queries e mutations para Environments (GET_ENVIRONMENTS, GET_ENVIRONMENT, CREATE_ENVIRONMENT, UPDATE_ENVIRONMENT, DELETE_ENVIRONMENT)
+- Implementação de queries e mutations para ComponentInstances (GET_COMPONENT_INSTANCES, GET_COMPONENT_INSTANCE, CREATE_COMPONENT_INSTANCE, UPDATE_COMPONENT_INSTANCE, DELETE_COMPONENT_INSTANCE)
+- Adição de query específica para buscar instâncias por ambiente (GET_COMPONENT_INSTANCES_BY_ENVIRONMENT)
+- Criação de interfaces TypeScript para EnvironmentType, EnvironmentInput, ComponentInstanceType e ComponentInstanceInput
+- Implementação de queries e mutations para Teams (GET_TEAMS, GET_TEAM, CREATE_TEAM, UPDATE_TEAM, DELETE_TEAM)
+- Implementação de mutations para gerenciamento de membros de times (ADD_TEAM_MEMBER, REMOVE_TEAM_MEMBER)
+- Adição de query auxiliar para listar usuários que não pertencem a um time específico (GET_USERS_NOT_IN_TEAM)
+- Criação de interfaces TypeScript para TeamType, TeamInput, TeamMemberType e TeamMemberInput
+- Atualização de queries de componentes (GET_COMPONENTS, GET_COMPONENT) para incluir novas relações com times, instâncias e termos do glossário
+- Ampliação da query GET_GRAPH_DATA para suportar filtragem por ambiente e time 
+- Expansão das interfaces ComponentType e ComponentInput com novos campos para suporte à validação temporal, associação a times e rastreabilidade de atualizações
+- Implementação de queries e mutations para ADRs com suporte ao novo modelo de participantes múltiplos (GET_ADRS, GET_ADR, GET_ADR_BY_COMPONENT, GET_ADR_BY_ENVIRONMENT, GET_PENDING_APPROVAL_ADRS)
+- Criação de queries específicas para ADRs filtrados por componente, ambiente e aprovações pendentes
+- Implementação de mutations para gerenciamento de participantes de ADRs (ADD_ADR_PARTICIPANT, UPDATE_ADR_PARTICIPANT, REMOVE_ADR_PARTICIPANT, APPROVE_ADR)
+- Adição de mutations para associar componentes e instâncias a ADRs com diferentes níveis de impacto
+- Suporte para relacionamentos entre ADRs (relacionados e substituídos) através de mutations específicas (ADD_RELATED_ADR, REMOVE_RELATED_ADR, SET_SUPERSEDED_ADR)
+- Criação de interfaces TypeScript para ADRType, ADRParticipantType, ADRInput, ADRParticipantInput e ADRFilter
+- Separação lógica do código GraphQL relacionado a ADRs em arquivo dedicado (graphql-adr.ts)
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements

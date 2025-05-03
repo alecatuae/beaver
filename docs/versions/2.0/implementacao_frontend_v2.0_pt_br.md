@@ -628,15 +628,15 @@ A seguir está um checklist detalhado para orientar a implantação das alteraç
 
 ### 3. Atualização de Queries e Mutations
 
-- [ ] Implementar novas queries para ambientes (`src/graphql/environmentQueries.ts`)
-- [ ] Implementar novas queries para times (`src/graphql/teamQueries.ts`)
-- [ ] Atualizar queries de componentes para incluir novas relações
-- [ ] Atualizar queries de ADRs para trabalhar com participantes
-- [ ] Implementar novas mutations para ambientes
-- [ ] Implementar novas mutations para times e membros
-- [ ] Implementar mutations para instâncias de componentes
-- [ ] Atualizar mutations de ADRs para trabalhar com participantes
-- [ ] Testar todas as queries e mutations no Apollo Sandbox
+- [x] Implementar novas queries para ambientes (`src/graphql/environmentQueries.ts`)
+- [x] Implementar novas queries para times (`src/graphql/teamQueries.ts`)
+- [x] Atualizar queries de componentes para incluir novas relações
+- [x] Atualizar queries de ADRs para trabalhar com participantes
+- [x] Implementar novas mutations para ambientes
+- [x] Implementar novas mutations para times e membros
+- [x] Implementar mutations para instâncias de componentes
+- [x] Atualizar mutations de ADRs para trabalhar com participantes
+- [x] Testar todas as queries e mutations no Apollo Sandbox
 
 ### 4. Componentes de UI
 
