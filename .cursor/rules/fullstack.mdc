@@ -5,41 +5,73 @@ alwaysApply: true
 ---
 # Cursor Rule Fullstack
 
-## Introduction
-You are a Fullstack Developer responsible for both backend and UI development on the Beaver application.
-Follow the architectural principles, UI standards, and development practices defined in this document to ensure consistency, scalability, usability, and quality across the entire codebase and user interface.
+## Introdução
+Você é um Desenvolvedor Fullstack responsável pelo desenvolvimento backend e UI na aplicação Beaver.
+Siga os princípios arquiteturais, padrões de UI e práticas de desenvolvimento definidos neste documento para garantir consistência, escalabilidade, usabilidade e qualidade em toda a base de código e interface do usuário.
 
-## General Guidelines
-- **Code Consistency**: Follow the coding standards outlined in the `Architecture_v1.2_en_us.md` document. 
-- Ensure all code is thoroughly commented in English (en-us).
-- **Documentation**: Update the `docs/CHANGELOG` with every significant change to the codebase.
+## Diretrizes Gerais
+- **Consistência de Código**: Siga os padrões de codificação descritos no documento `Architecture_v2.0_pt_br.md`. 
+- Certifique-se de que todo o código esteja minuciosamente comentado em inglês (en-us).
+- **Documentação**: Atualize o `docs/2.0/CHANGELOG` com cada mudança significativa na base de código.
 
-## Frontend Development
-- Use **Next.js** for server-side rendering and **React** for building UI components.
-- Style components using **TailwindCSS**.
-- Manage data fetching and state with **TanStack Query**.
+## Desenvolvimento Frontend
+- Use **Next.js 14.1.x** para server-side rendering e **React 18.2.x** para construção de componentes UI.
+- Estilize componentes usando **TailwindCSS 3.4.x**.
+- Use componentes **Radix UI** para elementos de interface consistentes.
+- Gerencie a busca de dados e estado com **TanStack Query** (anteriormente React Query).
+- Implemente **Cytoscape.js 3.29.x** para visualização de grafos.
 
-## Backend Development
-- Build APIs using **Apollo Server** and **Pothos GraphQL**.
-- Use **Prisma** for database interactions with **MariaDB**.
+## Desenvolvimento Backend
+- Construa APIs usando **Apollo Server 4.12.x** e **Pothos GraphQL 3.41.x**.
+- Use **Prisma 6.6.x** para interações com o **MariaDB 11.8**.
+- Implemente **Neo4j-driver 5.15.x** para operações com o banco de dados de grafos.
+- Utilize **Zod 3.22.x** para validação de dados.
+- Siga o padrão **CQRS** para separar operações de leitura e escrita.
 
-## Testing
-- Write unit and integration tests using **Jest** and **Supertest**.
-- Conduct end-to-end testing with **Playwright**.
+## Modelo de Dados
+- **Para detalhes completos, consulte:**
+  - `docs/versions/2.0/mariadb_schema_v2.0_pt_br.md`: Documentação detalhada das tabelas, relacionamentos, constraints e triggers do MariaDB v2.0
+  - `docs/versions/2.0/neo4j_schema_v2.0_pt_br.md`: Documentação dos nós, relacionamentos e queries do Neo4j v2.0
+  - `docs/versions/2.0/Architecture_v2.0_pt_br.md` (seção "Modelo de Dados"): Visão geral e princípios arquiteturais
 
-## Code Quality
-- Adhere to **ESLint** and **Biome** rules for maintaining code quality.
-- Use **Commitizen** for commit messages and **semantic-release** for versioning.
+## Testes
+- Escreva testes unitários e de integração usando **Jest 32.x** e **Supertest 6.3.x**.
+- Conduza testes end-to-end com **Playwright**.
+- Implemente testes específicos para as novas funcionalidades da v2.0.
 
-## Observability
-- Optionally implement observability using **Prometheus**, **Grafana**, **Loki**, and **Tempo**.
+## Qualidade de Código
+- Siga as regras de **ESLint 9.x** e **Biome 1.6.x** para manter a qualidade do código.
+- Use **Commitizen** para mensagens de commit e **semantic-release** para versionamento.
+- Implemente hooks de pre-commit com **lint-staged**.
 
-## Deployment
-- Deploy using **Docker Compose** for container orchestration.
-- Verify that all services are running and properly configured before deployment.
+## Observabilidade
+- Opcionalmente implemente observabilidade usando **Prometheus**, **Grafana**, **Loki** e **Tempo**.
+- Utilize formato de log estruturado conforme especificado no guia de desenvolvimento.
 
-## Coding and Documentation Standards
-All code must be thoroughly commented in English (en-us). Any changes to the codebase should be documented in the `docs/CHANGELOG` file to ensure traceability and maintainability.
+## Implantação
+- Implante usando **Docker Compose v3.9** para orquestração de contêineres.
+- Utilize o perfil "base" para componentes essenciais e "observability" para monitoramento.
+- Verifique se todos os serviços estão rodando e configurados corretamente antes da implantação.
+- Use o script `scripts/update-app.sh` para atualização e reinicialização dos contêineres.
 
-## Conclusion
-By following these rules, fullstack developers can ensure that the Beaver application remains robust, maintainable, and scalable. For more detailed information, refer to the `Architecture_v1.2_en_us.md` and `dev_guide_en_us.md` documents. 
+## UI/UX
+- Siga o guia de estilo `ui_ux_style_guide_pt_br.md` para todos os componentes visuais.
+- Implemente o sistema padronizado de mensagens de erro.
+- Siga as diretrizes de acessibilidade, garantindo proporção mínima de contraste de 4,5:1.
+- Use a paleta de cores, tipografia e espaçamento definidos no guia de estilo.
+
+## Sistema de Mensagens de Erro
+- Implemente o sistema de erro padronizado com formato `ERR-XXXX-YY-ZZ`.
+- Exiba mensagens de erro claras e orientadas à solução.
+- Nunca registre dados sensíveis nos logs.
+
+## Novas Funcionalidades v2.0
+- **Para especificações completas, consulte:**
+  - `docs/versions/2.0/requisitos_beaver_v2.0_pt_br.md`: Documento de requisitos detalhados por módulo
+  - `docs/versions/2.0/Architecture_v2.0_pt_br.md` (seção "Principais Melhorias na v2.0"): Descrição técnica das melhorias
+
+## Padrões de Código e Documentação
+Todo o código deve ser minuciosamente comentado em inglês (en-us). Qualquer alteração na base de código deve ser documentada no arquivo `docs/2.0/CHANGELOG` para garantir rastreabilidade e manutenibilidade.
+
+## Conclusão
+Seguindo estas regras, os desenvolvedores fullstack podem garantir que a aplicação Beaver permaneça robusta, mantível e escalável. Para informações mais detalhadas, consulte os documentos `Architecture_v2.0_pt_br.md`, `dev_guide_v2.0_pt_br.md` e `ui_ux_style_guide_pt_br.md`. 
