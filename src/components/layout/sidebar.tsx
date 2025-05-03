@@ -22,6 +22,17 @@ import {
   ChevronUp,
   Network,
   TagIcon,
+  Server,
+  ListTodo,
+  Activity,
+  Calendar,
+  Clock,
+  Layers,
+  UserCheck,
+  FileCode,
+  Database,
+  ShieldCheck,
+  Clock3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from 'next-themes';
@@ -67,28 +78,92 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
       activeColor: 'text-primary',
     },
     {
-      href: '/arch-overview',
       label: 'Arch Overview',
       icon: <LibraryBig size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/arch-overview/graph',
+          label: 'Graph View',
+          icon: <Network size={16} />
+        },
+        {
+          href: '/arch-overview/trm',
+          label: 'TRM View',
+          icon: <Layers size={16} />
+        },
+        {
+          href: '/arch-overview/timeline',
+          label: 'Timeline View',
+          icon: <Clock size={16} />
+        }
+      ]
     },
     {
-      href: '/adr-management',
       label: 'ADR Management',
       icon: <FileText size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/adr-management/list',
+          label: 'ADR List',
+          icon: <FileText size={16} />
+        },
+        {
+          href: '/adr-management/my-adrs',
+          label: 'My ADRs',
+          icon: <FileCode size={16} />
+        },
+        {
+          href: '/adr-management/templates',
+          label: 'ADR Templates',
+          icon: <FileText size={16} />
+        }
+      ]
     },
     {
-      href: '/impact-workflow',
       label: 'Impact Workflow',
       icon: <CloudLightning size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/impact-workflow/analysis',
+          label: 'Impact Analysis',
+          icon: <Activity size={16} />
+        },
+        {
+          href: '/impact-workflow/pending-reviews',
+          label: 'Pending Reviews',
+          icon: <Clock3 size={16} />
+        },
+        {
+          href: '/impact-workflow/change-history',
+          label: 'Change History',
+          icon: <Calendar size={16} />
+        }
+      ]
     },
     {
-      href: '/glossary',
       label: 'Glossário',
       icon: <BookOpen size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/glossary/terms',
+          label: 'Term List',
+          icon: <BookOpen size={16} />
+        },
+        {
+          href: '/glossary/admin',
+          label: 'Term Admin',
+          icon: <UserCheck size={16} />
+        },
+        {
+          href: '/glossary/categories',
+          label: 'Categories',
+          icon: <TagIcon size={16} />
+        }
+      ]
     },
     {
       label: 'Components Management',
@@ -109,26 +184,143 @@ export function Sidebar({ isExpanded, onToggle }: SidebarProps) {
           href: '/relationships',
           label: 'Relationship',
           icon: <Network size={16} />,
+        },
+        {
+          href: '/instances',
+          label: 'Instances',
+          icon: <Database size={16} />,
         }
       ]
     },
     {
-      href: '/team-management',
       label: 'Team Management',
       icon: <Users size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/team-management/teams',
+          label: 'Teams',
+          icon: <Users size={16} />
+        },
+        {
+          href: '/team-management/members',
+          label: 'Members',
+          icon: <UserCheck size={16} />
+        },
+        {
+          href: '/team-management/responsibilities',
+          label: 'Responsibilities',
+          icon: <ShieldCheck size={16} />
+        },
+        {
+          href: '/team-management/dashboard',
+          label: 'Team Dashboard',
+          icon: <BarChart size={16} />
+        }
+      ]
     },
     {
-      href: '/system-settings',
-      label: 'System Settings',
+      label: 'Environment Management',
+      icon: <Server size={20} />,
+      activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/environments',
+          label: 'Environments',
+          icon: <Server size={16} />
+        },
+        {
+          href: '/environments/deployment',
+          label: 'Deployment Flow',
+          icon: <Network size={16} />
+        },
+        {
+          href: '/environments/status',
+          label: 'Status Dashboard',
+          icon: <Activity size={16} />
+        }
+      ]
+    },
+    {
+      label: 'Backlog Unificado',
+      icon: <ListTodo size={20} />,
+      activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/backlog/kanban',
+          label: 'Kanban Board',
+          icon: <ListTodo size={16} />
+        },
+        {
+          href: '/backlog/timeline',
+          label: 'Timeline',
+          icon: <Calendar size={16} />
+        },
+        {
+          href: '/backlog/roadmap-types',
+          label: 'Roadmap Types',
+          icon: <TagIcon size={16} />
+        }
+      ]
+    },
+    {
+      label: 'Admin & Settings',
       icon: <Settings size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/admin/users',
+          label: 'User Management',
+          icon: <Users size={16} />
+        },
+        {
+          href: '/admin/system',
+          label: 'System Configuration',
+          icon: <Settings size={16} />
+        },
+        {
+          href: '/admin/ui',
+          label: 'UI Preferences',
+          icon: <LayoutDashboard size={16} />
+        },
+        {
+          href: '/admin/security',
+          label: 'Security',
+          icon: <ShieldCheck size={16} />
+        },
+        {
+          href: '/admin/backup',
+          label: 'Backup & Retention',
+          icon: <Database size={16} />
+        }
+      ]
     },
     {
-      href: '/logs',
-      label: 'Logs',
+      label: 'Logs & Monitoring',
       icon: <BarChart size={20} />,
       activeColor: 'text-primary',
+      subItems: [
+        {
+          href: '/logs/system',
+          label: 'System Logs',
+          icon: <Activity size={16} />
+        },
+        {
+          href: '/logs/audit',
+          label: 'Audit Logs',
+          icon: <ShieldCheck size={16} />
+        },
+        {
+          href: '/logs/performance',
+          label: 'Performance Metrics',
+          icon: <BarChart size={16} />
+        },
+        {
+          href: '/logs/reports',
+          label: 'Reports',
+          icon: <FileText size={16} />
+        }
+      ]
     },
   ];
 

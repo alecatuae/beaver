@@ -56,6 +56,52 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - Suporte para relacionamentos entre ADRs (relacionados e substituídos) através de mutations específicas (ADD_RELATED_ADR, REMOVE_RELATED_ADR, SET_SUPERSEDED_ADR)
 - Criação de interfaces TypeScript para ADRType, ADRParticipantType, ADRInput, ADRParticipantInput e ADRFilter
 - Separação lógica do código GraphQL relacionado a ADRs em arquivo dedicado (graphql-adr.ts)
+- Implementação de componentes seletores dinâmicos (EnvironmentSelector, TeamSelector) para uso em formulários e filtros
+- Componentes de seleção com gerenciamento integrado de estados de carregamento, erro e dados vazios
+- Suporte a customização de estilos e comportamentos nos seletores através de props
+- Atualização de formulários para usar os novos seletores dinâmicos:
+  - Formulário de Componentes atualizado para usar TeamSelector
+  - Formulário de ADRs com suporte ao novo modelo de participantes múltiplos
+  - Formulário de Relacionamentos expandido para suportar relacionamentos entre instâncias específicas em ambientes
+- Implementação da visualização hierárquica para TRM (Technical Reference Model):
+  - Componente de árvore TRM que mostra camadas e categorias em estrutura hierárquica
+  - Suporte a expansão/colapso de nós na visualização em árvore
+  - Codificação por cores para diferentes níveis do TRM (Infrastructure, Platform, Application, Shared Services)
+  - Seleção de nós com exibição de detalhes complementares
+  - Painel de detalhes para mostrar informações sobre camadas e categorias selecionadas
+  - Visualização alternativa em grid para camadas TRM
+  - Filtros por camada TRM para facilitar navegação em grandes hierarquias
+- Atualização dos componentes de visualização de grafo para incluir instâncias:
+  - Suporte para visualização de instâncias de componentes no grafo
+  - Diferenciação visual entre componentes, instâncias e ambientes
+  - Filtragem de grafo por ambiente específico
+  - Destaque de instâncias relacionadas a um componente selecionado
+  - Painel de detalhes expandido para mostrar informações específicas de instâncias
+  - Controles de interface para exibir/ocultar instâncias no grafo
+  - Suporte a diferentes layouts de grafo (cola, em largura, concêntrico)
+  - Codificação por cores para diferentes tipos de relacionamentos (INSTANTIATES, DEPLOYED_IN)
+  - Ajuste automático de visualização baseado no ambiente selecionado
+  - Melhoria na experiência do usuário com estados de carregamento e erro
+- Implementação do sistema padronizado de mensagens de erro:
+  - Definição de códigos de erro no formato ERR-XXXX-YY-ZZ para rastreabilidade
+  - Componentes de UI para exibição consistente de mensagens de erro
+  - Mensagens de erro formatadas com título, descrição, solução e código
+  - Hook personalizado para gerenciamento centralizado de erros (useErrorHandler)
+  - Integração com Apollo Client para tratamento padronizado de erros de API
+  - Diferentes variantes de mensagens de erro (global, formulário, inline)
+  - Contexto global de erro para gerenciamento de mensagens em toda a aplicação
+  - Logs estruturados para facilitar depuração
+  - Suporte a diferentes níveis de detalhe baseado no ambiente (desenvolvimento/produção)
+  - Sanitização de dados sensíveis em logs de erro
+- Atualização do sidebar para incluir todas as novas seções da v2.0:
+  - Reorganização da navegação em estrutura hierárquica com submenus expansíveis
+  - Suporte a navegação facilitada entre módulos relacionados
+  - Inclusão de novos menus: Environment Management, Backlog Unificado
+  - Estruturação de submenus para Arch Overview (Graph View, TRM View, Timeline View)
+  - Detalhamento de opções para cada módulo principal conforme especificação
+  - Expansão da área Admin & Settings com submenus dedicados
+  - Implementação do sistema de highlight visual para item atual
+  - Suporte a expansão/retração do sidebar para maximizar a área útil da tela
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements

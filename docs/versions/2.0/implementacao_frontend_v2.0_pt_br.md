@@ -606,6 +606,164 @@ export function ParticipantsSelector({
   );
 }
 
+## Sistema Padronizado de Mensagens de Erro
+
+### Descrição
+
+O sistema padronizado de mensagens de erro implementa as diretrizes definidas no guia de estilo UI/UX para proporcionar uma experiência consistente ao comunicar problemas aos usuários e facilitar o diagnóstico para desenvolvedores.
+
+### Arquitetura
+
+O sistema de mensagens de erro foi implementado com os seguintes componentes:
+
+#### 1. Biblioteca de Códigos de Erro (`src/lib/error-codes.ts`)
+
+- Define enums para módulos (XXXX), tipos de erro (YY) e origens (ZZ)
+- Implementa função para gerar códigos no formato ERR-XXXX-YY-ZZ
+- Define erros comuns e específicos por módulo
+- Fornece funções utilitárias para criar erros personalizados
+
+#### 2. Componentes de UI (`src/components/ui/error-message.tsx`)
+
+- Implementa visualização de erro conforme guia de estilo
+- Fornece três variantes: global, formulário e inline
+- Suporta exibição de título, descrição, solução e código de erro
+- Inclui botão para fechar mensagens de erro
+
+#### 3. Hook Personalizado (`src/lib/hooks/use-error-handler.ts`)
+
+- Gerencia o estado de erro atual
+- Implementa funções para lidar com diferentes tipos de erro
+- Sanitiza dados sensíveis em logs
+- Suporta logging estruturado para depuração
+
+#### 4. Contexto de Erro (`src/lib/contexts/error-context.tsx`)
+
+- Fornece acesso global ao estado de erro da aplicação
+- Exibe automaticamente erros globais
+- Permite uso do hook useError em qualquer componente
+
+#### 5. Integração com Apollo Client (`src/lib/apollo-error-link.ts`)
+
+- Captura erros de API GraphQL
+- Formata erros GraphQL no padrão definido
+- Integra com o sistema de gerenciamento de erros
+- Trata erros de rede e da API
+
+### Uso em Componentes
+
+O sistema de mensagens de erro pode ser usado de três formas principais:
+
+#### 1. Erros Globais
+
+```tsx
+// Em qualquer componente
+import { useError } from '@/lib/contexts/error-context';
+
+function MyComponent() {
+  const { handleError } = useError();
+  
+  const handleOperation = async () => {
+    try {
+      // Operação que pode falhar
+    } catch (error) {
+      handleError(error);
+    }
+  };
+  
+  return <Button onClick={handleOperation}>Executar Operação</Button>;
+}
+```
+
+#### 2. Erros de Formulário
+
+```tsx
+// Em um formulário
+import { useError } from '@/lib/contexts/error-context';
+import { FormErrorMessage } from '@/components/ui/error-message';
+import { CommonErrors, createCustomError } from '@/lib/error-codes';
+
+function MyForm() {
+  const { handleValidationError } = useError();
+  const [formError, setFormError] = useState(null);
+  
+  const validateForm = (data) => {
+    const errors = {};
+    
+    if (!data.name) {
+      errors.name = 'Nome é obrigatório';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      const error = createCustomError(CommonErrors.VALIDATION_FAILED, {
+        description: 'O formulário contém erros.',
+        solution: 'Corrija os campos destacados.'
+      });
+      
+      setFormError(error);
+      return false;
+    }
+    
+    return true;
+  };
+  
+  return (
+    <form>
+      {formError && <FormErrorMessage error={formError} onClose={() => setFormError(null)} />}
+      {/* Campos do formulário */}
+    </form>
+  );
+}
+```
+
+#### 3. Erros Inline
+
+```tsx
+// Em campos individuais
+import { InlineErrorMessage } from '@/components/ui/error-message';
+import { ErrorModule, ErrorType, ErrorSource } from '@/lib/error-codes';
+
+function FormField({ field, value, onChange, error }) {
+  return (
+    <div>
+      <label>{field.label}</label>
+      <input 
+        value={value} 
+        onChange={onChange}
+        className={error ? 'border-red-500' : ''}
+      />
+      
+      {error && (
+        <InlineErrorMessage
+          error={{
+            title: 'Erro de validação',
+            description: error,
+            errorCode: `ERR-${ErrorModule.COMPONENT}-${ErrorType.INPUT}-${ErrorSource.UI}`
+          }}
+          showCode={false}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### Benefícios
+
+1. **Consistência**: Todas as mensagens de erro seguem o mesmo padrão visual e estrutural
+2. **Rastreabilidade**: Códigos de erro únicos facilitam o diagnóstico e documentação
+3. **Experiência do Usuário**: Mensagens claras com sugestões de solução
+4. **Depuração**: Logs estruturados para desenvolvedores
+5. **Manutenibilidade**: Código centralizado para gerenciamento de erros
+6. **Segurança**: Sanitização automática de dados sensíveis em logs
+
+### Implementações Futuras
+
+- Integração com serviços de monitoramento (Sentry, LogRocket)
+- Relatórios de erro e estatísticas
+- Documentação automática de códigos de erro
+- Tradução de mensagens de erro
+
 ## Checklist de Implantação Frontend
 
 A seguir está um checklist detalhado para orientar a implantação das alterações no frontend da versão 2.0 do Beaver:
@@ -640,23 +798,23 @@ A seguir está um checklist detalhado para orientar a implantação das alteraç
 
 ### 4. Componentes de UI
 
-- [ ] Implementar seletores dinâmicos para entidades (EnvironmentSelector, TeamSelector)
-- [ ] Atualizar formulários para usar novos seletores e campos
-- [ ] Atualizar componente de formulário ADR para trabalhar com múltiplos participantes
-- [ ] Desenvolver componente ParticipantsSelector
-- [ ] Implementar visualização hierárquica para TRM
-- [ ] Atualizar componentes de visualização de grafo para incluir instâncias
-- [ ] Implementar sistema padronizado de mensagens de erro
-- [ ] Atualizar o sidebar para incluir novas seções
+- [x] Implementar seletores dinâmicos para entidades (EnvironmentSelector, TeamSelector)
+- [x] Atualizar formulários para usar novos seletores e campos
+- [x] Atualizar componente de formulário ADR para trabalhar com múltiplos participantes
+- [x] Desenvolver componente ParticipantsSelector
+- [x] Implementar visualização hierárquica para TRM
+- [x] Atualizar componentes de visualização de grafo para incluir instâncias
+- [x] Implementar sistema padronizado de mensagens de erro
+- [x] Atualizar o sidebar para incluir novas seções
 
 ### 5. Páginas e Rotas
 
 - [ ] Criar páginas para gerenciamento de ambientes
 - [ ] Criar páginas para gerenciamento de times
-- [ ] Criar visualização de TRM (camadas e categorias)
-- [ ] Atualizar páginas de componentes para mostrar instâncias
+- [x] Criar visualização de TRM (camadas e categorias)
+- [x] Atualizar páginas de componentes para mostrar instâncias
 - [ ] Atualizar páginas de ADRs para mostrar participantes
-- [ ] Implementar visualização filtrada do grafo por ambiente/time
+- [x] Implementar visualização filtrada do grafo por ambiente/time
 
 ### 6. Testes
 

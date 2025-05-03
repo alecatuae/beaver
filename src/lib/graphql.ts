@@ -114,8 +114,8 @@ export const GET_COMPONENT = gql`
 `;
 
 export const GET_GRAPH_DATA = gql`
-  query GetGraphData($depth: Int, $environmentId: Int, $teamId: Int) {
-    graphData(depth: $depth, environmentId: $environmentId, teamId: $teamId) {
+  query GetGraphData($depth: Int, $environmentId: Int, $teamId: Int, $includeInstances: Boolean) {
+    graphData(depth: $depth, environmentId: $environmentId, teamId: $teamId, includeInstances: $includeInstances) {
       nodes {
         id
         name

@@ -13,8 +13,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tag, X, Plus } from 'lucide-react';
-import { ComponentStatus, ComponentType, ComponentInput, CategoryType, GET_CATEGORIES } from '@/lib/graphql';
+import { 
+  ComponentStatus, 
+  ComponentType, 
+  ComponentInput, 
+  CategoryType, 
+  GET_CATEGORIES 
+} from '@/lib/graphql';
 import { useQuery } from '@apollo/client';
+import { TeamSelector } from '@/components/selectors/TeamSelector';
 
 // Interface para o formulário de componente
 interface ComponentFormProps {
@@ -24,7 +31,13 @@ interface ComponentFormProps {
 }
 
 export default function ComponentForm({ 
-  initialData = { name: '', description: '', status: ComponentStatus.ACTIVE, tags: [] }, 
+  initialData = { 
+    name: '', 
+    description: '', 
+    status: ComponentStatus.ACTIVE, 
+    tags: [],
+    teamId: null,
+  }, 
   onSubmit, 
   onCancel 
 }: ComponentFormProps) {
@@ -33,6 +46,7 @@ export default function ComponentForm({
   const [description, setDescription] = useState(initialData.description?.slice(0, 256) || '');
   const [status, setStatus] = useState<ComponentStatus>(initialData.status || ComponentStatus.ACTIVE);
   const [categoryId, setCategoryId] = useState<number | null>(initialData.categoryId || null);
+  const [teamId, setTeamId] = useState<string>(initialData.teamId?.toString() || '');
   const [tags, setTags] = useState<string[]>(initialData.tags || []);
   const [newTag, setNewTag] = useState('');
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -87,6 +101,7 @@ export default function ComponentForm({
       description,
       status: validStatus,
       categoryId: categoryId,
+      teamId: teamId ? parseInt(teamId) : null,
       tags
     });
   };
@@ -173,26 +188,39 @@ export default function ComponentForm({
           </Select>
         </div>
 
-        <div>
-          <Label htmlFor="category" className="text-sm font-medium">
-            Categoria
-          </Label>
-          <Select
-            value={categoryId?.toString() || "null"}
-            onValueChange={(value) => setCategoryId(value === "null" ? null : parseInt(value))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione uma categoria (opcional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="null">Sem categoria</SelectItem>
-              {categories.map((category: CategoryType) => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="category" className="text-sm font-medium">
+              Categoria
+            </Label>
+            <Select
+              value={categoryId?.toString() || "null"}
+              onValueChange={(value) => setCategoryId(value === "null" ? null : parseInt(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma categoria (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="null">Sem categoria</SelectItem>
+                {categories.map((category: CategoryType) => (
+                  <SelectItem key={category.id} value={category.id.toString()}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="team" className="text-sm font-medium">
+              Time Responsável
+            </Label>
+            <TeamSelector
+              value={teamId}
+              onChange={setTeamId}
+              placeholder="Selecione um time (opcional)"
+            />
+          </div>
         </div>
 
         <div>

@@ -9,6 +9,9 @@ interface GraphNode {
   id: string;
   label: string;
   type?: string;
+  environmentId?: number;
+  componentId?: number;
+  parentId?: string;
   data?: Record<string, any>;
 }
 
@@ -29,6 +32,9 @@ interface CytoscapeGraphProps {
   onNodeClick?: (node: GraphNode) => void;
   onEdgeClick?: (edge: GraphEdge) => void;
   layout?: cytoscape.LayoutOptions;
+  showInstances?: boolean;
+  highlightInstancesOfComponent?: string;
+  selectedEnvironmentId?: number;
 }
 
 // Estilos padrão do Cytoscape
@@ -51,6 +57,36 @@ const defaultStylesheet: cytoscape.Stylesheet[] = [
     }
   },
   {
+    selector: 'node[type = "component"]',
+    style: {
+      'background-color': '#7839EE',
+      'shape': 'roundrectangle'
+    }
+  },
+  {
+    selector: 'node[type = "instance"]',
+    style: {
+      'background-color': '#4CAF50',
+      'shape': 'round-rectangle',
+      'width': 35,
+      'height': 35,
+      'border-color': '#2E7D32',
+      'border-width': 1,
+      'text-outline-color': '#4CAF50'
+    }
+  },
+  {
+    selector: 'node[type = "environment"]',
+    style: {
+      'background-color': '#03A9F4',
+      'shape': 'diamond',
+      'width': 35,
+      'height': 35,
+      'border-color': '#0288D1',
+      'text-outline-color': '#03A9F4'
+    }
+  },
+  {
     selector: 'edge',
     style: {
       'width': 2,
@@ -65,6 +101,22 @@ const defaultStylesheet: cytoscape.Stylesheet[] = [
     }
   },
   {
+    selector: 'edge[type = "INSTANTIATES"]',
+    style: {
+      'line-color': '#4CAF50',
+      'target-arrow-color': '#4CAF50',
+      'line-style': 'dashed'
+    }
+  },
+  {
+    selector: 'edge[type = "DEPLOYED_IN"]',
+    style: {
+      'line-color': '#03A9F4',
+      'target-arrow-color': '#03A9F4',
+      'line-style': 'dotted'
+    }
+  },
+  {
     selector: ':selected',
     style: {
       'background-color': '#9A6CF4',
@@ -72,6 +124,28 @@ const defaultStylesheet: cytoscape.Stylesheet[] = [
       'target-arrow-color': '#9A6CF4',
       'border-width': 2,
       'border-color': '#FFFFFF'
+    }
+  },
+  {
+    selector: '.highlighted',
+    style: {
+      'background-color': '#F44336',
+      'line-color': '#F44336',
+      'target-arrow-color': '#F44336'
+    }
+  },
+  {
+    selector: '.faded',
+    style: {
+      'opacity': 0.3
+    }
+  },
+  {
+    selector: '.related-instance',
+    style: {
+      'border-width': 3,
+      'border-color': '#F44336',
+      'border-style': 'dashed'
     }
   }
 ];
@@ -88,6 +162,7 @@ const defaultLayout: cytoscape.LayoutOptions = {
 /**
  * Componente Cytoscape para visualização de grafos
  * Compatível com Cytoscape.js 3.29.x
+ * Atualizado para suportar instâncias de componentes
  */
 export function CytoscapeGraph({
   nodes,
@@ -96,21 +171,66 @@ export function CytoscapeGraph({
   width = '100%',
   onNodeClick,
   onEdgeClick,
-  layout = defaultLayout
+  layout = defaultLayout,
+  showInstances = false,
+  highlightInstancesOfComponent,
+  selectedEnvironmentId
 }: CytoscapeGraphProps) {
   const cyRef = useRef<cytoscape.Core | null>(null);
 
+  // Filtrar nós e arestas com base nas opções
+  let filteredNodes = [...nodes];
+  let filteredEdges = [...edges];
+
+  // Se não estiver mostrando instâncias, filtrar nós de instância e arestas relacionadas
+  if (!showInstances) {
+    const instanceNodeIds = new Set(
+      nodes.filter(node => node.type === 'instance').map(node => node.id)
+    );
+    
+    filteredNodes = nodes.filter(node => node.type !== 'instance');
+    
+    filteredEdges = edges.filter(edge => 
+      !instanceNodeIds.has(edge.source) && !instanceNodeIds.has(edge.target)
+    );
+  } else if (selectedEnvironmentId) {
+    // Se estiver filtrando por ambiente, manter apenas as instâncias desse ambiente
+    const envInstanceNodeIds = new Set(
+      nodes
+        .filter(node => 
+          node.type === 'instance' && 
+          node.data?.environmentId === selectedEnvironmentId
+        )
+        .map(node => node.id)
+    );
+    
+    filteredNodes = nodes.filter(node => 
+      node.type !== 'instance' || envInstanceNodeIds.has(node.id)
+    );
+    
+    filteredEdges = edges.filter(edge => {
+      const sourceIsInstance = nodes.find(n => n.id === edge.source)?.type === 'instance';
+      const targetIsInstance = nodes.find(n => n.id === edge.target)?.type === 'instance';
+      
+      if (!sourceIsInstance && !targetIsInstance) return true;
+      return envInstanceNodeIds.has(edge.source) || envInstanceNodeIds.has(edge.target);
+    });
+  }
+
   // Preparar elementos para o Cytoscape
   const elements = [
-    ...nodes.map(node => ({
+    ...filteredNodes.map(node => ({
       data: {
         id: node.id,
         label: node.label,
         type: node.type,
+        environmentId: node.environmentId,
+        componentId: node.componentId,
+        parentId: node.parentId,
         ...node.data
       }
     })),
-    ...edges.map(edge => ({
+    ...filteredEdges.map(edge => ({
       data: {
         id: edge.id,
         source: edge.source,
@@ -121,6 +241,40 @@ export function CytoscapeGraph({
       }
     }))
   ];
+
+  // Efeito para destacar instâncias de um componente específico
+  useEffect(() => {
+    if (cyRef.current && highlightInstancesOfComponent) {
+      const cy = cyRef.current;
+      
+      // Remover destaque anterior
+      cy.elements().removeClass('highlighted faded related-instance');
+      
+      if (highlightInstancesOfComponent) {
+        // Obter o nó do componente
+        const componentNode = cy.getElementById(highlightInstancesOfComponent);
+        
+        if (componentNode.length > 0) {
+          // Encontrar instâncias relacionadas
+          const instanceNodes = cy.nodes().filter(node => 
+            node.data('type') === 'instance' && 
+            node.data('componentId') === parseInt(highlightInstancesOfComponent)
+          );
+          
+          // Destacar as instâncias e o componente
+          componentNode.addClass('highlighted');
+          instanceNodes.addClass('related-instance');
+          
+          // Reduzir a opacidade de outros elementos
+          cy.elements()
+            .difference(componentNode)
+            .difference(instanceNodes)
+            .difference(componentNode.edgesWith(instanceNodes))
+            .addClass('faded');
+        }
+      }
+    }
+  }, [highlightInstancesOfComponent, cyRef.current, showInstances]);
 
   // Configurar eventos após o carregamento do componente
   useEffect(() => {
@@ -135,6 +289,9 @@ export function CytoscapeGraph({
             id: nodeData.id,
             label: nodeData.label,
             type: nodeData.type,
+            environmentId: nodeData.environmentId,
+            componentId: nodeData.componentId,
+            parentId: nodeData.parentId,
             data: { ...nodeData }
           };
           onNodeClick(graphNode);
