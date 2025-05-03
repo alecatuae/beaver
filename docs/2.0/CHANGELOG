@@ -30,6 +30,7 @@ All notable changes to the Beaver project version 2.0 will be documented in this
   - Team and Team Member management tests
   - ADR Participant validation tests
   - API compatibility and backward compatibility tests
+- Frontend implementation checklist with detailed steps for upgrading components, types, queries, and UI elements
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements

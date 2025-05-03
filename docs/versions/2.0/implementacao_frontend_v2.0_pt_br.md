@@ -605,4 +605,96 @@ export function ParticipantsSelector({
     </div>
   );
 }
+
+## Checklist de Implantação Frontend
+
+A seguir está um checklist detalhado para orientar a implantação das alterações no frontend da versão 2.0 do Beaver:
+
+### 1. Preparação do Ambiente
+
+- [x] Atualizar dependências do Next.js para versão 14.1.x
+- [x] Atualizar dependências do React para versão 18.2.x
+- [x] Atualizar TailwindCSS para versão 3.4.x
+- [x] Atualizar Apollo Client para a versão 3.13.x
+- [x] Confirmar compatibilidade com TanStack Query (React Query)
+- [x] Verificar compatibilidade com Cytoscape.js 3.29.x
+
+### 2. Atualização de Tipos e Schemas
+
+- [ ] Atualizar definições de tipos em `src/types/graphql.ts`
+- [ ] Implementar novos tipos (Environment, Team, TeamMember, ComponentInstance, ADRParticipant)
+- [ ] Atualizar tipos existentes para refletir novas relações (Component, ADR)
+- [ ] Verificar tipagem dos hooks personalizados que utilizam esses tipos
+
+### 3. Atualização de Queries e Mutations
+
+- [ ] Implementar novas queries para ambientes (`src/graphql/environmentQueries.ts`)
+- [ ] Implementar novas queries para times (`src/graphql/teamQueries.ts`)
+- [ ] Atualizar queries de componentes para incluir novas relações
+- [ ] Atualizar queries de ADRs para trabalhar com participantes
+- [ ] Implementar novas mutations para ambientes
+- [ ] Implementar novas mutations para times e membros
+- [ ] Implementar mutations para instâncias de componentes
+- [ ] Atualizar mutations de ADRs para trabalhar com participantes
+- [ ] Testar todas as queries e mutations no Apollo Sandbox
+
+### 4. Componentes de UI
+
+- [ ] Implementar seletores dinâmicos para entidades (EnvironmentSelector, TeamSelector)
+- [ ] Atualizar formulários para usar novos seletores e campos
+- [ ] Atualizar componente de formulário ADR para trabalhar com múltiplos participantes
+- [ ] Desenvolver componente ParticipantsSelector
+- [ ] Implementar visualização hierárquica para TRM
+- [ ] Atualizar componentes de visualização de grafo para incluir instâncias
+- [ ] Implementar sistema padronizado de mensagens de erro
+- [ ] Atualizar o sidebar para incluir novas seções
+
+### 5. Páginas e Rotas
+
+- [ ] Criar páginas para gerenciamento de ambientes
+- [ ] Criar páginas para gerenciamento de times
+- [ ] Criar visualização de TRM (camadas e categorias)
+- [ ] Atualizar páginas de componentes para mostrar instâncias
+- [ ] Atualizar páginas de ADRs para mostrar participantes
+- [ ] Implementar visualização filtrada do grafo por ambiente/time
+
+### 6. Testes
+
+- [ ] Atualizar testes unitários para refletir as mudanças nos componentes
+- [ ] Implementar testes de integração para novas funcionalidades
+- [ ] Verificar acessibilidade em todos os novos componentes de UI
+- [ ] Realizar testes de responsividade
+- [ ] Testar fluxos de usuário completos para cada nova funcionalidade
+
+### 7. Otimização
+
+- [ ] Implementar carregamento otimizado de dados (paginação, lazy loading)
+- [ ] Otimizar consultas GraphQL para evitar over-fetching
+- [ ] Aplicar estratégias de cache para queries frequentes
+- [ ] Implementar feedback visual para operações de longa duração
+- [ ] Otimizar renderização de componentes complexos (memoização)
+
+### 8. Compatibilidade
+
+- [ ] Verificar compatibilidade com navegadores alvo
+- [ ] Implementar fallbacks para recursos não suportados
+- [ ] Testar em diferentes dispositivos e tamanhos de tela
+- [ ] Garantir compatibilidade com temas claro e escuro
+
+### 9. Documentação
+
+- [ ] Documentar novas APIs de componentes
+- [ ] Atualizar documentação de uso para desenvolvedores
+- [ ] Criar exemplos de uso para novos componentes e padrões
+- [ ] Documentar estratégias de migração para código existente
+
+### 10. Implantação Final
+
+- [ ] Realizar build de produção e verificar otimizações
+- [ ] Verificar logs e erros no console
+- [ ] Realizar implantação em ambiente de staging
+- [ ] Validar todas as funcionalidades no ambiente de staging
+- [ ] Planejar estratégia de rollout gradual
+- [ ] Preparar rollback caso necessário
+- [ ] Implantar em produção
 ``` 

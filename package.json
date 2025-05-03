@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@apollo/cache-control-types": "^1.0.3",
-    "@apollo/client": "^3.13.8",
+    "@apollo/client": "^3.13.0",
     "@apollo/server-gateway-interface": "^1.1.1",
     "@apollo/usage-reporting-protobuf": "^4.1.1",
     "@apollo/utils.createhash": "^3.0.1",
@@ -32,9 +32,11 @@
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-toast": "^1.2.11",
     "@radix-ui/react-tooltip": "^1.2.4",
+    "@tanstack/react-query": "^5.12.0",
     "@types/express": "^5.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
+    "cytoscape": "^3.29.0",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
@@ -48,6 +50,7 @@
     "node-abort-controller": "^3.1.1",
     "prisma": "^6.6.0",
     "react": "^18.2.0",
+    "react-cytoscapejs": "^2.0.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7"
@@ -64,7 +67,7 @@
     "eslint": "^9",
     "eslint-config-next": "^14.1.0",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^3.4.0",
     "typescript": "^5"
   }
 }
