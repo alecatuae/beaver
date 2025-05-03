@@ -30,7 +30,8 @@ import {
   ComponentType,
   ComponentInput,
   CategoryType,
-  EnvironmentType
+  EnvironmentType,
+  GET_PAGINATED_COMPONENTS
 } from '@/lib/graphql';
 import { toast } from '@/components/ui/use-toast';
 import { useApolloClient } from '@apollo/client';
@@ -56,19 +57,30 @@ export default function ComponentsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isDeleting, setIsDeleting] = useState(false);
   
+  // Novos estados para paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12; // Número fixo de itens por página
+  const [loadingMore, setLoadingMore] = useState(false);
+  
   // Obter cliente Apollo para manipulação de cache
   const client = useApolloClient();
 
-  // Consulta GraphQL para buscar componentes
-  const { loading, error, data, refetch } = useQuery(GET_COMPONENTS, {
-    variables: { status: statusFilter === 'all' ? null : statusFilter },
-    fetchPolicy: 'network-only',
+  // Consulta GraphQL para buscar componentes com paginação
+  const { loading, error, data, fetchMore } = useQuery(GET_PAGINATED_COMPONENTS, {
+    variables: { 
+      status: statusFilter === 'all' ? null : statusFilter,
+      pagination: {
+        page: currentPage,
+        pageSize,
+        sortField: sortBy,
+        sortOrder: sortDirection
+      },
+      search: searchTerm || undefined
+    },
+    notifyOnNetworkStatusChange: true,
     onError: (error) => {
       console.error('Erro na consulta GraphQL:', error);
       console.error('Erro em detalhes:', JSON.stringify(error, null, 2));
-    },
-    onCompleted: (data) => {
-      console.log('Consulta completada com sucesso. Dados recebidos:', data);
     }
   });
   
@@ -174,15 +186,16 @@ export default function ComponentsPage() {
     }
   }, [showDetails, selectedComponent, checkComponentRelations]);
 
-  // Transforma os dados da API para o formato esperado pela interface
-  const components = data?.components?.map((component: any) => ({
-    ...component,
-    created_at: new Date(component.createdAt),
-    tags: component.tags?.map((tag: any) => {
-      // Verifica se a tag já é uma string ou se precisamos extrair a propriedade 'tag'
-      return typeof tag === 'string' ? tag : (tag?.tag || '');
-    }) || []
-  })) || [];
+  // Extrai os dados da resposta paginada
+  const components = data?.components?.items || [];
+  const pageInfo = data?.components?.pageInfo || { 
+    totalItems: 0, 
+    currentPage: 1, 
+    pageSize: 12, 
+    totalPages: 0, 
+    hasNextPage: false,
+    hasPreviousPage: false 
+  };
 
   // Função para filtrar componentes com base na busca
   const filteredComponents = components.filter((component: ComponentType) => {
@@ -373,57 +386,80 @@ export default function ComponentsPage() {
     });
   };
 
-  /**
-   * Manipulador de interseção para detecção de rolagem
-   * Quando o último elemento se torna visível, carrega mais componentes
-   */
+  // Função para carregar mais componentes
+  const loadMoreComponents = useCallback(() => {
+    if (loadingMore || !pageInfo.hasNextPage) return;
+    
+    setLoadingMore(true);
+    
+    fetchMore({
+      variables: {
+        pagination: {
+          page: currentPage + 1,
+          pageSize,
+          sortField: sortBy,
+          sortOrder: sortDirection
+        }
+      },
+      updateQuery: (prev, { fetchMoreResult }) => {
+        if (!fetchMoreResult) return prev;
+        
+        // Incrementa a página atual
+        setCurrentPage(currentPage + 1);
+        
+        return {
+          components: {
+            __typename: "PaginatedComponentResponse",
+            items: [
+              ...prev.components.items,
+              ...fetchMoreResult.components.items
+            ],
+            pageInfo: fetchMoreResult.components.pageInfo
+          }
+        };
+      }
+    }).finally(() => {
+      setLoadingMore(false);
+    });
+  }, [currentPage, fetchMore, loadingMore, pageInfo.hasNextPage, pageSize, sortBy, sortDirection]);
+  
+  // Manipulador de interseção para detectar quando o usuário chegou ao final da lista
   const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
     const [entry] = entries;
-    if (entry.isIntersecting && hasMore) {
-      setVisibleCount(prev => {
-        const newCount = prev + 8; // Incrementa 8 componentes por vez
-        if (newCount >= sortedComponents.length) {
-          setHasMore(false);
-        }
-        return newCount;
-      });
+    if (entry?.isIntersecting && pageInfo.hasNextPage && !loadingMore) {
+      loadMoreComponents();
     }
-  }, [hasMore, sortedComponents.length]);
-
-  // Configuração do observador de interseção para rolagem infinita
+  }, [loadMoreComponents, pageInfo.hasNextPage, loadingMore]);
+  
+  // Configuração do observador de interseção
   useEffect(() => {
-    if (observer.current) {
-      observer.current.disconnect();
-    }
-
-    observer.current = new IntersectionObserver(handleObserver, {
+    const option = {
       root: null,
-      rootMargin: '20px',
+      rootMargin: '0px',
       threshold: 0.1
-    });
-
-    if (lastComponentRef.current) {
-      observer.current.observe(lastComponentRef.current);
+    };
+    
+    const observer = new IntersectionObserver(handleObserver, option);
+    
+    if (observer && lastComponentRef.current) {
+      observer.observe(lastComponentRef.current);
     }
-
+    
     return () => {
-      if (observer.current) {
-        observer.current.disconnect();
+      if (observer) {
+        observer.disconnect();
       }
     };
-  }, [handleObserver, sortedComponents.length]);
-
-  // Resetar visibleCount quando os filtros mudam
+  }, [handleObserver, components.length]);
+  
+  // Reset da paginação quando os filtros mudam
   useEffect(() => {
-    setVisibleCount(12);
-    setHasMore(true);
-  }, [searchTerm, statusFilter]);
-
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, sortBy, sortDirection]);
+  
   // Função para definir a referência do último componente
-  const setLastComponentRef = (el: HTMLDivElement | null, index: number) => {
-    if (index === Math.min(visibleCount - 1, sortedComponents.length - 1)) {
-      lastComponentRef.current = el;
-    }
+  const setLastComponentRef = (el: HTMLDivElement | null) => {
+    lastComponentRef.current = el;
   };
 
   // Simplificar a função, mantendo retorno para não quebrar referências
@@ -573,115 +609,128 @@ export default function ComponentsPage() {
 
         {/* Grid de componentes */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sortedComponents.length === 0 ? (
+          {components.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground col-span-full">
               Nenhum componente encontrado.
             </div>
           ) : (
-            sortedComponents.slice(0, visibleCount).map((component: ComponentType, index: number) => (
-              <div
-                key={component.id}
-                ref={(el) => setLastComponentRef(el, index)}
-                className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 ${
-                  selectedComponent?.id === component.id ? 'ring-2 ring-primary' : ''
-                }`}
-                onClick={() => handleComponentClick(component)}
-              >
-                <div className="p-4 flex flex-col h-[180px]">
-                  {/* Header com nome e status */}
-                  <div className="flex justify-between mb-2">
-                    <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1">
-                      {component.name}
-                    </h3>
-                    <div className="ml-2 flex-shrink-0">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        component.status === ComponentStatus.ACTIVE
-                          ? 'bg-green-100 dark:bg-green-800/20 text-green-800 dark:text-green-400'
-                          : component.status === ComponentStatus.INACTIVE
-                          ? 'bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-400'
-                          : 'bg-amber-100 dark:bg-amber-800/20 text-amber-800 dark:text-amber-400'
-                      }`}>
-                        {component.status === ComponentStatus.ACTIVE
-                          ? 'Ativo'
-                          : component.status === ComponentStatus.INACTIVE
-                          ? 'Inativo'
-                          : 'Depreciado'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Descrição truncada */}
-                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 flex-grow">
-                    {component.description || 'Sem descrição.'}
-                  </p>
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {component.tags.slice(0, 3).map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary dark:bg-primary/20"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                    {component.tags.length > 3 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                        +{component.tags.length - 3}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Instâncias por ambiente */}
-                  {component.totalInstances > 0 && (
-                    <div className="mt-auto">
-                      <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        <ServerIcon className="h-3.5 w-3.5 mr-1" />
-                        <span>{component.totalInstances} instância{component.totalInstances !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {component.instancesByEnvironment?.map((env) => (
-                          <span 
-                            key={env.environmentId}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
-                            title={`${env.count} instância${env.count !== 1 ? 's' : ''} em ${getEnvironmentName(env.environmentId)}`}
-                          >
-                            {getEnvironmentName(env.environmentId)}: {env.count}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Categoria e time */}
-                  <div className="flex justify-between items-center mt-auto text-xs text-gray-500 dark:text-gray-400">
-                    {component.category && (
-                      <div className="flex items-center">
-                        <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
-                          {component.category.image ? (
-                            <img 
-                              src={`/images/categories/${component.category.image}`} 
-                              alt={component.category.name}
-                              className="w-3 h-3 mr-1 object-contain"
-                            />
-                          ) : null}
-                          {component.category.name}
+            <>
+              {components.map((component: ComponentType, index: number) => (
+                <div
+                  key={component.id}
+                  ref={index === components.length - 1 ? setLastComponentRef : null}
+                  className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 ${
+                    selectedComponent?.id === component.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => handleComponentClick(component)}
+                >
+                  <div className="p-4 flex flex-col h-[180px]">
+                    {/* Header com nome e status */}
+                    <div className="flex justify-between mb-2">
+                      <h3 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate flex-1">
+                        {component.name}
+                      </h3>
+                      <div className="ml-2 flex-shrink-0">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          component.status === ComponentStatus.ACTIVE
+                            ? 'bg-green-100 dark:bg-green-800/20 text-green-800 dark:text-green-400'
+                            : component.status === ComponentStatus.INACTIVE
+                            ? 'bg-gray-100 dark:bg-gray-800/40 text-gray-800 dark:text-gray-400'
+                            : 'bg-amber-100 dark:bg-amber-800/20 text-amber-800 dark:text-amber-400'
+                        }`}>
+                          {component.status === ComponentStatus.ACTIVE
+                            ? 'Ativo'
+                            : component.status === ComponentStatus.INACTIVE
+                            ? 'Inativo'
+                            : 'Depreciado'}
                         </span>
                       </div>
+                    </div>
+
+                    {/* Descrição truncada */}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 flex-grow">
+                      {component.description || 'Sem descrição.'}
+                    </p>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {component.tags.slice(0, 3).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary dark:bg-primary/20"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {component.tags.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                          +{component.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Instâncias por ambiente */}
+                    {component.totalInstances > 0 && (
+                      <div className="mt-auto">
+                        <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          <ServerIcon className="h-3.5 w-3.5 mr-1" />
+                          <span>{component.totalInstances} instância{component.totalInstances !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {component.instancesByEnvironment?.map((env) => (
+                            <span 
+                              key={env.environmentId}
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
+                              title={`${env.count} instância${env.count !== 1 ? 's' : ''} em ${getEnvironmentName(env.environmentId)}`}
+                            >
+                              {getEnvironmentName(env.environmentId)}: {env.count}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {format(component.created_at, "dd/MM/yyyy")}
-                    </span>
+
+                    {/* Categoria e time */}
+                    <div className="flex justify-between items-center mt-auto text-xs text-gray-500 dark:text-gray-400">
+                      {component.category && (
+                        <div className="flex items-center">
+                          <span className="text-xs bg-muted px-2 py-1 rounded-full flex items-center">
+                            {component.category.image ? (
+                              <img 
+                                src={`/images/categories/${component.category.image}`} 
+                                alt={component.category.name}
+                                className="w-3 h-3 mr-1 object-contain"
+                              />
+                            ) : null}
+                            {component.category.name}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {format(component.created_at, "dd/MM/yyyy")}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+              
+              {/* Indicador de carregamento */}
+              {loadingMore && (
+                <div className="col-span-full flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              )}
+            </>
           )}
-          {/* Indicador de carregamento */}
-          {hasMore && sortedComponents.length > 0 && (
-            <div className="col-span-full flex justify-center py-4">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            </div>
+        </div>
+
+        {/* Exibir estatísticas de paginação */}
+        <div className="mt-6 text-sm text-muted-foreground text-center">
+          {pageInfo.totalItems > 0 && (
+            <>
+              Mostrando {components.length} de {pageInfo.totalItems} componentes
+              {pageInfo.totalPages > 1 && ` • Página ${pageInfo.currentPage} de ${pageInfo.totalPages}`}
+            </>
           )}
         </div>
 

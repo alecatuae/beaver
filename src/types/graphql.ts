@@ -404,46 +404,62 @@ export type PaginationInput = {
   page?: Maybe<Scalars['Int']>;
   pageSize?: Maybe<Scalars['Int']>;
   sortField?: Maybe<Scalars['String']>;
-  sortOrder?: Maybe<Scalars['String']>;
+  sortOrder?: Maybe<SortOrder>;
 };
 
-export type PageInfo = {
-  hasNextPage: Scalars['Boolean'];
-  hasPreviousPage: Scalars['Boolean'];
-  totalPages: Scalars['Int'];
-  totalItems: Scalars['Int'];
-  currentPage: Scalars['Int'];
-};
+export enum SortOrder {
+  ASC = 'asc',
+  DESC = 'desc'
+}
 
 // ===== RESPOSTAS PAGINADAS =====
 
-export type TeamsResponse = {
-  items: Team[];
+export type PageInfo = {
+  totalItems: Scalars['Int'];
+  currentPage: Scalars['Int'];
+  pageSize: Scalars['Int'];
+  totalPages: Scalars['Int'];
+  hasNextPage: Scalars['Boolean'];
+  hasPreviousPage: Scalars['Boolean'];
+};
+
+export type PaginatedComponentsResponse = {
+  items: Array<Component>;
   pageInfo: PageInfo;
 };
 
-export type EnvironmentsResponse = {
-  items: Environment[];
+export type PaginatedRelationsResponse = {
+  items: Array<Relation>;
   pageInfo: PageInfo;
 };
 
-export type ComponentInstancesResponse = {
-  items: ComponentInstance[];
+export type PaginatedADRsResponse = {
+  items: Array<ADR>;
   pageInfo: PageInfo;
 };
 
-export type ComponentsResponse = {
-  items: Component[];
+export type PaginatedRoadmapItemsResponse = {
+  items: Array<RoadmapItem>;
   pageInfo: PageInfo;
 };
 
-export type ADRsResponse = {
-  items: ADR[];
+export type PaginatedGlossaryTermsResponse = {
+  items: Array<GlossaryTerm>;
   pageInfo: PageInfo;
 };
 
-export type RoadmapItemsResponse = {
-  items: RoadmapItem[];
+export type PaginatedTeamsResponse = {
+  items: Array<Team>;
+  pageInfo: PageInfo;
+};
+
+export type PaginatedEnvironmentsResponse = {
+  items: Array<Environment>;
+  pageInfo: PageInfo;
+};
+
+export type PaginatedCategoriesResponse = {
+  items: Array<Category>;
   pageInfo: PageInfo;
 };
 

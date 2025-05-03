@@ -85,6 +85,12 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - Implementação de visualização completa do TRM (Technical Reference Model) com suporte a camadas e categorias hierárquicas, incluindo visualização em árvore e em grid, filtros por camada e exibição de componentes associados a cada categoria
 - Atualização da página de componentes para exibir informações sobre instâncias, incluindo contadores de instâncias e badges de ambientes onde cada componente está implantado, com tooltips informativos, além de uma visualização detalhada de instâncias com especificações técnicas em uma interface com abas
 - Atualização das páginas de ADRs para mostrar múltiplos participantes com diferentes papéis (owner, reviewer, consumer), incluindo avatares, tooltips informativos e sistema de abas para visualização detalhada
+- Atualização dos testes unitários para cobrir as novas funcionalidades do TRM, instâncias de componentes e participantes de ADRs, com validações específicas para cada recurso
+- Implementação de testes de integração para gerenciamento de participantes em ADRs, com simulação de interações completas para adição, remoção e aprovação de participantes
+- Implementação de testes de integração para gerenciamento de instâncias de componentes em diferentes ambientes, incluindo criação, edição, exclusão e visualização baseada em ambiente
+- Testes de validação para garantir que cada ADR tenha pelo menos um owner entre seus participantes
+- Testes de validação para verificar especificações técnicas das instâncias de componentes
+- Testes para visualização hierárquica do TRM, incluindo navegação entre camadas e verificação de componentes associados
 - Implementação do sistema padronizado de mensagens de erro:
   - Definição de códigos de erro no formato ERR-XXXX-YY-ZZ para rastreabilidade
   - Componentes de UI para exibição consistente de mensagens de erro
@@ -112,6 +118,11 @@ All notable changes to the Beaver project version 2.0 will be documented in this
   - Página de detalhes do time com informações e listagem de membros/componentes
   - Página de edição de time com formulário pré-preenchido
   - Página de gerenciamento de membros com adição/remoção de usuários
+- Implementação de sistema de paginação server-side para todas as listagens principais (componentes, ADRs, relacionamentos)
+- Integração de lazy loading com IntersectionObserver API para carregamento otimizado de dados
+- Suporte a ordenação dinâmica em consultas GraphQL paginadas para melhor desempenho
+- Feedback visual de carregamento durante a paginação para melhor experiência do usuário
+- Adição de estatísticas de paginação para orientar o usuário sobre quantidade de itens disponíveis
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements
@@ -134,6 +145,14 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 ### Security
 - Added role-based permissions for instance management
 - Enhanced validation for ADR ownership changes
+
+### Performance
+
+- Otimização de consultas GraphQL com fragmentos modulares para redução do over-fetching
+- Implementação de diretivas @include e @skip para recuperação condicional de campos em consultas GraphQL
+- Criação de hooks personalizados para otimização automática de consultas baseada no contexto de uso
+- Reutilização de tipos GraphQL para reduzir duplicação de código e melhorar a manutenção
+- Separação de consultas de listagem e detalhamento para carregamento otimizado de dados
 
 ## [2.0.0] - YYYY-MM-DD (Not released yet)
 

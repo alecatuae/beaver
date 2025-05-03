@@ -1,6 +1,8 @@
 import { ComponentStatus } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { prisma } from '../prisma';
+import { PaginationInputType, PageInfo, createPaginatedResponse } from '../schema/objects/pagination';
+import { Component } from '../schema/objects/component';
 
 export const componentResolvers = (builder: any) => {
   // Define o enumerador ComponentStatus
@@ -196,14 +198,102 @@ export const componentResolvers = (builder: any) => {
     }),
   });
 
-  // Query para listar componentes
-  builder.queryField('components', (t: any) =>
+  // Criar o tipo de resposta paginada para componentes
+  const PaginatedComponentsResponse = createPaginatedResponse('Component', Component);
+
+  // Atualizar a query para componentes com suporte a paginação
+  builder.queryField('components', (t) =>
     t.field({
-      type: [Component],
+      type: PaginatedComponentsResponse,
       args: {
-        status: t.arg.string({ nullable: true }),
-        categoryId: t.arg.int({ nullable: true }),
+        status: t.arg({ type: ComponentStatusEnum, required: false }),
+        pagination: t.arg({ type: PaginationInputType, required: false }),
+        environmentId: t.arg.int({ required: false }),
+        search: t.arg.string({ required: false }),
+        categoryId: t.arg.int({ required: false }),
+        teamId: t.arg.int({ required: false }),
       },
+      resolve: async (_root, args, { prisma }) => {
+        // Valores padrão para paginação
+        const {
+          pagination = { page: 1, pageSize: 20, sortOrder: 'desc', sortField: 'createdAt' }
+        } = args;
+        
+        const page = pagination.page || 1;
+        const pageSize = pagination.pageSize || 20;
+        const skip = (page - 1) * pageSize;
+        const take = pageSize;
+        
+        // Construir o objeto where baseado nos parâmetros
+        const where: any = {};
+        
+        if (args.status) {
+          where.status = args.status;
+        }
+        
+        if (args.search) {
+          where.OR = [
+            { name: { contains: args.search, mode: 'insensitive' } },
+            { description: { contains: args.search, mode: 'insensitive' } },
+          ];
+        }
+        
+        if (args.categoryId) {
+          where.categoryId = args.categoryId;
+        }
+        
+        if (args.teamId) {
+          where.teamId = args.teamId;
+        }
+        
+        if (args.environmentId) {
+          where.instances = {
+            some: {
+              environmentId: args.environmentId
+            }
+          };
+        }
+        
+        // Determinando a ordenação
+        const sortField = pagination.sortField || 'createdAt';
+        const sortOrder = pagination.sortOrder || 'desc';
+        const orderBy: any = {};
+        orderBy[sortField] = sortOrder;
+        
+        // Buscar o total de itens para calcular a paginação
+        const totalItems = await prisma.component.count({ where });
+        
+        // Buscar os componentes com paginação
+        const items = await prisma.component.findMany({
+          where,
+          skip,
+          take,
+          orderBy,
+          include: {
+            team: true,
+            category: true,
+            instances: {
+              include: {
+                environment: true
+              }
+            }
+          }
+        });
+        
+        // Calcular informações de paginação
+        const totalPages = Math.ceil(totalItems / pageSize);
+        
+        return {
+          items,
+          pageInfo: {
+            totalItems,
+            currentPage: page,
+            pageSize,
+            totalPages,
+            hasNextPage: page < totalPages,
+            hasPreviousPage: page > 1
+          }
+        };
       resolve: async (_root: any, args: any, ctx: any) => {
         try {
           console.log('Buscando componentes do banco de dados...');
