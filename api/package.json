@@ -11,6 +11,7 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push --skip-generate",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "migrate:v2": "node scripts/migrate-v2.js",
     "test": "jest"
   },
   "prisma": {
