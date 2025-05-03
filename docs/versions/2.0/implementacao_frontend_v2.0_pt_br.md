@@ -621,10 +621,10 @@ A seguir está um checklist detalhado para orientar a implantação das alteraç
 
 ### 2. Atualização de Tipos e Schemas
 
-- [ ] Atualizar definições de tipos em `src/types/graphql.ts`
-- [ ] Implementar novos tipos (Environment, Team, TeamMember, ComponentInstance, ADRParticipant)
-- [ ] Atualizar tipos existentes para refletir novas relações (Component, ADR)
-- [ ] Verificar tipagem dos hooks personalizados que utilizam esses tipos
+- [x] Atualizar definições de tipos em `src/types/graphql.ts`
+- [x] Implementar novos tipos (Environment, Team, TeamMember, ComponentInstance, ADRParticipant)
+- [x] Atualizar tipos existentes para refletir novas relações (Component, ADR)
+- [x] Verificar tipagem dos hooks personalizados que utilizam esses tipos
 
 ### 3. Atualização de Queries e Mutations
 

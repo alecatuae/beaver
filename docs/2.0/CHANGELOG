@@ -31,6 +31,13 @@ All notable changes to the Beaver project version 2.0 will be documented in this
   - ADR Participant validation tests
   - API compatibility and backward compatibility tests
 - Frontend implementation checklist with detailed steps for upgrading components, types, queries, and UI elements
+- Implementação completa dos novos tipos para Environment, Team, TeamMember, ComponentInstance e ADRParticipant em src/types/graphql.ts, incluindo documentação com referências ao esquema do banco de dados
+- Adicionados novos filtros (TeamFilter, EnvironmentFilter) e tipos de resposta paginada (TeamsResponse, EnvironmentsResponse, ComponentInstancesResponse)
+- Expandidos os tipos de entrada (inputs) para suportar novos campos nas entidades da v2.0
+- Atualização de tipos Component e ADR com novas relações e campos introduzidos na v2.0, incluindo suporte a múltiplos participantes, impacto em ambientes específicos e validação temporal
+- Melhorias nos tipos ADRInput e ComponentInput para suportar termos do glossário, tags e relacionamentos entre entidades
+- Expansão dos filtros GraphQL para permitir consultas mais granulares por ambiente, time e papel de participante
+- Verificação da compatibilidade de tipagem com hooks personalizados existentes e componentes que utilizam os tipos atualizados
 
 ### Changed
 - Updated Prisma schema with new enums and model refinements
