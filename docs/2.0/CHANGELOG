@@ -27,6 +27,10 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - Support for new Neo4j relationships: INSTANTIATES, DEPLOYED_IN, MANAGED_BY, PARTICIPATES_IN, AFFECTS_INSTANCE, INSTANCE_CONNECTS_TO
 - Tests for ADR participant resolvers
 - Tests for Environment resolvers
+- Implemented standardized error message system with ERR-XXXX-YY-ZZ format
+- Created ErrorMessage component with global, form, and inline variants
+- Added error handling hook for consistent error management
+- Created error context provider for application-wide error handling
 
 ### Changed
 - Permissions system restructured to support teams
@@ -46,6 +50,8 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - GraphQL resolver performance issues
 - Neo4j integration error handling and logging
 - Neo4j constraint compatibility with version 5+
+- Fixed schema builder configuration by adding notStrict option
+- Fixed the GraphQL schema types in the backend
 
 ### Deprecated
 - The v1 API endpoints will be deprecated in future versions

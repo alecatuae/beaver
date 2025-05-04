@@ -1,105 +1,131 @@
 'use client';
 
-import React from 'react';
-import { XCircle, X } from 'lucide-react';
-import { ErrorDetails } from '@/lib/error-codes';
+import React, { useState } from 'react';
+import { AlertCircle, X } from 'lucide-react';
+import { ErrorCode } from '../../lib/error-codes';
 import { cn } from '@/lib/utils';
 
-interface ErrorMessageProps {
-  error: ErrorDetails;
-  className?: string;
+export type ErrorMessageVariant = 'global' | 'form' | 'inline';
+
+export interface ErrorMessageProps {
+  /** Código de erro no formato ERR-XXXX-YY-ZZ */
+  errorCode: string;
+  /** Título do erro */
+  title?: string;
+  /** Mensagem de erro detalhada */
+  message: string;
+  /** Solução sugerida para o erro */
+  solution?: string;
+  /** Variante do componente */
+  variant?: ErrorMessageVariant;
+  /** Função chamada ao fechar o erro */
   onClose?: () => void;
-  showCode?: boolean;
-  variant?: 'global' | 'form' | 'inline';
+  /** Classe CSS adicional */
+  className?: string;
 }
 
 /**
- * Componente ErrorMessage
- * 
- * Exibe uma mensagem de erro formatada de acordo com o guia de estilo.
- * 
- * @param error - Detalhes do erro a ser exibido
- * @param className - Classes adicionais para o componente
- * @param onClose - Função para fechar a mensagem
- * @param showCode - Se deve mostrar o código de erro
- * @param variant - Variante visual da mensagem ('global', 'form', 'inline')
+ * Componente para exibir mensagens de erro conforme o guia de estilo UI/UX
  */
-export function ErrorMessage({
-  error,
-  className,
+export const ErrorMessage: React.FC<ErrorMessageProps> = ({
+  errorCode,
+  title,
+  message,
+  solution,
+  variant = 'inline',
   onClose,
-  showCode = true,
-  variant = 'global'
-}: ErrorMessageProps) {
-  if (!error) return null;
+  className = '',
+}) => {
+  const [visible, setVisible] = useState(true);
+
+  if (!visible) {
+    return null;
+  }
+
+  const handleClose = () => {
+    setVisible(false);
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  // Classes base para todos os variantes
+  const baseClasses = 'bg-red-50 border border-red-200 text-red-800 rounded p-4 relative';
+  
+  // Classes específicas para cada variante
+  const variantClasses = {
+    global: 'fixed top-4 right-4 z-50 w-96 shadow-lg',
+    form: 'mb-4 w-full',
+    inline: 'text-sm',
+  };
 
   return (
-    <div
-      className={cn(
-        'relative bg-red-50 border border-red-400 rounded-md overflow-hidden',
-        {
-          'p-4 mb-4 mt-4': variant === 'global',
-          'p-3 mb-2': variant === 'form',
-          'p-2 my-1': variant === 'inline'
-        },
-        className
-      )}
+    <div 
+      className={`${baseClasses} ${variantClasses[variant]} ${className}`}
       role="alert"
       aria-live="assertive"
     >
-      {/* Botão de fechar */}
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 transition-colors"
-          aria-label="Fechar mensagem de erro"
-        >
-          <X size={18} />
-        </button>
+      {/* Cabeçalho com código de erro e botão fechar */}
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center">
+          <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
+          <span className="font-semibold">
+            {title || 'Erro'}
+          </span>
+        </div>
+        {onClose && (
+          <button 
+            onClick={handleClose}
+            className="text-red-500 hover:text-red-700"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      
+      {/* Corpo da mensagem */}
+      <div className="mb-2">
+        <p>{message}</p>
+      </div>
+      
+      {/* Solução sugerida */}
+      {solution && (
+        <div className="text-sm border-t border-red-200 pt-2 mt-2">
+          <p><strong>Solução:</strong> {solution}</p>
+        </div>
       )}
-
-      {/* Cabeçalho e ícone */}
-      <div className="flex">
-        <div className="flex-shrink-0">
-          <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />
-        </div>
-        <div className="ml-3">
-          {/* Título */}
-          {error.title && (
-            <h3 className="text-sm font-medium text-gray-900">
-              {error.title}
-            </h3>
-          )}
-          
-          {/* Descrição */}
-          <div className="mt-1">
-            <p className="text-sm text-gray-700">
-              {error.description}
-            </p>
-          </div>
-          
-          {/* Solução */}
-          {error.solution && (
-            <div className="mt-2">
-              <p className="text-sm text-gray-600">
-                {error.solution}
-              </p>
-            </div>
-          )}
-          
-          {/* Código de erro */}
-          {showCode && error.errorCode && (
-            <div className="mt-2 text-right">
-              <span className="text-xs text-gray-500">
-                {error.errorCode}
-              </span>
-            </div>
-          )}
-        </div>
+      
+      {/* Código de erro */}
+      <div className="text-xs text-red-500 mt-2">
+        <code>{errorCode}</code>
       </div>
     </div>
   );
-}
+};
+
+/**
+ * Componente que recebe um objeto ErrorCode completo
+ */
+export const ErrorMessageFromCode: React.FC<{
+  error: ErrorCode;
+  variant?: ErrorMessageVariant;
+  onClose?: () => void;
+  className?: string;
+}> = ({ error, variant, onClose, className }) => {
+  return (
+    <ErrorMessage
+      errorCode={error.code}
+      message={error.message}
+      solution={error.solution}
+      variant={variant}
+      onClose={onClose}
+      className={className}
+    />
+  );
+};
+
+export default ErrorMessage;
 
 /**
  * Componente FormErrorMessage

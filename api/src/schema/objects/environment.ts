@@ -1,7 +1,8 @@
-import { builder } from '../index';
+import builder from '..';
+import { prisma } from '../../prisma';
 
 // Tipo GraphQL para Environment
-export const Environment = builder.prismaObject('Environment', {
+export const Environment = builder.prismaObject('environment', {
   fields: (t) => ({
     id: t.exposeID('id'),
     name: t.exposeString('name'),

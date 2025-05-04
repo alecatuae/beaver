@@ -1,4 +1,4 @@
-# Documentação da API Beaver v2.0
+<!-- # Documentação da API Beaver v2.0 -->
 
 ## Sumário
 

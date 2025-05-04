@@ -1,59 +1,73 @@
 'use client';
 
-import React, { createContext, useContext, ReactNode } from 'react';
-import { useErrorHandler } from '@/lib/hooks/use-error-handler';
-import { ErrorDetails } from '@/lib/error-codes';
-import { ErrorMessage } from '@/components/ui/error-message';
+import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import useErrorHandler from '../hooks/use-error-handler';
+import { ErrorCode, ErrorCodes } from '../error-codes';
+import { ErrorMessage, ErrorMessageFromCode } from '../../components/ui/error-message';
 
+// Interface do contexto de erro
 interface ErrorContextType {
-  error: ErrorDetails | null;
-  setError: (error: ErrorDetails | null) => void;
+  error: ErrorCode | null;
+  isLoading: boolean;
+  setError: (error: ErrorCode | null) => void;
   clearError: () => void;
-  handleError: (errorOrDetails: Error | ErrorDetails | string, contextInfo?: Record<string, any>) => ErrorDetails;
-  handleGraphQLError: (graphQLError: any) => ErrorDetails;
-  handleValidationError: (fieldErrors: Record<string, string>, formName?: string) => ErrorDetails;
+  handleError: (error: unknown, context?: any) => ErrorCode;
+  executeWithErrorHandling: <T>(fn: () => Promise<T>, context?: any) => Promise<T | null>;
 }
 
-const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
+// Cria o contexto com valores iniciais
+const ErrorContext = createContext<ErrorContextType>({
+  error: null,
+  isLoading: false,
+  setError: () => {},
+  clearError: () => {},
+  handleError: () => ErrorCodes.SYSTEM_INTERNAL_ERROR,
+  executeWithErrorHandling: async () => null,
+});
 
+// Interface das props do provedor
 interface ErrorProviderProps {
   children: ReactNode;
+  /** Se true, exibe erros globais automaticamente */
+  showGlobalErrors?: boolean;
 }
 
 /**
- * Provedor de contexto de erros
- * 
- * Gerencia os erros de forma global na aplicação.
+ * Provedor de contexto de erro para a aplicação
  */
-export function ErrorProvider({ children }: ErrorProviderProps) {
+export const ErrorProvider: React.FC<ErrorProviderProps> = ({
+  children,
+  showGlobalErrors = true,
+}) => {
   const errorHandler = useErrorHandler();
-
+  
   return (
     <ErrorContext.Provider value={errorHandler}>
-      {/* Exibir erro global se existir */}
-      {errorHandler.error && (
-        <ErrorMessage 
-          error={errorHandler.error} 
-          onClose={errorHandler.clearError} 
-          className="fixed top-4 right-4 z-50 max-w-md shadow-lg"
+      {children}
+      
+      {/* Exibe mensagem de erro global quando existir e showGlobalErrors for true */}
+      {showGlobalErrors && errorHandler.error && (
+        <ErrorMessageFromCode
+          error={errorHandler.error}
+          variant="global"
+          onClose={errorHandler.clearError}
         />
       )}
-      {children}
     </ErrorContext.Provider>
   );
-}
+};
 
 /**
- * Hook useError
- * 
- * Fornece acesso ao contexto de erros da aplicação.
+ * Hook para acessar o contexto de erro na aplicação
  */
-export function useError(): ErrorContextType {
+export const useError = () => {
   const context = useContext(ErrorContext);
   
-  if (context === undefined) {
-    throw new Error('useError must be used within an ErrorProvider');
+  if (!context) {
+    throw new Error('useError deve ser usado dentro de um ErrorProvider');
   }
   
   return context;
-} 
+};
+
+export default ErrorContext; 

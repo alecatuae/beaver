@@ -3,12 +3,16 @@ import PrismaPlugin from '@pothos/plugin-prisma';
 import { PrismaClient } from '@prisma/client';
 import { Context } from '../context';
 import { prisma } from '../prisma';
-import type PrismaTypes from '@pothos/plugin-prisma/generated';
+import type { PrismaClient as PrismaClientType } from '@prisma/client';
 
 // Cria um builder para o schema
 export const builder = new SchemaBuilder<{
   Context: Context;
-  PrismaTypes: PrismaTypes;
+  // Define o tipo PrismaTypes diretamente sem importação externa
+  PrismaTypes: {
+    // Referência ao client do Prisma
+    prisma: PrismaClientType;
+  };
   Scalars: {
     Date: {
       Input: Date;
@@ -24,12 +28,12 @@ export const builder = new SchemaBuilder<{
     };
   };
 }>({
-  plugins: [PrismaPlugin],
+  plugins: ['prisma'],
   prisma: {
     client: prisma,
-    // Não usar dmmf diretamente e deixar o Pothos gerar os tipos
-    // dmmf: dmmf,
   },
+  // Define notStrict como uma string conforme esperado pelo tipo
+  notStrict: "Pothos may not work correctly when strict mode is not enabled in tsconfig.json",
 });
 
 // Define o escalar Date

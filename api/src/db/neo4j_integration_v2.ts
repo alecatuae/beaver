@@ -52,7 +52,8 @@ export class Neo4jIntegrationV2 {
       const environments = await prisma.$queryRaw`
         SELECT id, name, description, created_at as createdAt 
         FROM Environment
-      `;
+      ` as Array<{ id: number, name: string, description: string | null, createdAt: Date }>;
+      
       logger.info(`Encontrados ${environments.length} ambientes para sincronizar`);
       
       // Criar/atualizar cada ambiente no Neo4j
@@ -170,7 +171,14 @@ export class Neo4jIntegrationV2 {
         SELECT ci.id, ci.component_id as componentId, ci.environment_id as environmentId, 
                ci.hostname, ci.specs, ci.created_at as createdAt
         FROM Component_Instance ci
-      `;
+      ` as Array<{ 
+        id: number, 
+        componentId: number, 
+        environmentId: number, 
+        hostname: string | null, 
+        specs: any, 
+        createdAt: Date 
+      }>;
       
       logger.info(`Encontradas ${instances.length} instâncias para sincronizar`);
       
@@ -247,7 +255,13 @@ export class Neo4jIntegrationV2 {
         SELECT ap.id, ap.adr_id as adrId, ap.user_id as userId, 
                ap.role, ap.created_at as createdAt
         FROM ADR_Participant ap
-      `;
+      ` as Array<{ 
+        id: number, 
+        adrId: number, 
+        userId: number, 
+        role: string, 
+        createdAt: Date 
+      }>;
       
       logger.info(`Encontrados ${participants.length} participantes para sincronizar`);
       
@@ -295,7 +309,14 @@ export class Neo4jIntegrationV2 {
                ci.component_id as componentId
         FROM ADR_Component_Instance aci
         JOIN Component_Instance ci ON aci.instance_id = ci.id
-      `;
+      ` as Array<{ 
+        id: number, 
+        adrId: number, 
+        instanceId: number, 
+        impactLevel: string, 
+        notes: string | null,
+        componentId: number 
+      }>;
       
       logger.info(`Encontradas ${adrInstances.length} relações ADR-Instância para sincronizar`);
       
@@ -327,7 +348,7 @@ export class Neo4jIntegrationV2 {
           SELECT * FROM ADR_Component 
           WHERE adr_id = ${rel.adrId} AND component_id = ${rel.componentId}
           LIMIT 1
-        `;
+        ` as Array<any>;
         
         // Se não existe, criar automaticamente
         if (!adrComponent || adrComponent.length === 0) {
@@ -608,7 +629,13 @@ export class Neo4jIntegrationV2 {
           FROM Component_Instance ci
           WHERE ci.id = ${instance.id}
           LIMIT 1
-        `;
+        ` as Array<{ 
+          id: number, 
+          componentId: number, 
+          environmentId: number, 
+          hostname: string | null, 
+          specs: any 
+        }>;
         
         if (dbInstance && dbInstance.length > 0) {
           // Recriar relações
