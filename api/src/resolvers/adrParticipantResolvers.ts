@@ -1,20 +1,47 @@
-import builder from '../schema';
+import { builder } from '../schema';
 import { ADRParticipant, ADRParticipantInput, ADRParticipantUpdateInput, ADRParticipantWhereInput } from '../schema/objects/adrParticipant';
 import { prisma } from '../prisma';
 import { Neo4jClient } from '../db/neo4j';
+import neo4jDriver from 'neo4j-driver';
+import { logger } from '../utils/logger';
 
-const neo4j = new Neo4jClient();
+// Inicializar Neo4j
+const driver = neo4jDriver.driver(
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
+  neo4jDriver.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'beaver12345'
+  )
+);
+const neo4jClient = new Neo4jClient(driver);
 
-export const adrParticipantResolvers = (builder: any) => {
-  // Query para buscar um participante específico
+export const adrParticipantResolvers = (builder) => {
+  // Query para buscar participantes por ADR ID
+  builder.queryField('adrParticipants', (t) =>
+    t.prismaField({
+      type: ['ADR_Participant'],
+      args: {
+        adrId: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { adrId }) => {
+        return prisma.aDR_Participant.findMany({
+          ...query,
+          where: { adrId },
+        });
+      },
+    })
+  );
+
+  // Query para buscar participantes por ID
   builder.queryField('adrParticipant', (t) =>
     t.prismaField({
-      type: ADRParticipant,
+      type: 'ADR_Participant',
+      nullable: true,
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (query, _root, { id }, { prisma }) => {
-        return prisma.aDRParticipant.findUniqueOrThrow({
+      resolve: async (query, _root, { id }) => {
+        return prisma.aDR_Participant.findUnique({
           ...query,
           where: { id },
         });
@@ -81,81 +108,77 @@ export const adrParticipantResolvers = (builder: any) => {
     })
   );
 
-  // Mutation para adicionar um participante a um ADR
+  // Mutation para adicionar participante a um ADR
   builder.mutationField('addADRParticipant', (t) =>
     t.prismaField({
-      type: ADRParticipant,
+      type: 'ADR_Participant',
       args: {
-        input: t.arg({ type: ADRParticipantInput, required: true }),
+        input: t.arg({
+          type: 'ADRParticipantInput',
+          required: true,
+        }),
       },
-      resolve: async (query, _root, { input }, { prisma, currentUser }) => {
-        // Verificar permissões - apenas admin, architect ou owner do ADR pode adicionar participantes
-        const isOwner = await prisma.aDRParticipant.findFirst({
-          where: {
-            adrId: input.adrId,
-            userId: currentUser?.id,
-            role: 'OWNER'
-          }
-        });
+      resolve: async (query, _root, { input }) => {
+        const { adrId, userId, role } = input;
 
-        if (!currentUser || 
-            (!['ADMIN', 'ARCHITECT'].includes(currentUser.role) && !isOwner)) {
-          throw new Error('Permissão negada. Apenas administradores, arquitetos ou donos do ADR podem adicionar participantes.');
-        }
-
-        // Verificar se o ADR existe
+        // Verifica se o ADR existe
         const adr = await prisma.aDR.findUnique({
-          where: { id: input.adrId }
+          where: { id: adrId },
         });
 
         if (!adr) {
-          throw new Error(`ADR com ID ${input.adrId} não encontrado.`);
+          throw new Error(`ADR com ID ${adrId} não encontrado`);
         }
 
-        // Verificar se o usuário existe
+        // Verifica se o usuário existe
         const user = await prisma.user.findUnique({
-          where: { id: input.userId }
+          where: { id: userId },
         });
 
         if (!user) {
-          throw new Error(`Usuário com ID ${input.userId} não encontrado.`);
+          throw new Error(`Usuário com ID ${userId} não encontrado`);
         }
 
-        // Verificar se o participante já existe
-        const existingParticipant = await prisma.aDRParticipant.findFirst({
+        // Verifica se já existe essa relação
+        const existingParticipant = await prisma.aDR_Participant.findFirst({
           where: {
-            adrId: input.adrId,
-            userId: input.userId
-          }
-        });
-
-        if (existingParticipant) {
-          throw new Error(`Usuário já é um participante deste ADR com papel ${existingParticipant.role}.`);
-        }
-
-        // Criar participante no MariaDB
-        const participant = await prisma.aDRParticipant.create({
-          ...query,
-          data: {
-            adrId: input.adrId,
-            userId: input.userId,
-            role: input.role
+            adrId,
+            userId,
           },
         });
 
-        // Sincronizar com Neo4j
-        await neo4j.run(`
-          MATCH (u:User {id: $userId}), (a:ADR {id: $adrId})
-          MERGE (u)-[r:PARTICIPATES_IN]->(a)
-          ON CREATE SET r.role = $role
-          ON MATCH SET r.role = $role
-        `, {
-          userId: input.userId,
-          adrId: input.adrId,
-          role: input.role
+        if (existingParticipant) {
+          throw new Error(`Usuário já é participante deste ADR`);
+        }
+
+        // Cria o participante
+        const newParticipant = await prisma.aDR_Participant.create({
+          ...query,
+          data: {
+            adrId,
+            userId,
+            role,
+          },
         });
 
-        return participant;
+        // Sincroniza com Neo4j
+        try {
+          await neo4jClient.run(`
+            MATCH (u:User {id: $userId})
+            MATCH (a:ADR {id: $adrId})
+            MERGE (u)-[:PARTICIPATES_IN {role: $role, id: $participantId}]->(a)
+          `, {
+            userId,
+            adrId,
+            role,
+            participantId: newParticipant.id
+          });
+        } catch (error) {
+          logger.warn(`Erro ao sincronizar participante com Neo4j: ${error}`);
+          // Continua mesmo com erro no Neo4j
+        }
+
+        return newParticipant;
       },
     })
   );
@@ -217,7 +240,7 @@ export const adrParticipantResolvers = (builder: any) => {
         });
 
         // Atualizar no Neo4j
-        await neo4j.run(`
+        await neo4jClient.run(`
           MATCH (u:User {id: $userId})-[r:PARTICIPATES_IN]->(a:ADR {id: $adrId})
           SET r.role = $role
         `, {
@@ -231,73 +254,58 @@ export const adrParticipantResolvers = (builder: any) => {
     })
   );
 
-  // Mutation para remover um participante
+  // Mutation para remover participante de um ADR
   builder.mutationField('removeADRParticipant', (t) =>
-    t.prismaField({
-      type: ADRParticipant,
+    t.boolean({
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (query, _root, { id }, { prisma, currentUser }) => {
-        // Buscar o participante atual
-        const participant = await prisma.aDRParticipant.findUnique({
+      resolve: async (_root, { id }) => {
+        // Verifica se o participante existe
+        const participant = await prisma.aDR_Participant.findUnique({
           where: { id },
-          include: { adr: true }
+          include: { adr: true },
         });
 
         if (!participant) {
-          throw new Error(`Participante com ID ${id} não encontrado.`);
+          throw new Error(`Participante com ID ${id} não encontrado`);
         }
 
-        // Verificar permissões
-        const isOwner = await prisma.aDRParticipant.findFirst({
-          where: {
-            adrId: participant.adrId,
-            userId: currentUser?.id,
-            role: 'OWNER'
-          }
-        });
-
-        if (!currentUser || 
-            (!['ADMIN', 'ARCHITECT'].includes(currentUser.role) && !isOwner)) {
-          throw new Error('Permissão negada. Apenas administradores, arquitetos ou donos do ADR podem remover participantes.');
-        }
-
-        // Verificar se não está tentando remover o último owner
+        // Verificar se é o último owner
         if (participant.role === 'OWNER') {
-          const ownerCount = await prisma.aDRParticipant.count({
+          const ownersCount = await prisma.aDR_Participant.count({
             where: {
               adrId: participant.adrId,
-              role: 'OWNER'
-            }
+              role: 'OWNER',
+            },
           });
 
-          if (ownerCount <= 1) {
-            throw new Error('Não é possível remover o último owner do ADR. Adicione outro owner antes.');
+          if (ownersCount <= 1) {
+            throw new Error(`Não é possível remover o último owner do ADR`);
           }
         }
 
-        // Armazenar dados para Neo4j antes de excluir
-        const { userId, adrId } = participant;
-
-        // Buscar o participante completo para retornar
-        const participantToReturn = await prisma.aDRParticipant.findUniqueOrThrow({
-          ...query,
+        // Remove o participante no MariaDB
+        await prisma.aDR_Participant.delete({
           where: { id },
         });
 
-        // Remover do Neo4j
-        await neo4j.run(`
-          MATCH (u:User {id: $userId})-[r:PARTICIPATES_IN]->(a:ADR {id: $adrId})
-          DELETE r
-        `, { userId, adrId });
+        // Remove a relação no Neo4j
+        try {
+          await neo4jClient.run(`
+            MATCH (u:User {id: $userId})-[r:PARTICIPATES_IN {id: $participantId}]->(a:ADR {id: $adrId})
+            DELETE r
+          `, {
+            userId: participant.userId,
+            adrId: participant.adrId,
+            participantId: id
+          });
+        } catch (error) {
+          logger.warn(`Erro ao remover participante do Neo4j: ${error}`);
+          // Continua mesmo com erro no Neo4j
+        }
 
-        // Remover do MariaDB
-        await prisma.aDRParticipant.delete({
-          where: { id },
-        });
-
-        return participantToReturn;
+        return true;
       },
     })
   );

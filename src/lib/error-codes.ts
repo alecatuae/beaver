@@ -1,197 +1,202 @@
 /**
- * Sistema padronizado de códigos de erro para a aplicação Beaver v2.0
+ * Sistema de Códigos de Erro Padronizados - Beaver v2.0
+ * 
  * Formato: ERR-XXXX-YY-ZZ
- * - XXXX: Código do módulo
- * - YY: Tipo de erro
- * - ZZ: Origem
+ * XXXX: Módulo (1000-9999)
+ * YY: Tipo de erro (01-99)
+ * ZZ: Erro específico (01-99)
  */
 
-// Módulos da aplicação (XXXX)
+// Módulos (1000-9999)
 export enum ErrorModule {
-  // 1000-1999: Core e Autenticação
-  AUTH = '1000',
-  USER = '1001',
-  CONFIG = '1099',
-
-  // 2000-2999: Gestão de dados principais
-  GLOSSARY = '2000',
-  ENVIRONMENT = '2100',
-  TEAM = '2200',
-  TAG = '2300',
-  
-  // 3000-3999: Arquitetura modular
-  TRM = '3000',
-  CATEGORY = '3100',
-  
-  // 4000-4999: Componentes
-  COMPONENT = '4000',
-  COMPONENT_INSTANCE = '4100',
-  RELATION = '4200',
-  
-  // 5000-5999: Documentação
-  ADR = '5000',
-  ROADMAP = '5100',
-  
-  // 9000-9999: Outros
-  SYSTEM = '9000',
-  GRAPH = '9100',
-  API = '9500'
+  AUTH = 1000, // Autenticação e Autorização
+  ADR = 2000, // Gerenciamento de ADRs
+  IMPACT = 3000, // Análise de Impacto
+  COMPONENT = 4000, // Gerenciamento de Componentes
+  RELATIONSHIP = 5000, // Gerenciamento de Relacionamentos
+  TRM = 6000, // TRM e Categorias
+  GLOSSARY = 7000, // Glossário
+  SYSTEM = 8000, // Sistema e Configuração
+  INTEGRATION = 9000, // Integração e Comunicação
 }
 
-// Tipos de erro (YY)
+// Tipos de erro (01-99)
 export enum ErrorType {
-  VALIDATION = '01',
-  PERMISSION = '02',
-  NOT_FOUND = '03',
-  DUPLICATE = '04',
-  OPERATION = '05',
-  DEPENDENCY = '06',
-  CONNECTION = '07',
-  TIMEOUT = '08',
-  CONFLICT = '09',
-  INPUT = '10',
-  UNKNOWN = '99'
+  VALIDATION = 1, // Validação de dados
+  PERMISSION = 2, // Permissão negada
+  NOT_FOUND = 3, // Recurso não encontrado
+  CONFLICT = 4, // Conflito de dados
+  COMMUNICATION = 5, // Erro de comunicação
+  DATABASE = 6, // Erro de banco de dados
+  INTERNAL = 7, // Erro interno
+  INTEGRATION = 8, // Erro de integração
+  INPUT = 9, // Entrada inválida
+  SYNC = 10, // Erro de sincronização
+  TIMEOUT = 11, // Tempo limite excedido
 }
 
-// Origem do erro (ZZ)
+// Fontes de erro (01-99)
 export enum ErrorSource {
-  UI = 'UI',
-  API = 'API',
-  DB = 'DB'
+  API = 1, // API GraphQL
+  DATABASE = 2, // Banco de dados (MariaDB)
+  NEO4J = 3, // Neo4j
+  CLIENT = 4, // Cliente (navegador)
+  AUTH = 5, // Sistema de autenticação
+  EXTERNAL = 6, // Sistema externo
+  PROCESS = 7, // Processo interno
+  VALIDATION = 8, // Validação
+  NETWORK = 9, // Rede
 }
 
-// Interface para detalhes do erro
-export interface ErrorDetails {
-  title: string;
-  description: string;
+// Interface para o código de erro
+export interface ErrorCode {
+  code: string;
+  message: string;
   solution?: string;
-  errorCode: string;
-  context?: Record<string, any>;
-  statusCode?: number;
 }
 
-// Função para gerar códigos de erro no formato padronizado
+/**
+ * Gera um código de erro no formato ERR-XXXX-YY-ZZ
+ */
 export function generateErrorCode(
   module: ErrorModule,
   type: ErrorType,
   source: ErrorSource
 ): string {
-  return `ERR-${module}-${type}-${source}`;
+  const moduleStr = module.toString().padStart(4, '0');
+  const typeStr = type.toString().padStart(2, '0');
+  const sourceStr = source.toString().padStart(2, '0');
+  
+  return `ERR-${moduleStr}-${typeStr}-${sourceStr}`;
 }
 
-// Erros comuns predefinidos
-export const CommonErrors = {
-  // Erros de autenticação
-  UNAUTHORIZED: {
-    errorCode: generateErrorCode(ErrorModule.AUTH, ErrorType.PERMISSION, ErrorSource.API),
-    title: 'Erro: Acesso não autorizado',
-    description: 'Você não tem permissão para acessar este recurso.',
-    solution: 'Faça login novamente ou contate o administrador para obter acesso.',
-    statusCode: 401
-  },
-  
-  // Erros de validação
-  VALIDATION_FAILED: {
-    errorCode: generateErrorCode(ErrorModule.SYSTEM, ErrorType.VALIDATION, ErrorSource.UI),
-    title: 'Erro: Validação falhou',
-    description: 'Os dados fornecidos não são válidos.',
-    solution: 'Verifique os campos marcados e corrija os erros indicados.',
-    statusCode: 400
-  },
-  
-  // Erros de conexão
-  CONNECTION_FAILED: {
-    errorCode: generateErrorCode(ErrorModule.API, ErrorType.CONNECTION, ErrorSource.API),
-    title: 'Erro: Falha de conexão',
-    description: 'Não foi possível conectar ao servidor.',
-    solution: 'Verifique sua conexão com a internet e tente novamente em alguns instantes.',
-    statusCode: 503
-  },
-  
-  // Erros de operação
-  OPERATION_FAILED: {
-    errorCode: generateErrorCode(ErrorModule.SYSTEM, ErrorType.OPERATION, ErrorSource.API),
-    title: 'Erro: Operação falhou',
-    description: 'Não foi possível completar a operação solicitada.',
-    solution: 'Tente novamente ou contate o suporte se o problema persistir.',
-    statusCode: 500
-  },
-  
-  // Recurso não encontrado
-  NOT_FOUND: {
-    errorCode: generateErrorCode(ErrorModule.SYSTEM, ErrorType.NOT_FOUND, ErrorSource.API),
-    title: 'Erro: Recurso não encontrado',
-    description: 'O item solicitado não foi encontrado.',
-    solution: 'Verifique se o ID ou referência está correto e tente novamente.',
-    statusCode: 404
-  }
-};
-
-// Erros específicos por módulo
-export const ComponentErrors = {
-  // Componente não encontrado
-  COMPONENT_NOT_FOUND: {
-    errorCode: generateErrorCode(ErrorModule.COMPONENT, ErrorType.NOT_FOUND, ErrorSource.API),
-    title: 'Erro: Componente não encontrado',
-    description: 'O componente solicitado não existe ou foi removido.',
-    solution: 'Verifique o ID do componente ou retorne à lista de componentes.',
-    statusCode: 404
-  },
-  
-  // Erro ao criar componente com nome duplicado
-  DUPLICATE_NAME: {
-    errorCode: generateErrorCode(ErrorModule.COMPONENT, ErrorType.DUPLICATE, ErrorSource.API),
-    title: 'Erro: Nome de componente duplicado',
-    description: 'Já existe um componente com este nome no sistema.',
-    solution: 'Escolha um nome diferente para o componente.',
-    statusCode: 409
-  },
-  
-  // Erro ao tentar excluir um componente com dependências
-  HAS_DEPENDENCIES: {
-    errorCode: generateErrorCode(ErrorModule.COMPONENT, ErrorType.DEPENDENCY, ErrorSource.API),
-    title: 'Erro: Componente possui dependências',
-    description: 'Este componente não pode ser excluído porque possui relações ou instâncias.',
-    solution: 'Remova todas as relações e instâncias primeiro.',
-    statusCode: 409
-  }
-};
-
-export const EnvironmentErrors = {
-  ENVIRONMENT_NOT_FOUND: {
-    errorCode: generateErrorCode(ErrorModule.ENVIRONMENT, ErrorType.NOT_FOUND, ErrorSource.API),
-    title: 'Erro: Ambiente não encontrado',
-    description: 'O ambiente solicitado não existe ou foi removido.',
-    solution: 'Verifique o ID do ambiente ou retorne à lista de ambientes.',
-    statusCode: 404
-  }
-};
-
-export const ADRErrors = {
-  ADR_NOT_FOUND: {
-    errorCode: generateErrorCode(ErrorModule.ADR, ErrorType.NOT_FOUND, ErrorSource.API),
-    title: 'Erro: ADR não encontrado',
-    description: 'O ADR solicitado não existe ou foi removido.',
-    solution: 'Verifique o ID do ADR ou retorne à lista de ADRs.',
-    statusCode: 404
-  },
-  
-  INVALID_PARTICIPANTS: {
-    errorCode: generateErrorCode(ErrorModule.ADR, ErrorType.VALIDATION, ErrorSource.UI),
-    title: 'Erro: Participantes inválidos',
-    description: 'A configuração de participantes é inválida.',
-    solution: 'Um ADR deve ter pelo menos um proprietário (owner).',
-    statusCode: 400
-  }
-};
-
-// Função para criar um erro personalizado com base nos templates
-export function createCustomError(
-  baseError: ErrorDetails,
-  overrides?: Partial<ErrorDetails>
-): ErrorDetails {
+/**
+ * Cria um objeto de erro completo com código, mensagem e solução
+ */
+export function createError(
+  module: ErrorModule,
+  type: ErrorType,
+  source: ErrorSource,
+  message: string,
+  solution?: string
+): ErrorCode {
   return {
-    ...baseError,
-    ...overrides
+    code: generateErrorCode(module, type, source),
+    message,
+    solution
+  };
+}
+
+/**
+ * Códigos de erro predefinidos para cenários comuns
+ */
+export const ErrorCodes = {
+  // Erros de Autenticação (1000)
+  AUTH_INVALID_CREDENTIALS: createError(
+    ErrorModule.AUTH,
+    ErrorType.VALIDATION,
+    ErrorSource.AUTH,
+    'Credenciais inválidas',
+    'Verifique seu nome de usuário e senha e tente novamente'
+  ),
+  AUTH_SESSION_EXPIRED: createError(
+    ErrorModule.AUTH,
+    ErrorType.TIMEOUT,
+    ErrorSource.AUTH,
+    'Sessão expirada',
+    'Faça login novamente para continuar'
+  ),
+  AUTH_PERMISSION_DENIED: createError(
+    ErrorModule.AUTH,
+    ErrorType.PERMISSION,
+    ErrorSource.AUTH,
+    'Permissão negada',
+    'Você não tem permissão para realizar esta ação'
+  ),
+
+  // Erros de ADR (2000)
+  ADR_NOT_FOUND: createError(
+    ErrorModule.ADR,
+    ErrorType.NOT_FOUND,
+    ErrorSource.DATABASE,
+    'ADR não encontrado',
+    'Verifique se o ID está correto ou se o ADR ainda existe'
+  ),
+  ADR_MISSING_OWNER: createError(
+    ErrorModule.ADR,
+    ErrorType.VALIDATION,
+    ErrorSource.VALIDATION,
+    'ADR precisa ter pelo menos um owner',
+    'Adicione um participante com papel de owner'
+  ),
+  ADR_DUPLICATE_TITLE: createError(
+    ErrorModule.ADR,
+    ErrorType.CONFLICT,
+    ErrorSource.DATABASE,
+    'Título de ADR já existe',
+    'Escolha um título diferente para este ADR'
+  ),
+
+  // Erros de Componente (4000)
+  COMPONENT_NOT_FOUND: createError(
+    ErrorModule.COMPONENT,
+    ErrorType.NOT_FOUND,
+    ErrorSource.DATABASE,
+    'Componente não encontrado',
+    'Verifique se o ID está correto ou se o componente ainda existe'
+  ),
+  COMPONENT_INSTANCE_CONFLICT: createError(
+    ErrorModule.COMPONENT,
+    ErrorType.CONFLICT,
+    ErrorSource.DATABASE,
+    'Já existe uma instância deste componente neste ambiente',
+    'Atualize a instância existente ou escolha outro ambiente'
+  ),
+  COMPONENT_DUPLICATE_NAME: createError(
+    ErrorModule.COMPONENT,
+    ErrorType.CONFLICT,
+    ErrorSource.DATABASE,
+    'Nome de componente já existe',
+    'Escolha um nome diferente para este componente'
+  ),
+
+  // Erros de Sincronização (5000)
+  SYNC_NEO4J_FAILED: createError(
+    ErrorModule.RELATIONSHIP,
+    ErrorType.SYNC,
+    ErrorSource.NEO4J,
+    'Falha na sincronização com Neo4j',
+    'A operação no MariaDB foi concluída, mas a sincronização com Neo4j falhou'
+  ),
+
+  // Erros de Sistema (8000)
+  SYSTEM_INTERNAL_ERROR: createError(
+    ErrorModule.SYSTEM,
+    ErrorType.INTERNAL,
+    ErrorSource.PROCESS,
+    'Erro interno do sistema',
+    'Entre em contato com o suporte técnico se o problema persistir'
+  ),
+  SYSTEM_DATABASE_ERROR: createError(
+    ErrorModule.SYSTEM,
+    ErrorType.DATABASE,
+    ErrorSource.DATABASE,
+    'Erro de banco de dados',
+    'Tente novamente mais tarde. Se o problema persistir, contate o suporte técnico'
+  ),
+};
+
+/**
+ * Função auxiliar para customizar uma mensagem de erro
+ */
+export function customizeError(
+  baseError: ErrorCode,
+  customMessage?: string,
+  customSolution?: string
+): ErrorCode {
+  return {
+    code: baseError.code,
+    message: customMessage || baseError.message,
+    solution: customSolution || baseError.solution
   };
 } 

@@ -6,9 +6,18 @@
  * para executar as várias operações de sincronização.
  */
 
-import { driver } from '../neo4j';
+import neo4j from 'neo4j-driver';
 import { Neo4jIntegrationV2 } from './neo4j_integration_v2';
 import { logger } from '../utils/logger';
+
+// Criar conexão com o Neo4j
+const driver = neo4j.driver(
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
+  neo4j.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'beaver12345'
+  )
+);
 
 // Criar instância do integrador
 const integration = new Neo4jIntegrationV2(driver);

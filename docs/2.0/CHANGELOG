@@ -15,163 +15,46 @@ All notable changes to the Beaver project version 2.0 will be documented in this
 - Support for environments (development, homologation, production)
 - Component instances per environment
 - Team-based organization
-- ADR participants model (owner, reviewer, consumer)
-- Updated relationship mapping in Neo4j
-- GraphQL resolvers for new entities (ComponentInstance, ADRParticipant, ADRComponentInstance)
-- Queries and mutations for component instances, ADR participants, and impacts on instances
-- Migration scripts for data compatibility between v1 and v2
-- Enhanced Neo4j integration with new node types and relationships
-- Automatic Neo4j synchronization via Prisma middleware
-- Integrity validation and automatic repair for Neo4j graph
-- Neo4j CLI tool for v2.0 entity management and synchronization
-- Comprehensive API documentation with migration guide and compatibility information
-- Expanded test suite with coverage for all new v2.0 features:
-  - Environment CRUD tests
-  - Team and Team Member management tests
-  - ADR Participant validation tests
-  - API compatibility and backward compatibility tests
-- Frontend implementation checklist with detailed steps for upgrading components, types, queries, and UI elements
-- Implementação completa dos novos tipos para Environment, Team, TeamMember, ComponentInstance e ADRParticipant em src/types/graphql.ts, incluindo documentação com referências ao esquema do banco de dados
-- Adicionados novos filtros (TeamFilter, EnvironmentFilter) e tipos de resposta paginada (TeamsResponse, EnvironmentsResponse, ComponentInstancesResponse)
-- Expandidos os tipos de entrada (inputs) para suportar novos campos nas entidades da v2.0
-- Atualização de tipos Component e ADR com novas relações e campos introduzidos na v2.0, incluindo suporte a múltiplos participantes, impacto em ambientes específicos e validação temporal
-- Melhorias nos tipos ADRInput e ComponentInput para suportar termos do glossário, tags e relacionamentos entre entidades
-- Expansão dos filtros GraphQL para permitir consultas mais granulares por ambiente, time e papel de participante
-- Verificação da compatibilidade de tipagem com hooks personalizados existentes e componentes que utilizam os tipos atualizados
-- Implementação de queries e mutations para Environments (GET_ENVIRONMENTS, GET_ENVIRONMENT, CREATE_ENVIRONMENT, UPDATE_ENVIRONMENT, DELETE_ENVIRONMENT)
-- Implementação de queries e mutations para ComponentInstances (GET_COMPONENT_INSTANCES, GET_COMPONENT_INSTANCE, CREATE_COMPONENT_INSTANCE, UPDATE_COMPONENT_INSTANCE, DELETE_COMPONENT_INSTANCE)
-- Adição de query específica para buscar instâncias por ambiente (GET_COMPONENT_INSTANCES_BY_ENVIRONMENT)
-- Criação de interfaces TypeScript para EnvironmentType, EnvironmentInput, ComponentInstanceType e ComponentInstanceInput
-- Implementação de queries e mutations para Teams (GET_TEAMS, GET_TEAM, CREATE_TEAM, UPDATE_TEAM, DELETE_TEAM)
-- Implementação de mutations para gerenciamento de membros de times (ADD_TEAM_MEMBER, REMOVE_TEAM_MEMBER)
-- Adição de query auxiliar para listar usuários que não pertencem a um time específico (GET_USERS_NOT_IN_TEAM)
-- Criação de interfaces TypeScript para TeamType, TeamInput, TeamMemberType e TeamMemberInput
-- Atualização de queries de componentes (GET_COMPONENTS, GET_COMPONENT) para incluir novas relações com times, instâncias e termos do glossário
-- Ampliação da query GET_GRAPH_DATA para suportar filtragem por ambiente e time 
-- Expansão das interfaces ComponentType e ComponentInput com novos campos para suporte à validação temporal, associação a times e rastreabilidade de atualizações
-- Implementação de queries e mutations para ADRs com suporte ao novo modelo de participantes múltiplos (GET_ADRS, GET_ADR, GET_ADR_BY_COMPONENT, GET_ADR_BY_ENVIRONMENT, GET_PENDING_APPROVAL_ADRS)
-- Criação de queries específicas para ADRs filtrados por componente, ambiente e aprovações pendentes
-- Implementação de mutations para gerenciamento de participantes de ADRs (ADD_ADR_PARTICIPANT, UPDATE_ADR_PARTICIPANT, REMOVE_ADR_PARTICIPANT, APPROVE_ADR)
-- Adição de mutations para associar componentes e instâncias a ADRs com diferentes níveis de impacto
-- Suporte para relacionamentos entre ADRs (relacionados e substituídos) através de mutations específicas (ADD_RELATED_ADR, REMOVE_RELATED_ADR, SET_SUPERSEDED_ADR)
-- Criação de interfaces TypeScript para ADRType, ADRParticipantType, ADRInput, ADRParticipantInput e ADRFilter
-- Separação lógica do código GraphQL relacionado a ADRs em arquivo dedicado (graphql-adr.ts)
-- Implementação de componentes seletores dinâmicos (EnvironmentSelector, TeamSelector) para uso em formulários e filtros
-- Componentes de seleção com gerenciamento integrado de estados de carregamento, erro e dados vazios
-- Suporte a customização de estilos e comportamentos nos seletores através de props
-- Atualização de formulários para usar os novos seletores dinâmicos:
-  - Formulário de Componentes atualizado para usar TeamSelector
-  - Formulário de ADRs com suporte ao novo modelo de participantes múltiplos
-  - Formulário de Relacionamentos expandido para suportar relacionamentos entre instâncias específicas em ambientes
-- Implementação da visualização hierárquica para TRM (Technical Reference Model):
-  - Componente de árvore TRM que mostra camadas e categorias em estrutura hierárquica
-  - Suporte a expansão/colapso de nós na visualização em árvore
-  - Codificação por cores para diferentes níveis do TRM (Infrastructure, Platform, Application, Shared Services)
-  - Seleção de nós com exibição de detalhes complementares
-  - Painel de detalhes para mostrar informações sobre camadas e categorias selecionadas
-  - Visualização alternativa em grid para camadas TRM
-  - Filtros por camada TRM para facilitar navegação em grandes hierarquias
-- Atualização dos componentes de visualização de grafo para incluir instâncias:
-  - Suporte para visualização de instâncias de componentes no grafo
-  - Diferenciação visual entre componentes, instâncias e ambientes
-  - Filtragem de grafo por ambiente específico
-  - Destaque de instâncias relacionadas a um componente selecionado
-  - Painel de detalhes expandido para mostrar informações específicas de instâncias
-  - Controles de interface para exibir/ocultar instâncias no grafo
-  - Suporte a diferentes layouts de grafo (cola, em largura, concêntrico)
-  - Codificação por cores para diferentes tipos de relacionamentos (INSTANTIATES, DEPLOYED_IN)
-  - Ajuste automático de visualização baseado no ambiente selecionado
-  - Melhoria na experiência do usuário com estados de carregamento e erro
-- Implementação de visualização completa do TRM (Technical Reference Model) com suporte a camadas e categorias hierárquicas, incluindo visualização em árvore e em grid, filtros por camada e exibição de componentes associados a cada categoria
-- Atualização da página de componentes para exibir informações sobre instâncias, incluindo contadores de instâncias e badges de ambientes onde cada componente está implantado, com tooltips informativos, além de uma visualização detalhada de instâncias com especificações técnicas em uma interface com abas
-- Atualização das páginas de ADRs para mostrar múltiplos participantes com diferentes papéis (owner, reviewer, consumer), incluindo avatares, tooltips informativos e sistema de abas para visualização detalhada
-- Atualização dos testes unitários para cobrir as novas funcionalidades do TRM, instâncias de componentes e participantes de ADRs, com validações específicas para cada recurso
-- Implementação de testes de integração para gerenciamento de participantes em ADRs, com simulação de interações completas para adição, remoção e aprovação de participantes
-- Implementação de testes de integração para gerenciamento de instâncias de componentes em diferentes ambientes, incluindo criação, edição, exclusão e visualização baseada em ambiente
-- Testes de validação para garantir que cada ADR tenha pelo menos um owner entre seus participantes
-- Testes de validação para verificar especificações técnicas das instâncias de componentes
-- Testes para visualização hierárquica do TRM, incluindo navegação entre camadas e verificação de componentes associados
-- Implementação do sistema padronizado de mensagens de erro:
-  - Definição de códigos de erro no formato ERR-XXXX-YY-ZZ para rastreabilidade
-  - Componentes de UI para exibição consistente de mensagens de erro
-  - Mensagens de erro formatadas com título, descrição, solução e código
-  - Hook personalizado para gerenciamento centralizado de erros (useErrorHandler)
-  - Integração com Apollo Client para tratamento padronizado de erros de API
-  - Diferentes variantes de mensagens de erro (global, toast, inline)
-  - Exemplo de página para demonstração do sistema de erros
-- Atualização do sidebar para incluir novas seções conforme especificações da v2.0
-- Codificação por cores diferentes para cada tipo de nó no grafo
-- Suporte a diferentes layouts de grafo (cola, em largura, concêntrico)
-- Codificação por cores para diferentes tipos de relacionamentos (INSTANTIATES, DEPLOYED_IN)
-- Ajuste automático de visualização baseado no ambiente selecionado
-- Melhoria na experiência do usuário com estados de carregamento e erro
-- Implementação de páginas para gerenciamento de ambientes:
-  - Página principal de listagem de ambientes com cards informativos
-  - Página de criação de ambientes com validação de formulário
-  - Página de detalhes do ambiente com listagem de instâncias
-  - Página de edição de ambiente com formulário pré-preenchido
-  - Dashboard de status com métricas e tabela de instâncias
-  - Visualização de fluxo de deployment com pipeline e histórico
-- Implementação completa do módulo de gerenciamento de times:
-  - Página principal de listagem de times com cards informativos
-  - Página de criação de times com validação de formulário
-  - Página de detalhes do time com informações e listagem de membros/componentes
-  - Página de edição de time com formulário pré-preenchido
-  - Página de gerenciamento de membros com adição/remoção de usuários
-- Implementação de sistema de paginação server-side para todas as listagens principais (componentes, ADRs, relacionamentos)
-- Integração de lazy loading com IntersectionObserver API para carregamento otimizado de dados
-- Suporte a ordenação dinâmica em consultas GraphQL paginadas para melhor desempenho
-- Feedback visual de carregamento durante a paginação para melhor experiência do usuário
-- Adição de estatísticas de paginação para orientar o usuário sobre quantidade de itens disponíveis
-- Implemented advanced cache strategies for GraphQL queries using Apollo Client
-- Added intelligent preloading of frequently accessed entities
-- Created hover-based prefetching for improved user experience
-- Implemented selective cache updates and eviction for better performance
-- Added support for custom stale times and cache policies per query
-- Added comprehensive visual feedback system for long-running operations
-- Created reusable spinner component with multiple sizes and variants
-- Implemented progress bar component with determinate and indeterminate states
-- Added loading container component for overlay loading states
-- Created useLoadingOperation hook for managing loading states with time tracking
-- Added circular progress component for more compact loading indicators
-- Implemented component memoization for complex rendering optimization
-- Added memoization helper hooks and HOC for simplified use
-- Created optimized versions of complex components like CytoscapeGraph and TeamSelector
-- Implemented deep comparison memoization for complex data structures
-- Added debouncing and throttling utilities for performance optimization
-- Documentada a API completa de componentes e hooks adicionados na v2.0, incluindo hooks de memoização, HOC withMemo, otimização de queries GraphQL, estratégias de cache e componentes de feedback visual
-- Criado guia de uso detalhado para desenvolvedores com exemplos práticos de implementação dos novos componentes e hooks v2.0
-- Adicionados exemplos de código completos para demonstração dos novos padrões: memoização de componentes, consultas GraphQL otimizadas e feedback visual para operações de longa duração
+- ADR participants management
+- Glossary terms management
+- API documentation in `docs/versions/2.0/api_docs_v2.0_pt_br.md`
+- Neo4j migration scripts:
+  - `scripts/neo4j/migrate-v2.sh` - Updates Neo4j schema with new constraints, relationships, and migrates component instances
+  - `scripts/neo4j/sync-neo4j.sh` - Synchronizes MariaDB data with Neo4j
+  - `scripts/neo4j/backup-restore.sh` - Manages Neo4j backups and restoration
+  - `scripts/neo4j/setup-visualization.sh` - Configures Neo4j Browser with custom colors and styles
+- Neo4j v2.0 documentation in `docs/versions/2.0/neo4j_migration_guide_v2.0_pt_br.md`
+- Support for new Neo4j relationships: INSTANTIATES, DEPLOYED_IN, MANAGED_BY, PARTICIPATES_IN, AFFECTS_INSTANCE, INSTANCE_CONNECTS_TO
+- Tests for ADR participant resolvers
+- Tests for Environment resolvers
 
 ### Changed
-- Updated Prisma schema with new enums and model refinements
-- Changed ADR model's "description" field to "decision"
-- Modified impactLevel in ADR_ComponentInstance to use enum instead of string
-- Updated Log model to use LogLevel enum for level field
-- Changed GlossaryTerm status to use GlossaryStatus enum with default value 'DRAFT'
-- Modified Prisma schema to support new entity relationships
-- ADR model now supports multiple participants with different roles
-- ADRs now reference specific component instances instead of just components
-- Updated TypeScript types for GraphQL schema
-- RoadmapType moved from enum to database table
-- Improved error handling with standardized error codes
+- Permissions system restructured to support teams
+- GraphQL API endpoint under `/api/graphql/v2`
+- Enhanced component filtering by environment, team, and category
+- Improved application logging with structured JSON format
+- User interface redesign with support for multi-environment visualization
+- Better ADR integration with component instances
+- GraphQL schema updated from enums to reference tables
+- Neo4j integration layer completely rewritten to support new entity types and relationships
+- Enhanced middleware in Prisma for automatic synchronization with Neo4j
 
 ### Fixed
-- N/A
-- Issue with component relationships in Neo4j
-- Data consistency between MariaDB and Neo4j
+- Issues with ADR versioning
+- Relationship synchronization between MariaDB and Neo4j
+- Client-side caching strategy
+- GraphQL resolver performance issues
+- Neo4j integration error handling and logging
+- Neo4j constraint compatibility with version 5+
 
-### Security
-- Added role-based permissions for instance management
-- Enhanced validation for ADR ownership changes
+### Deprecated
+- The v1 API endpoints will be deprecated in future versions
+- Support for the legacy component model will be removed in v3.0
 
-### Performance
+## [Migration Notes]
+Follow the migration guide in `docs/versions/2.0/migration_guide_v2.0_pt_br.md` to upgrade from v1.x to v2.0.
 
-- Otimização de consultas GraphQL com fragmentos modulares para redução do over-fetching
-- Implementação de diretivas @include e @skip para recuperação condicional de campos em consultas GraphQL
-- Criação de hooks personalizados para otimização automática de consultas baseada no contexto de uso
-- Reutilização de tipos GraphQL para reduzir duplicação de código e melhorar a manutenção
-- Separação de consultas de listagem e detalhamento para carregamento otimizado de dados
+For Neo4j specific migration instructions, refer to `docs/versions/2.0/neo4j_migration_guide_v2.0_pt_br.md`.
 
 ## [2.0.0] - YYYY-MM-DD (Not released yet)
 

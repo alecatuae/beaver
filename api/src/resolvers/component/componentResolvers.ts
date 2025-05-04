@@ -2,6 +2,7 @@ import { builder } from '../../schema';
 import { neo4jClient } from '../../context';
 import { prisma } from '../../prisma';
 import { logger } from '../../utils/logger';
+import { Component_status } from '@prisma/client';
 
 // Definição do tipo para resposta da query de verificação de relacionamentos
 builder.objectType('ComponentRelationsResponse', {
@@ -106,4 +107,152 @@ builder.mutationField('deleteComponent', (t) =>
       }
     },
   })
-); 
+);
+
+// Utilitário para manipular operações relacionadas a componentes
+export const componentResolvers = (builder) => {
+  // Endpoint para criar um componente
+  builder.mutationField('createComponent', (t) =>
+    t.prismaField({
+      type: 'Component',
+      args: {
+        name: t.arg.string({ required: true }),
+        description: t.arg.string(),
+        status: t.arg({ type: 'ComponentStatus' }),
+        categoryId: t.arg.int(),
+        teamId: t.arg.int(),
+      },
+      resolve: async (query, _root, args) => {
+        const { name, description, status, categoryId, teamId } = args;
+
+        // Verifica se já existe um componente com o mesmo nome
+        const existingComponent = await prisma.component.findFirst({
+          where: { name },
+        });
+
+        if (existingComponent) {
+          throw new Error(`Já existe um componente com o nome "${name}"`);
+        }
+
+        // Cria o componente no banco de dados
+        return prisma.component.create({
+          ...query,
+          data: {
+            name,
+            description: description || null,
+            status: status || Component_status.ACTIVE,
+            categoryId: categoryId || null,
+            teamId: teamId || null,
+          },
+        });
+      },
+    })
+  );
+
+  // Endpoint para atualizar um componente
+  builder.mutationField('updateComponent', (t) =>
+    t.prismaField({
+      type: 'Component',
+      args: {
+        id: t.arg.int({ required: true }),
+        name: t.arg.string(),
+        description: t.arg.string(),
+        status: t.arg({ type: 'ComponentStatus' }),
+        categoryId: t.arg.int(),
+        teamId: t.arg.int(),
+      },
+      resolve: async (query, _root, args) => {
+        const { id, name, description, status, categoryId, teamId } = args;
+
+        // Verifica se o componente existe
+        const component = await prisma.component.findUnique({
+          where: { id },
+        });
+
+        if (!component) {
+          throw new Error(`Componente com ID ${id} não encontrado`);
+        }
+
+        // Verifica nome duplicado, apenas se o nome foi alterado
+        if (name && name !== component.name) {
+          const existingComponent = await prisma.component.findFirst({
+            where: {
+              name,
+              id: { not: id }, // Não considerar o próprio componente
+            },
+          });
+
+          if (existingComponent) {
+            throw new Error(`Já existe um componente com o nome "${name}"`);
+          }
+        }
+
+        // Atualiza o componente
+        return prisma.component.update({
+          ...query,
+          where: { id },
+          data: {
+            ...(name && { name }),
+            ...(description !== undefined && { description }),
+            ...(status && { status }),
+            ...(categoryId !== undefined && { categoryId }),
+            ...(teamId !== undefined && { teamId }),
+          },
+        });
+      },
+    })
+  );
+
+  // Busca componentes com filtros
+  builder.queryField('components', (t) =>
+    t.prismaField({
+      type: ['Component'],
+      args: {
+        status: t.arg({ type: 'ComponentStatus' }),
+        categoryId: t.arg.int(),
+        teamId: t.arg.int(),
+        search: t.arg.string(),
+      },
+      resolve: async (query, _root, args) => {
+        const { status, categoryId, teamId, search } = args;
+
+        // Constrói os filtros
+        const where = {
+          ...(status && { status }),
+          ...(categoryId && { categoryId }),
+          ...(teamId && { teamId }),
+          ...(search && {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { description: { contains: search, mode: 'insensitive' } },
+            ],
+          }),
+        };
+
+        // Busca os componentes
+        return prisma.component.findMany({
+          ...query,
+          where,
+          orderBy: { name: 'asc' },
+        });
+      },
+    })
+  );
+
+  // Busca um componente por ID
+  builder.queryField('component', (t) =>
+    t.prismaField({
+      type: 'Component',
+      nullable: true,
+      args: {
+        id: t.arg.int({ required: true }),
+      },
+      resolve: async (query, _root, { id }) => {
+        return prisma.component.findUnique({
+          ...query,
+          where: { id },
+        });
+      },
+    })
+  );
+}; 

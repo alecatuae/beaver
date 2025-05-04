@@ -1,488 +1,565 @@
-import { ADRStatus } from '@prisma/client';
+import { ADR_status } from '@prisma/client';
+import { builder } from '../schema';
+import { prisma } from '../prisma';
+import { Neo4jClient } from '../db/neo4j';
+import * as neo4jDriver from 'neo4j-driver';
 import { logger } from '../utils/logger';
 
-export const adrResolvers = (builder: any) => {
-  // Define o enumerador ADRStatus
-  const ADRStatusEnum = builder.enumType('ADRStatus', {
-    values: Object.values(ADRStatus) as [string, ...string[]],
-  });
+// Inicializar Neo4j
+const neo4j = neo4jDriver.driver(
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
+  neo4jDriver.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'beaver12345'
+  )
+);
+const neo4jClient = new Neo4jClient(neo4j);
 
-  // Define o tipo ADRTag
-  const ADRTag = builder.prismaObject('ADRTag', {
-    fields: (t: any) => ({
-      id: t.exposeID('id'),
-      adrId: t.exposeInt('adrId', { nullable: true }),
-      tag: t.exposeString('tag'),
-      adr: t.relation('adr', { nullable: true }),
-    }),
-  });
-
-  // Define o tipo ADR
-  const ADR = builder.prismaObject('ADR', {
-    fields: (t: any) => ({
+export const adrResolvers = (builder) => {
+  // Definir o tipo ADR
+  builder.prismaObject('ADR', {
+    fields: (t) => ({
       id: t.exposeID('id'),
       title: t.exposeString('title'),
-      decision: t.exposeString('decision'),
-      status: t.expose('status', { type: ADRStatusEnum }),
+      description: t.exposeString('description'),
+      status: t.expose('status', { type: 'ADRStatus' }),
       createdAt: t.expose('createdAt', { type: 'Date' }),
+      
+      // Relações
       tags: t.relation('tags'),
-    }),
-  });
-
-  // Input para criação/atualização de ADR
-  const ADRInput = builder.inputType('ADRInput', {
-    fields: (t: any) => ({
-      title: t.string({ required: true }),
-      decision: t.string({ required: true }),
-      status: t.field({ type: ADRStatusEnum }),
-      componentId: t.int(),
+      participants: t.relation('participants'),
+      componentInstances: t.relation('componentInstances'),
+      components: t.relation('components'),
     }),
   });
 
   // Query para listar ADRs
-  builder.queryField('adrs', (t: any) =>
+  builder.queryField('adrs', (t) =>
     t.prismaField({
-      type: [ADR],
+      type: ['ADR'],
       args: {
-        status: t.arg({ type: ADRStatusEnum }),
+        status: t.arg({ type: 'ADRStatus' }),
+        search: t.arg.string(),
+        tag: t.arg.string(),
+        componentId: t.arg.int(),
       },
-      resolve: async (query: any, _root: any, args: any, ctx: any) => {
-        return ctx.prisma.aDR.findMany({
+      resolve: async (query, _root, args) => {
+        const { status, search, tag, componentId } = args;
+        
+        const filters: any = {};
+        
+        if (status) filters.status = status;
+        
+        if (componentId) {
+          filters.components = {
+            some: {
+              componentId
+            }
+          };
+        }
+        
+        if (search) {
+          filters.OR = [
+            { title: { contains: search } },
+            { description: { contains: search } },
+          ];
+        }
+        
+        if (tag) {
+          filters.tags = {
+            some: {
+              tag: { contains: tag }
+            }
+          };
+        }
+        
+        return prisma.ADR.findMany({
           ...query,
-          where: args.status ? { status: args.status } : undefined,
+          where: filters,
+          orderBy: { createdAt: 'desc' },
         });
       },
     })
   );
 
-  // Query para buscar ADR por ID
-  builder.queryField('adr', (t: any) =>
+  // Query para buscar um ADR por ID
+  builder.queryField('adr', (t) =>
     t.prismaField({
-      type: ADR,
+      type: 'ADR',
       nullable: true,
       args: {
         id: t.arg.int({ required: true }),
       },
-      resolve: async (query: any, _root: any, args: any, ctx: any) => {
-        return ctx.prisma.aDR.findUnique({
+      resolve: async (query, _root, { id }) => {
+        return prisma.ADR.findUnique({
           ...query,
-          where: { id: args.id },
+          where: { id },
         });
       },
     })
   );
 
-  // Mutation para criar ADR
-  builder.mutationField('createADR', (t: any) =>
+  // Mutation para criar um ADR
+  builder.mutationField('createADR', (t) =>
     t.prismaField({
-      type: ADR,
+      type: 'ADR',
       args: {
-        input: t.arg({ type: ADRInput, required: true }),
+        title: t.arg.string({ required: true }),
+        description: t.arg.string({ required: true }),
+        status: t.arg({ type: 'ADRStatus' }),
+        tags: t.arg.stringList(),
+        participants: t.arg.list({
+          type: 'ADRParticipantInput',
+          required: false,
+        }),
+        components: t.arg.intList(), // IDs dos componentes
+        componentInstances: t.arg.list({
+          type: 'ADRComponentInstanceInput',
+          required: false,
+        }),
       },
-      resolve: async (query: any, _root: any, args: any, ctx: any) => {
-        // Descomente esta verificação em produção
-        // if (!ctx.userId) {
-        //   throw new Error('Não autorizado');
-        // }
-        
-        const { title, decision, status, componentId } = args.input;
-        
-        // Criar ADR no MariaDB
-        const adr = await ctx.prisma.aDR.create({
-          ...query,
-          data: {
-            title,
-            decision,
-            status: status || ADRStatus.PROPOSED,
-          },
-        });
-        
-        // Se tiver componentId, criar relação no Neo4j
-        if (componentId) {
-          try {
-            // Criar nó ADR no Neo4j
-            const adrNode = await ctx.neo4j.run(`
-              CREATE (a:ADR {
-                id: $id,
-                title: $title,
-                decision: $decision,
-                status: $status
-              })
-              RETURN a
-            `, {
-              id: adr.id,
-              title: adr.title,
-              decision: adr.decision,
-              status: adr.status,
-            });
-            
-            // Criar relação entre Component e ADR
-            await ctx.neo4j.createRelationship(componentId, adr.id, 'HAS_DECISION');
-            
-            logger.info(`ADR criado e associado ao componente ${componentId}: ${title}`);
-          } catch (error) {
-            logger.error(`Erro ao criar ADR no Neo4j: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-          }
-        } else {
-          logger.info(`ADR criado: ${title}`);
-        }
-        
-        return adr;
-      },
-    })
-  );
+      resolve: async (query, _root, args) => {
+        const { title, description, tags, participants, components, componentInstances } = args;
+        const status = args.status || ADR_status.DRAFT;
 
-  // Mutation para atualizar ADR
-  builder.mutationField('updateADR', (t: any) =>
-    t.prismaField({
-      type: ADR,
-      args: {
-        id: t.arg.int({ required: true }),
-        input: t.arg({ type: ADRInput, required: true }),
-      },
-      resolve: async (query: any, _root: any, args: any, ctx: any) => {
-        // Descomente esta verificação em produção
-        // if (!ctx.userId) {
-        //   throw new Error('Não autorizado');
-        // }
-        
-        const { id } = args;
-        const { title, decision, status } = args.input;
-        
-        // Verificar se o ADR existe
-        const existingADR = await ctx.prisma.aDR.findUnique({
-          where: { id },
+        // Verificar título duplicado
+        const existingADR = await prisma.ADR.findFirst({
+          where: { title },
         });
-        
-        if (!existingADR) {
-          throw new Error('ADR não encontrado');
+
+        if (existingADR) {
+          throw new Error(`Já existe um ADR com o título "${title}"`);
         }
-        
-        // Atualizar ADR no MariaDB
-        const adr = await ctx.prisma.aDR.update({
+
+        // Criar o ADR no MariaDB
+        const adr = await prisma.ADR.create({
           ...query,
-          where: { id },
           data: {
             title,
-            decision,
+            description,
             status,
+            ...(tags && tags.length > 0
+              ? {
+                  tags: {
+                    createMany: {
+                      data: tags.map((tag) => ({ tag })),
+                    },
+                  },
+                }
+              : {}),
+            ...(participants && participants.length > 0
+              ? {
+                  participants: {
+                    createMany: {
+                      data: participants.map((p) => ({
+                        userId: p.userId,
+                        role: p.role,
+                      })),
+                    },
+                  },
+                }
+              : {}),
+            ...(components && components.length > 0
+              ? {
+                  components: {
+                    createMany: {
+                      data: components.map((componentId) => ({
+                        componentId,
+                      })),
+                    },
+                  },
+                }
+              : {}),
+            ...(componentInstances && componentInstances.length > 0
+              ? {
+                  componentInstances: {
+                    createMany: {
+                      data: componentInstances.map((ci) => ({
+                        instanceId: ci.instanceId,
+                        impactLevel: ci.impactLevel,
+                      })),
+                    },
+                  },
+                }
+              : {}),
           },
         });
-        
-        // Atualizar ADR no Neo4j
+
+        // Sincronizar com Neo4j
         try {
-          await ctx.neo4j.run(`
-            MATCH (a:ADR {id: $id})
-            SET a.title = $title,
-                a.decision = $decision,
-                a.status = $status
+          // Criar nó ADR
+          await neo4jClient.run(`
+            CREATE (a:ADR {
+              id: $id, 
+              title: $title, 
+              description: $description,
+              status: $status,
+              created_at: datetime()
+            })
+            RETURN a
           `, {
             id: adr.id,
             title: adr.title,
-            decision: adr.decision,
+            description: adr.description,
             status: adr.status,
           });
-          
-          logger.info(`ADR atualizado: ${title}`);
+
+          // Adicionar tags
+          if (tags && tags.length > 0) {
+            for (const tag of tags) {
+              await neo4jClient.run(`
+                MATCH (a:ADR {id: $adrId})
+                SET a.tags = CASE 
+                  WHEN a.tags IS NULL THEN [$tag] 
+                  ELSE a.tags + $tag 
+                END
+              `, {
+                adrId: adr.id,
+                tag,
+              });
+            }
+          }
+
+          // Adicionar relações com componentes
+          if (components && components.length > 0) {
+            for (const componentId of components) {
+              await neo4jClient.run(`
+                MATCH (a:ADR {id: $adrId})
+                MATCH (c:Component {id: $componentId})
+                MERGE (a)-[:AFFECTS_COMPONENT]->(c)
+              `, {
+                adrId: adr.id,
+                componentId,
+              });
+            }
+          }
+
+          // Adicionar relações com instâncias
+          if (componentInstances && componentInstances.length > 0) {
+            for (const ci of componentInstances) {
+              await neo4jClient.run(`
+                MATCH (a:ADR {id: $adrId})
+                MATCH (ci:ComponentInstance {id: $instanceId})
+                MERGE (a)-[:AFFECTS_INSTANCE {impact_level: $impactLevel}]->(ci)
+              `, {
+                adrId: adr.id,
+                instanceId: ci.instanceId,
+                impactLevel: ci.impactLevel,
+              });
+            }
+          }
+
+          // Adicionar participantes
+          if (participants && participants.length > 0) {
+            for (const p of participants) {
+              await neo4jClient.run(`
+                MATCH (a:ADR {id: $adrId})
+                MATCH (u:User {id: $userId})
+                MERGE (u)-[:PARTICIPATES_IN {role: $role}]->(a)
+              `, {
+                adrId: adr.id,
+                userId: p.userId,
+                role: p.role,
+              });
+            }
+          }
+
+          logger.info(`ADR ${adr.id} sincronizado com Neo4j`);
         } catch (error) {
-          logger.error(`Erro ao atualizar ADR no Neo4j: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+          logger.error(`Erro ao sincronizar ADR com Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
         }
-        
+
         return adr;
       },
     })
   );
 
-  // Queries para participantes de ADR
-  builder.queryField('adrParticipants', (t) =>
+  // Mutation para atualizar um ADR
+  builder.mutationField('updateADR', (t) =>
     t.prismaField({
-      type: ['ADRParticipant'],
+      type: 'ADR',
       args: {
-        adrId: t.arg.int({ required: true }),
+        id: t.arg.int({ required: true }),
+        title: t.arg.string(),
+        description: t.arg.string(),
+        status: t.arg({ type: 'ADRStatus' }),
+        tags: t.arg.stringList(),
       },
-      resolve: async (query, _root, { adrId }, { prisma }) => {
-        return prisma.aDRParticipant.findMany({
-          ...query,
-          where: { adrId },
+      resolve: async (query, _root, args) => {
+        const { id, title, description, status, tags } = args;
+
+        // Verificar se o ADR existe
+        const existingADR = await prisma.ADR.findUnique({
+          where: { id },
+          include: { tags: true },
         });
+
+        if (!existingADR) {
+          throw new Error(`ADR com ID ${id} não encontrado`);
+        }
+
+        // Verificar título duplicado
+        if (title && title !== existingADR.title) {
+          const duplicateTitle = await prisma.ADR.findFirst({
+            where: {
+              title,
+              id: { not: id },
+            },
+          });
+
+          if (duplicateTitle) {
+            throw new Error(`Já existe um ADR com o título "${title}"`);
+          }
+        }
+
+        // Atualizar tags se fornecidas
+        if (tags) {
+          // Remover tags existentes
+          await prisma.aDRTag.deleteMany({
+            where: { adrId: id },
+          });
+
+          // Adicionar novas tags
+          if (tags.length > 0) {
+            await prisma.aDRTag.createMany({
+              data: tags.map((tag) => ({ adrId: id, tag })),
+            });
+          }
+        }
+
+        // Atualizar o ADR
+        const updatedADR = await prisma.ADR.update({
+          ...query,
+          where: { id },
+          data: {
+            ...(title && { title }),
+            ...(description !== undefined && { description }),
+            ...(status && { status }),
+          },
+          include: {
+            tags: true,
+          },
+        });
+
+        // Sincronizar com Neo4j
+        try {
+          // Atualizar nó ADR
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $id})
+            SET a.title = $title,
+                a.description = $description,
+                a.status = $status
+          `, {
+            id: updatedADR.id,
+            title: updatedADR.title,
+            description: updatedADR.description,
+            status: updatedADR.status,
+          });
+
+          // Atualizar tags se fornecidas
+          if (tags) {
+            // Limpar tags existentes
+            await neo4jClient.run(`
+              MATCH (a:ADR {id: $id})
+              SET a.tags = []
+            `, { id });
+
+            // Adicionar novas tags
+            if (tags.length > 0) {
+              for (const tag of tags) {
+                await neo4jClient.run(`
+                  MATCH (a:ADR {id: $adrId})
+                  SET a.tags = CASE 
+                    WHEN a.tags IS NULL THEN [$tag] 
+                    ELSE a.tags + $tag 
+                  END
+                `, {
+                  adrId: id,
+                  tag,
+                });
+              }
+            }
+          }
+
+          logger.info(`ADR ${id} atualizado no Neo4j`);
+        } catch (error) {
+          logger.error(`Erro ao atualizar ADR no Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
+
+        return updatedADR;
       },
     })
   );
 
-  // Mutations para participantes de ADR
-  builder.mutationField('addADRParticipant', (t) =>
-    t.prismaField({
-      type: 'ADRParticipant',
+  // Mutation para excluir um ADR
+  builder.mutationField('deleteADR', (t) =>
+    t.boolean({
       args: {
-        input: t.arg({ 
-          type: 'ADRParticipantInput',
-          required: true 
-        }),
+        id: t.arg.int({ required: true }),
       },
-      resolve: async (query, _root, { input }, { prisma, userId }) => {
+      resolve: async (_root, { id }) => {
         // Verificar se o ADR existe
-        const adr = await prisma.aDR.findUnique({
-          where: { id: input.adrId },
+        const adr = await prisma.ADR.findUnique({
+          where: { id },
         });
 
         if (!adr) {
-          throw new Error(`ADR com ID ${input.adrId} não encontrado.`);
+          throw new Error(`ADR com ID ${id} não encontrado`);
         }
 
-        // Verificar se o usuário existe
-        const user = await prisma.user.findUnique({
-          where: { id: input.userId },
+        // Excluir do MariaDB (cascata para tags, participants, etc)
+        await prisma.ADR.delete({
+          where: { id },
         });
 
-        if (!user) {
-          throw new Error(`Usuário com ID ${input.userId} não encontrado.`);
+        // Excluir do Neo4j
+        try {
+          // Remover relações entre nós no Neo4j
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $id})
+            OPTIONAL MATCH (a)-[r]-()
+            DELETE r
+          `, { id });
+
+          // Remover o nó ADR
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $id})
+            DELETE a
+          `, { id });
+
+          logger.info(`ADR ${id} removido do Neo4j`);
+        } catch (error) {
+          logger.error(`Erro ao remover ADR do Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
         }
 
-        // Verificar se já existe um participante com este usuário neste ADR
-        const existingParticipant = await prisma.aDRParticipant.findFirst({
-          where: {
-            adrId: input.adrId,
-            userId: input.userId,
-          },
-        });
-
-        if (existingParticipant) {
-          throw new Error(`Usuário já é participante deste ADR.`);
-        }
-
-        return prisma.aDRParticipant.create({
-          ...query,
-          data: {
-            adrId: input.adrId,
-            userId: input.userId,
-            role: input.role,
-          },
-        });
+        return true;
       },
     })
   );
 
-  builder.mutationField('updateADRParticipant', (t) =>
+  // Mutation para adicionar uma tag ao ADR
+  builder.mutationField('addADRTag', (t) =>
     t.prismaField({
-      type: 'ADRParticipant',
-      args: {
-        id: t.arg.int({ required: true }),
-        input: t.arg({ 
-          type: 'ADRParticipantUpdateInput',
-          required: true 
-        }),
-      },
-      resolve: async (query, _root, { id, input }, { prisma }) => {
-        // Verificar quantos participantes com papel "OWNER" existem neste ADR
-        const participant = await prisma.aDRParticipant.findUnique({
-          where: { id },
-        });
-
-        if (!participant) {
-          throw new Error(`Participante com ID ${id} não encontrado.`);
-        }
-
-        // Se estiver alterando de OWNER para outro papel, verificar se é o último owner
-        if (participant.role === 'OWNER' && input.role !== 'OWNER') {
-          const ownerCount = await prisma.aDRParticipant.count({
-            where: {
-              adrId: participant.adrId,
-              role: 'OWNER',
-            },
-          });
-
-          // Se só existe um owner, não permitir a alteração
-          if (ownerCount <= 1) {
-            throw new Error(
-              `Não é possível alterar o papel do último owner do ADR. Cada ADR precisa ter pelo menos um participante com papel de owner.`
-            );
-          }
-        }
-
-        return prisma.aDRParticipant.update({
-          ...query,
-          where: { id },
-          data: {
-            role: input.role,
-          },
-        });
-      },
-    })
-  );
-
-  builder.mutationField('removeADRParticipant', (t) =>
-    t.prismaField({
-      type: 'ADRParticipant',
-      args: {
-        id: t.arg.int({ required: true }),
-      },
-      resolve: async (query, _root, { id }, { prisma }) => {
-        const participant = await prisma.aDRParticipant.findUnique({
-          where: { id },
-        });
-
-        if (!participant) {
-          throw new Error(`Participante com ID ${id} não encontrado.`);
-        }
-
-        // Se for um owner, verificar se é o último
-        if (participant.role === 'OWNER') {
-          const ownerCount = await prisma.aDRParticipant.count({
-            where: {
-              adrId: participant.adrId,
-              role: 'OWNER',
-            },
-          });
-
-          // Se só existe um owner, não permitir a remoção
-          if (ownerCount <= 1) {
-            throw new Error(
-              `Não é possível remover o último owner do ADR. Cada ADR precisa ter pelo menos um participante com papel de owner.`
-            );
-          }
-        }
-
-        return prisma.aDRParticipant.delete({
-          ...query,
-          where: { id },
-        });
-      },
-    })
-  );
-
-  // Mutations para associação entre ADR e instâncias de componentes
-  builder.mutationField('addADRComponentInstance', (t) =>
-    t.prismaField({
-      type: 'ADRComponentInstance',
+      type: 'ADR',
       args: {
         adrId: t.arg.int({ required: true }),
-        instanceId: t.arg.int({ required: true }),
-        impactLevel: t.arg.string({ required: true }),
+        tag: t.arg.string({ required: true }),
       },
-      resolve: async (query, _root, { adrId, instanceId, impactLevel }, { prisma }) => {
+      resolve: async (query, _root, { adrId, tag }) => {
         // Verificar se o ADR existe
-        const adr = await prisma.aDR.findUnique({
+        const adr = await prisma.ADR.findUnique({
           where: { id: adrId },
         });
 
         if (!adr) {
-          throw new Error(`ADR com ID ${adrId} não encontrado.`);
+          throw new Error(`ADR com ID ${adrId} não encontrado`);
         }
 
-        // Verificar se a instância existe
-        const instance = await prisma.componentInstance.findUnique({
-          where: { id: instanceId },
-        });
-
-        if (!instance) {
-          throw new Error(`Instância com ID ${instanceId} não encontrada.`);
-        }
-
-        // Verificar se já existe uma associação entre este ADR e esta instância
-        const existingAssociation = await prisma.aDRComponentInstance.findUnique({
+        // Verificar se a tag já existe
+        const existingTag = await prisma.aDRTag.findFirst({
           where: {
-            adrId_instanceId: {
-              adrId,
-              instanceId,
-            },
+            adrId,
+            tag,
           },
         });
 
-        if (existingAssociation) {
-          throw new Error(`Esta instância já está associada a este ADR.`);
+        if (existingTag) {
+          throw new Error(`Tag "${tag}" já existe para este ADR`);
         }
 
-        // Validar o nível de impacto
-        if (!['LOW', 'MEDIUM', 'HIGH'].includes(impactLevel)) {
-          throw new Error(`Nível de impacto inválido. Use 'LOW', 'MEDIUM' ou 'HIGH'.`);
-        }
-
-        return prisma.aDRComponentInstance.create({
-          ...query,
+        // Adicionar a tag
+        await prisma.aDRTag.create({
           data: {
             adrId,
-            instanceId,
-            impactLevel,
+            tag,
           },
+        });
+
+        // Atualizar Neo4j
+        try {
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $adrId})
+            SET a.tags = CASE 
+              WHEN a.tags IS NULL THEN [$tag] 
+              ELSE a.tags + $tag 
+            END
+          `, {
+            adrId,
+            tag,
+          });
+          logger.info(`Tag "${tag}" adicionada ao ADR ${adrId} no Neo4j`);
+        } catch (error) {
+          logger.error(`Erro ao adicionar tag ao ADR no Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
+
+        // Retornar o ADR atualizado
+        return prisma.ADR.findUnique({
+          ...query,
+          where: { id: adrId },
         });
       },
     })
   );
 
-  builder.mutationField('updateADRComponentInstance', (t) =>
+  // Mutation para remover uma tag do ADR
+  builder.mutationField('removeADRTag', (t) =>
     t.prismaField({
-      type: 'ADRComponentInstance',
+      type: 'ADR',
       args: {
         adrId: t.arg.int({ required: true }),
-        instanceId: t.arg.int({ required: true }),
-        impactLevel: t.arg.string({ required: true }),
+        tagId: t.arg.int({ required: true }),
       },
-      resolve: async (query, _root, { adrId, instanceId, impactLevel }, { prisma }) => {
-        // Verificar se a associação existe
-        const association = await prisma.aDRComponentInstance.findUnique({
-          where: {
-            adrId_instanceId: {
-              adrId,
-              instanceId,
-            },
-          },
+      resolve: async (query, _root, { adrId, tagId }) => {
+        // Verificar se o ADR existe
+        const adr = await prisma.ADR.findUnique({
+          where: { id: adrId },
         });
 
-        if (!association) {
-          throw new Error(`Associação entre ADR ${adrId} e instância ${instanceId} não encontrada.`);
+        if (!adr) {
+          throw new Error(`ADR com ID ${adrId} não encontrado`);
         }
 
-        // Validar o nível de impacto
-        if (!['LOW', 'MEDIUM', 'HIGH'].includes(impactLevel)) {
-          throw new Error(`Nível de impacto inválido. Use 'LOW', 'MEDIUM' ou 'HIGH'.`);
+        // Buscar a tag
+        const tag = await prisma.aDRTag.findUnique({
+          where: { id: tagId },
+        });
+
+        if (!tag) {
+          throw new Error(`Tag com ID ${tagId} não encontrada`);
         }
 
-        return prisma.aDRComponentInstance.update({
+        if (tag.adrId !== adrId) {
+          throw new Error(`Tag com ID ${tagId} não pertence ao ADR ${adrId}`);
+        }
+
+        // Remover a tag
+        await prisma.aDRTag.delete({
+          where: { id: tagId },
+        });
+
+        // Atualizar Neo4j
+        try {
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $adrId})
+            SET a.tags = [tag IN a.tags WHERE tag <> $tagValue]
+          `, {
+            adrId,
+            tagValue: tag.tag,
+          });
+          logger.info(`Tag "${tag.tag}" removida do ADR ${adrId} no Neo4j`);
+        } catch (error) {
+          logger.error(`Erro ao remover tag do ADR no Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
+
+        // Retornar o ADR atualizado
+        return prisma.ADR.findUnique({
           ...query,
-          where: {
-            adrId_instanceId: {
-              adrId,
-              instanceId,
-            },
-          },
-          data: {
-            impactLevel,
-          },
-        });
-      },
-    })
-  );
-
-  builder.mutationField('removeADRComponentInstance', (t) =>
-    t.prismaField({
-      type: 'ADRComponentInstance',
-      args: {
-        adrId: t.arg.int({ required: true }),
-        instanceId: t.arg.int({ required: true }),
-      },
-      resolve: async (query, _root, { adrId, instanceId }, { prisma }) => {
-        // Verificar se a associação existe
-        const association = await prisma.aDRComponentInstance.findUnique({
-          where: {
-            adrId_instanceId: {
-              adrId,
-              instanceId,
-            },
-          },
-        });
-
-        if (!association) {
-          throw new Error(`Associação entre ADR ${adrId} e instância ${instanceId} não encontrada.`);
-        }
-
-        return prisma.aDRComponentInstance.delete({
-          ...query,
-          where: {
-            adrId_instanceId: {
-              adrId,
-              instanceId,
-            },
-          },
+          where: { id: adrId },
         });
       },
     })

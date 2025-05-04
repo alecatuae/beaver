@@ -2,7 +2,7 @@ import { builder } from '../index';
 import { ParticipantRole } from '../enums';
 
 // Tipo GraphQL para ADRParticipant
-export const ADRParticipant = builder.prismaObject('ADRParticipant', {
+export const ADRParticipant = builder.prismaObject('ADR_Participant', {
   fields: (t) => ({
     id: t.exposeID('id'),
     adrId: t.exposeInt('adrId'),

@@ -1,9 +1,19 @@
-import builder from '../schema';
+import { builder } from '../schema';
 import { ADRComponentInstance, ADRComponentInstanceInput, ADRComponentInstanceUpdateInput, ADRComponentInstanceWhereInput } from '../schema/objects/adrComponentInstance';
 import { prisma } from '../prisma';
 import { Neo4jClient } from '../db/neo4j';
+import neo4jDriver from 'neo4j-driver';
+import { logger } from '../utils/logger';
 
-const neo4j = new Neo4jClient();
+// Inicializar Neo4j
+const driver = neo4jDriver.driver(
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
+  neo4jDriver.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'beaver12345'
+  )
+);
+const neo4jClient = new Neo4jClient(driver);
 
 export const adrComponentInstanceResolvers = (builder: any) => {
   // Query para buscar uma relação ADR-instância específica
@@ -144,17 +154,22 @@ export const adrComponentInstanceResolvers = (builder: any) => {
         });
 
         // Sincronizar com Neo4j
-        await neo4j.run(`
-          MATCH (a:ADR {id: $adrId}), (ci:ComponentInstance {id: $instanceId})
-          MERGE (a)-[r:AFFECTS_INSTANCE]->(ci)
-          ON CREATE SET r.impact_level = $impactLevel, r.notes = $notes
-          ON MATCH SET r.impact_level = $impactLevel, r.notes = $notes
-        `, {
-          adrId: input.adrId,
-          instanceId: input.instanceId,
-          impactLevel: input.impactLevel,
-          notes: input.notes || null
-        });
+        try {
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $adrId}), (ci:ComponentInstance {id: $instanceId})
+            MERGE (a)-[r:AFFECTS_INSTANCE]->(ci)
+            ON CREATE SET r.impact_level = $impactLevel, r.notes = $notes
+            ON MATCH SET r.impact_level = $impactLevel, r.notes = $notes
+          `, {
+            adrId: input.adrId,
+            instanceId: input.instanceId,
+            impactLevel: input.impactLevel,
+            notes: input.notes || null
+          });
+        } catch (error) {
+          logger.warn(`Erro ao sincronizar relação ADR-Instância com Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
 
         // Verificar se existe a relação ADRComponent correspondente
         // Se não existir, criar automaticamente
@@ -174,7 +189,7 @@ export const adrComponentInstanceResolvers = (builder: any) => {
           });
 
           // Sincronizar com Neo4j
-          await neo4j.run(`
+          await neo4jClient.run(`
             MATCH (a:ADR {id: $adrId}), (c:Component {id: $componentId})
             MERGE (a)-[:AFFECTS]->(c)
           `, {
@@ -236,16 +251,21 @@ export const adrComponentInstanceResolvers = (builder: any) => {
         });
 
         // Atualizar no Neo4j
-        await neo4j.run(`
-          MATCH (a:ADR {id: $adrId})-[r:AFFECTS_INSTANCE]->(ci:ComponentInstance {id: $instanceId})
-          SET r.impact_level = $impactLevel,
-              r.notes = $notes
-        `, {
-          adrId: relation.adrId,
-          instanceId: relation.instanceId,
-          impactLevel: updatedRelation.impactLevel,
-          notes: updatedRelation.notes
-        });
+        try {
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $adrId})-[r:AFFECTS_INSTANCE]->(ci:ComponentInstance {id: $instanceId})
+            SET r.impact_level = $impactLevel,
+                r.notes = $notes
+          `, {
+            adrId: relation.adrId,
+            instanceId: relation.instanceId,
+            impactLevel: updatedRelation.impactLevel,
+            notes: updatedRelation.notes
+          });
+        } catch (error) {
+          logger.warn(`Erro ao atualizar relação ADR-Instância no Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
 
         return updatedRelation;
       },
@@ -303,10 +323,15 @@ export const adrComponentInstanceResolvers = (builder: any) => {
         });
 
         // Remover do Neo4j
-        await neo4j.run(`
-          MATCH (a:ADR {id: $adrId})-[r:AFFECTS_INSTANCE]->(ci:ComponentInstance {id: $instanceId})
-          DELETE r
-        `, { adrId, instanceId });
+        try {
+          await neo4jClient.run(`
+            MATCH (a:ADR {id: $adrId})-[r:AFFECTS_INSTANCE]->(ci:ComponentInstance {id: $instanceId})
+            DELETE r
+          `, { adrId, instanceId });
+        } catch (error) {
+          logger.warn(`Erro ao remover relação ADR-Instância do Neo4j: ${error}`);
+          // Continuar mesmo com erro no Neo4j
+        }
 
         // Remover do MariaDB
         await prisma.aDRComponentInstance.delete({
@@ -341,7 +366,7 @@ export const adrComponentInstanceResolvers = (builder: any) => {
             });
 
             // Remover do Neo4j
-            await neo4j.run(`
+            await neo4jClient.run(`
               MATCH (a:ADR {id: $adrId})-[r:AFFECTS]->(c:Component {id: $componentId})
               DELETE r
             `, { 

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,190 +7,136 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  ARCHITECT
-  CONTRIBUTOR
-  VIEWER
-}
-
-enum Status {
-  PLANNED
-  ACTIVE
-  DEPRECATED
-}
-
-enum ADRStatus {
-  DRAFT
-  ACCEPTED
-  SUPERSEDED
-  REJECTED
-}
-
-enum ParticipantRole {
-  OWNER
-  REVIEWER
-  CONSUMER
-}
-
-enum RoadmapStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-  BLOCKED
-}
-
-enum ImpactLevel {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum GlossaryStatus {
-  DRAFT
-  APPROVED
-  DEPRECATED
-}
-
-enum LogLevel {
-  INFO
-  WARN
-  ERROR
-}
-
 model User {
-  id              Int              @id @default(autoincrement())
-  username        String           @unique
-  passwordHash    String           @map("password_hash")
-  email           String           @unique
-  fullName        String           @map("full_name")
-  role            Role             @default(VIEWER)
-  createdAt       DateTime         @default(now()) @map("created_at")
-  logs            Log[]
-  teamMembers     TeamMember[]
-  adrParticipants ADRParticipant[]
+  id           Int              @id @default(autoincrement())
+  username     String           @unique
+  passwordHash String           @map("password_hash")
+  email        String           @unique
+  role         User_role        @default(USER)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  logs         Log[]
+  teamMembers  Team_Member[]
+  adrParticipants ADR_Participant[]
 
   @@map("User")
 }
 
 model Team {
-  id          Int          @id @default(autoincrement())
-  name        String       @unique @db.VarChar(80)
-  description String?      @db.Text
-  createdAt   DateTime     @default(now()) @map("created_at")
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  description String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
   components  Component[]
-  members     TeamMember[]
+  members     Team_Member[]
 
   @@map("Team")
 }
 
-model TeamMember {
-  id        Int      @id @default(autoincrement())
-  teamId    Int      @map("team_id")
-  userId    Int      @map("user_id")
-  joinDate  DateTime @map("join_date") @db.Date
-  createdAt DateTime @default(now()) @map("created_at")
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model Team_Member {
+  teamId    Int       @map("team_id")
+  userId    Int       @map("user_id")
+  joinedAt  DateTime  @default(now()) @map("joined_at")
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([teamId, userId])
+  @@id([teamId, userId])
   @@map("Team_Member")
+}
+
+model Environment {
+  id                Int                 @id @default(autoincrement())
+  name              String              @unique
+  description       String?             @db.Text
+  createdAt         DateTime            @default(now()) @map("created_at")
+  componentInstances ComponentInstance[]
+
+  @@map("Environment")
 }
 
 model Category {
   id          Int         @id @default(autoincrement())
-  name        String      @unique @db.VarChar(80)
+  name        String      @unique
   description String?     @db.Text
-  parentId    Int?        @map("parent_id")
-  imagePath   String?     @map("image_path") @db.VarChar(255)
+  image       String?
   createdAt   DateTime    @default(now()) @map("created_at")
   components  Component[]
 
   @@map("Category")
 }
 
-model Environment {
-  id          Int                 @id @default(autoincrement())
-  name        String              @unique @db.VarChar(50)
-  description String?             @db.VarChar(255)
-  createdAt   DateTime            @default(now()) @map("created_at")
-  instances   ComponentInstance[]
-
-  @@map("Environment")
-}
-
 model Component {
-  id            Int                 @id @default(autoincrement())
-  name          String              @unique @db.VarChar(120)
-  description   String?             @db.Text
-  status        Status              @default(ACTIVE)
-  teamId        Int?                @map("team_id")
-  categoryId    Int?                @map("category_id")
-  createdAt     DateTime            @default(now()) @map("created_at")
-  team          Team?               @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  category      Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  instances     ComponentInstance[]
-  tags          ComponentTag[]
-  adrComponents ADRComponent[]
-  roadmapItems  RoadmapItem[]
+  id             Int                 @id @default(autoincrement())
+  name           String              @unique
+  description    String?             @db.Text
+  status         Component_status
+  categoryId     Int?                @map("category_id")
+  teamId         Int?                @map("team_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  team           Team?               @relation(fields: [teamId], references: [id])
+  tags           ComponentTag[]
+  instances      ComponentInstance[]
+  adrComponents  ADR_Component[]
 
+  @@index([categoryId], map: "Component_category_id_fkey")
+  @@index([teamId], map: "Component_team_id_fkey")
   @@map("Component")
 }
 
 model ComponentInstance {
-  id            Int                    @id @default(autoincrement())
-  componentId   Int                    @map("component_id")
-  environmentId Int                    @map("environment_id")
-  hostname      String?                @db.VarChar(120)
-  specs         Json?
-  createdAt     DateTime               @default(now()) @map("created_at")
-  component     Component              @relation(fields: [componentId], references: [id], onDelete: Cascade)
-  environment   Environment            @relation(fields: [environmentId], references: [id], onDelete: Restrict)
-  adrInstances  ADRComponentInstance[]
+  id              Int                     @id @default(autoincrement())
+  componentId     Int                     @map("component_id")
+  environmentId   Int                     @map("environment_id")
+  hostname        String?
+  specs           Json?
+  createdAt       DateTime                @default(now()) @map("created_at")
+  component       Component               @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  environment     Environment             @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  adrInstances    ADR_ComponentInstance[]
 
-  @@unique([componentId, environmentId])
+  @@unique([componentId, environmentId], name: "uniq_comp_env")
   @@map("Component_Instance")
 }
 
 model ADR {
-  id                 Int                    @id @default(autoincrement())
-  title              String                 @db.VarChar(200)
-  decision           String                 @db.Text
-  status             ADRStatus              @default(DRAFT)
-  createdAt          DateTime               @default(now()) @map("created_at")
-  participants       ADRParticipant[]
-  componentInstances ADRComponentInstance[]
-  components         ADRComponent[]
-  tags               ADRTag[]
+  id                     Int                     @id @default(autoincrement())
+  title                  String
+  description            String                  @db.Text @map("decision")
+  status                 ADR_status
+  createdAt              DateTime                @default(now()) @map("created_at")
+  tags                   ADRTag[]
+  participants           ADR_Participant[]
+  componentInstances     ADR_ComponentInstance[]
+  components             ADR_Component[]
 
   @@map("ADR")
 }
 
-model ADRParticipant {
-  id        Int             @id @default(autoincrement())
-  adrId     Int             @map("adr_id")
-  userId    Int             @map("user_id")
-  role      ParticipantRole
-  createdAt DateTime        @default(now()) @map("created_at")
-  adr       ADR             @relation(fields: [adrId], references: [id], onDelete: Cascade)
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+model ADR_Participant {
+  id          Int       @id @default(autoincrement())
+  adrId       Int       @map("adr_id")
+  userId      Int       @map("user_id")
+  role        ParticipantRole
+  createdAt   DateTime  @default(now()) @map("created_at")
+  adr         ADR       @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([adrId, userId])
+  @@unique([adrId, userId], name: "adr_user")
   @@map("ADR_Participant")
 }
 
-model ADRComponentInstance {
-  adrId       Int               @map("adr_id")
-  instanceId  Int               @map("instance_id")
-  impactLevel ImpactLevel       @map("impact_level")
-  adr         ADR               @relation(fields: [adrId], references: [id], onDelete: Cascade)
-  instance    ComponentInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+model ADR_ComponentInstance {
+  adrId        Int               @map("adr_id")
+  instanceId   Int               @map("instance_id")
+  impactLevel  ImpactLevel       @default(MEDIUM) @map("impact_level")
+  adr          ADR               @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  instance     ComponentInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
   @@id([adrId, instanceId])
   @@map("ADR_ComponentInstance")
 }
 
-model ADRComponent {
+model ADR_Component {
   adrId       Int       @map("adr_id")
   componentId Int       @map("component_id")
   adr         ADR       @relation(fields: [adrId], references: [id], onDelete: Cascade)
@@ -203,80 +146,138 @@ model ADRComponent {
   @@map("ADR_Component")
 }
 
+model RoadmapItem {
+  id          Int                 @id @default(autoincrement())
+  title       String
+  description String?             @db.Text
+  componentId Int?                @map("component_id")
+  typeId      Int                 @map("type_id")
+  status      RoadmapItem_status  @default(TODO)
+  dueDate     DateTime?           @map("due_date")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  type        RoadmapType         @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@map("RoadmapItem")
+}
+
 model RoadmapType {
   id          Int           @id @default(autoincrement())
-  name        String        @unique @db.VarChar(40)
-  description String?       @db.VarChar(120)
-  colorHex    String        @map("color_hex") @db.Char(7)
+  name        String        @unique
+  description String?
+  colorHex    String?       @map("color_hex") @db.Char(7)
   createdAt   DateTime      @default(now()) @map("created_at")
   items       RoadmapItem[]
 
   @@map("RoadmapType")
 }
 
-model RoadmapItem {
-  id          Int           @id @default(autoincrement())
-  title       String        @db.VarChar(200)
-  description String?       @db.Text
-  componentId Int?          @map("component_id")
-  typeId      Int           @map("type_id")
-  status      RoadmapStatus @default(TODO)
-  dueDate     DateTime?     @map("due_date") @db.Date
-  createdAt   DateTime      @default(now()) @map("created_at")
-  component   Component?    @relation(fields: [componentId], references: [id], onDelete: SetNull)
-  type        RoadmapType   @relation(fields: [typeId], references: [id], onDelete: Restrict)
-
-  @@map("RoadmapItem")
-}
-
 model Log {
-  id        BigInt   @id @default(autoincrement())
-  userId    Int?     @map("user_id")
-  level     LogLevel
-  message   String   @db.Text
+  id        Int       @id @default(autoincrement())
+  userId    Int?      @map("user_id")
+  level     LogLevel  @default(INFO)
+  message   String    @db.Text
   metadata  Json?
-  createdAt DateTime @default(now()) @map("created_at")
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId], map: "Log_user_id_fkey")
   @@map("Log")
 }
 
 model GlossaryTerm {
-  id         Int            @id @default(autoincrement())
-  term       String         @unique @db.VarChar(80)
-  definition String         @db.Text
-  status     GlossaryStatus @default(DRAFT)
-  createdAt  DateTime       @default(now()) @map("created_at")
+  id         Int             @id @default(autoincrement())
+  term       String          @unique
+  definition String          @db.Text
+  status     GlossaryStatus  @default(DRAFT)
+  createdAt  DateTime        @default(now()) @map("created_at")
 
   @@map("GlossaryTerm")
 }
 
 model ComponentTag {
-  id          Int       @id @default(autoincrement())
-  componentId Int       @map("component_id")
-  tag         String    @db.VarChar(60)
-  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  id          Int        @id @default(autoincrement())
+  componentId Int        @map("component_id")
+  tag         String
+  component   Component  @relation(fields: [componentId], references: [id], onDelete: Cascade)
 
-  @@unique([componentId, tag])
+  @@unique([componentId, tag], name: "cmp_tag")
   @@map("ComponentTag")
 }
 
 model RelationshipTag {
-  id       Int    @id @default(autoincrement())
-  sourceId Int    @map("source_id")
-  targetId Int    @map("target_id")
-  tag      String @db.VarChar(60)
+  id        Int   @id @default(autoincrement())
+  sourceId  Int   @map("source_id")
+  targetId  Int   @map("target_id")
+  tag       String
 
-  @@unique([sourceId, targetId, tag])
+  @@unique([sourceId, targetId, tag], name: "rel_tag")
   @@map("RelationshipTag")
 }
 
 model ADRTag {
-  id    Int    @id @default(autoincrement())
-  adrId Int    @map("adr_id")
-  tag   String @db.VarChar(60)
-  adr   ADR    @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  id     Int    @id @default(autoincrement())
+  adrId  Int    @map("adr_id")
+  tag    String
+  adr    ADR    @relation(fields: [adrId], references: [id], onDelete: Cascade)
 
-  @@unique([adrId, tag])
+  @@unique([adrId, tag], name: "adr_tag")
   @@map("ADRTag")
+}
+
+enum ADR_status {
+  DRAFT
+  ACCEPTED
+  SUPERSEDED
+  REJECTED
+
+  @@map("ADRStatus")
+}
+
+enum RoadmapItem_status {
+  TODO @map("todo")
+  IN_PROGRESS @map("in_progress")
+  DONE @map("done")
+  BLOCKED @map("blocked")
+
+  @@map("RoadmapStatus")
+}
+
+enum Component_status {
+  PLANNED @map("planned")
+  ACTIVE @map("active")
+  DEPRECATED @map("deprecated")
+
+  @@map("Status")
+}
+
+enum User_role {
+  ADMIN
+  USER
+  GUEST
+
+  @@map("Role")
+}
+
+enum ParticipantRole {
+  OWNER
+  REVIEWER
+  CONSUMER
+}
+
+enum ImpactLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+}
+
+enum GlossaryStatus {
+  DRAFT
+  APPROVED
+  DEPRECATED
 }

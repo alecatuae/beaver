@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int              @id @default(autoincrement())
+  username       String           @unique
+  email          String           @unique
+  fullName       String           @map("full_name")
+  passwordHash   String           @map("password_hash")
+  role           Role             @default(VIEWER)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  logs           Log[]
+  adrParticipant ADRParticipant[]
+  teamMembers    TeamMember[]
+
+  @@map("User")
+}
+
+model Team {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  description String?     @db.Text
+  createdAt   DateTime    @default(now()) @map("created_at")
+  components  Component[]
+  members     TeamMember[]
+
+  @@map("Team")
+}
+
+model TeamMember {
+  teamId    Int      @map("team_id")
+  userId    Int      @map("user_id")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, userId])
+  @@map("Team_Member")
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  description String?     @db.Text
+  image       String?
+  parentId    Int?        @map("parent_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  components  Component[]
+  parent      Category?   @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[]  @relation("CategoryHierarchy")
+
+  @@map("Category")
+}
+
+model GlossaryTerm {
+  id         Int            @id @default(autoincrement())
+  term       String         @unique
+  definition String         @db.Text
+  status     GlossaryStatus @default(DRAFT)
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  @@map("GlossaryTerm")
+}
+
+model Environment {
+  id          Int                 @id @default(autoincrement())
+  name        String              @unique
+  description String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  instances   ComponentInstance[]
+
+  @@map("Environment")
+}
+
+model Component {
+  id               Int                 @id @default(autoincrement())
+  name             String              @unique
+  description      String?             @db.Text
+  status           ComponentStatus     @default(ACTIVE)
+  teamId           Int?                @map("team_id")
+  categoryId       Int?                @map("category_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  team             Team?               @relation(fields: [teamId], references: [id])
+  category         Category?           @relation(fields: [categoryId], references: [id])
+  tags             ComponentTag[]
+  instances        ComponentInstance[]
+  adrs             ADRComponent[]
+  roadmapItems     RoadmapItem[]
+
+  @@index([teamId], map: "Component_team_id_fkey")
+  @@index([categoryId], map: "Component_category_id_fkey")
+  @@index([status], map: "idx_component_status")
+  @@map("Component")
+}
+
+model ComponentInstance {
+  id            Int                    @id @default(autoincrement())
+  componentId   Int                    @map("component_id")
+  environmentId Int                    @map("environment_id")
+  hostname      String?
+  specs         Json?
+  createdAt     DateTime               @default(now()) @map("created_at")
+  component     Component              @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  environment   Environment            @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  adrInstances  ADRComponentInstance[]
+
+  @@unique([componentId, environmentId], map: "uniq_comp_env")
+  @@index([environmentId], map: "idx_ci_env")
+  @@map("Component_Instance")
+}
+
+model ADR {
+  id             Int                    @id @default(autoincrement())
+  title          String
+  description    String                 @db.Text
+  status         ADRStatus              @default(DRAFT)
+  createdAt      DateTime               @default(now()) @map("created_at")
+  tags           ADRTag[]
+  participants   ADRParticipant[]
+  components     ADRComponent[]
+  instances      ADRComponentInstance[]
+
+  @@index([status], map: "idx_adr_status")
+  @@map("ADR")
+}
+
+model ADRParticipant {
+  id         Int            @id @default(autoincrement())
+  adrId      Int            @map("adr_id")
+  userId     Int            @map("user_id")
+  role       ParticipantRole @default(REVIEWER)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  adr        ADR            @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([adrId, userId], map: "adr_user")
+  @@map("ADR_Participant")
+}
+
+model ADRComponentInstance {
+  adrId       Int              @map("adr_id")
+  instanceId  Int              @map("instance_id")
+  impactLevel ImpactLevel      @default(MEDIUM) @map("impact_level")
+  adr         ADR              @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  instance    ComponentInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@id([adrId, instanceId])
+  @@map("ADR_ComponentInstance")
+}
+
+model ADRComponent {
+  adrId       Int       @map("adr_id")
+  componentId Int       @map("component_id")
+  adr         ADR       @relation(fields: [adrId], references: [id], onDelete: Cascade)
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@id([adrId, componentId])
+  @@map("ADR_Component")
+}
+
+model ComponentTag {
+  id          Int       @id @default(autoincrement())
+  componentId Int       @map("component_id")
+  tag         String
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([componentId, tag], map: "cmp_tag")
+  @@map("ComponentTag")
+}
+
+model RelationshipTag {
+  id        Int       @id @default(autoincrement())
+  sourceId  Int       @map("source_id")
+  targetId  Int       @map("target_id")
+  tag       String
+  source    Component @relation("SourceRelationship", fields: [sourceId], references: [id], onDelete: Cascade)
+  target    Component @relation("TargetRelationship", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, tag], map: "rel_tag")
+  @@map("RelationshipTag")
+}
+
+model ADRTag {
+  id     Int    @id @default(autoincrement())
+  adrId  Int    @map("adr_id")
+  tag    String
+  adr    ADR    @relation(fields: [adrId], references: [id], onDelete: Cascade)
+
+  @@unique([adrId, tag], map: "adr_tag")
+  @@map("ADRTag")
+}
+
+model RoadmapType {
+  id          Int           @id @default(autoincrement())
+  name        String        @unique
+  description String?
+  colorHex    String?       @map("color_hex") @db.Char(7)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  items       RoadmapItem[]
+
+  @@map("RoadmapType")
+}
+
+model RoadmapItem {
+  id          Int            @id @default(autoincrement())
+  title       String
+  description String?        @db.Text
+  componentId Int?           @map("component_id")
+  typeId      Int            @map("type_id")
+  status      RoadmapStatus  @default(TODO)
+  dueDate     DateTime?      @map("due_date") @db.Date
+  createdAt   DateTime       @default(now()) @map("created_at")
+  component   Component?     @relation(fields: [componentId], references: [id], onDelete: SetNull)
+  type        RoadmapType    @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  @@index([status], map: "idx_roadmap_status")
+  @@map("RoadmapItem")
+}
+
+model Log {
+  id        BigInt     @id @default(autoincrement())
+  userId    Int?       @map("user_id")
+  level     LogLevel   @default(INFO)
+  message   String     @db.Text
+  metadata  Json?
+  createdAt DateTime   @default(now()) @map("created_at")
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("Log")
+}
+
+enum Role {
+  ADMIN       @map("admin")
+  ARCHITECT   @map("architect")
+  CONTRIBUTOR @map("contributor")
+  VIEWER      @map("viewer")
+}
+
+enum ComponentStatus {
+  PLANNED     @map("planned")
+  ACTIVE      @map("active")
+  DEPRECATED  @map("deprecated")
+}
+
+enum ADRStatus {
+  DRAFT       @map("draft")
+  ACCEPTED    @map("accepted")
+  SUPERSEDED  @map("superseded")
+  REJECTED    @map("rejected")
+}
+
+enum ParticipantRole {
+  OWNER       @map("owner")
+  REVIEWER    @map("reviewer")
+  CONSUMER    @map("consumer")
+}
+
+enum ImpactLevel {
+  LOW         @map("low")
+  MEDIUM      @map("medium")
+  HIGH        @map("high")
+}
+
+enum GlossaryStatus {
+  DRAFT       @map("draft")
+  APPROVED    @map("approved")
+  DEPRECATED  @map("deprecated")
+}
+
+enum RoadmapStatus {
+  TODO        @map("todo")
+  IN_PROGRESS @map("in_progress")
+  DONE        @map("done")
+  BLOCKED     @map("blocked")
+}
+
+enum LogLevel {
+  INFO        @map("info")
+  WARN        @map("warn")
+  ERROR       @map("error")
+} 

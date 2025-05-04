@@ -1,7 +1,9 @@
 import * as neo4j from 'neo4j-driver';
 import type { Driver } from 'neo4j-driver';
 import * as dotenv from 'dotenv';
-import { PrismaClient, ComponentStatus } from '@prisma/client';
+import { PrismaClient, Component_status } from '@prisma/client';
+import { logger } from '../utils/logger';
+import { Neo4jClient } from './neo4j';
 
 // Carregar variáveis de ambiente
 dotenv.config();

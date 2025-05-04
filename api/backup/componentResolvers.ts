@@ -1,25 +1,13 @@
-import { Component_status } from '@prisma/client';
+import { ComponentStatus } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { prisma } from '../prisma';
 import { PaginationInputType, PageInfo, createPaginatedResponse } from '../schema/objects/pagination';
 import { Component } from '../schema/objects/component';
-import { Neo4jClient } from '../db/neo4j';
-import * as neo4jDriver from 'neo4j-driver';
-
-// Inicializar Neo4j
-const neo4j = neo4jDriver.driver(
-  process.env.NEO4J_URL || 'bolt://localhost:7687',
-  neo4jDriver.auth.basic(
-    process.env.NEO4J_USER || 'neo4j',
-    process.env.NEO4J_PASSWORD || 'beaver12345'
-  )
-);
-const neo4jClient = new Neo4jClient(neo4j);
 
 export const componentResolvers = (builder: any) => {
   // Define o enumerador ComponentStatus
   const ComponentStatusEnum = builder.enumType('ComponentStatus', {
-    values: Object.values(Component_status) as [string, ...string[]],
+    values: Object.values(ComponentStatus) as [string, ...string[]],
   });
 
   // Define o tipo Category

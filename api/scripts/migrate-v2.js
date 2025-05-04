@@ -11,7 +11,7 @@ async function main() {
     // Fazer backup do banco antes de iniciar
     console.log('Fazendo backup do banco de dados...');
     const backupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    execSync(`docker exec mariadb sh -c "mariabackup --backup --user=root --password=root --target-dir=/var/lib/mysql/backup_${backupTimestamp}"`);
+    execSync(`docker exec beaver-mariadb-1 sh -c "mariabackup --backup --user=root --password=root --target-dir=/var/lib/mysql/backup_${backupTimestamp}"`);
     console.log(`Backup criado em /var/lib/mysql/backup_${backupTimestamp}`);
     
     const prisma = new PrismaClient();
@@ -19,11 +19,11 @@ async function main() {
     try {
       // Gerar a primeira migração para criar as tabelas básicas
       console.log('Fase 1: Gerando migração inicial para novas tabelas...');
-      execSync('cd api && npx prisma migrate dev --name add_environments_teams_roadmaptypes --create-only', { stdio: 'inherit' });
+      execSync('npx prisma migrate dev --name add_environments_teams_roadmaptypes --create-only', { stdio: 'inherit' });
       
       // Executar migrações criadas pelo Prisma
       console.log('Aplicando migração inicial...');
-      execSync('cd api && npx prisma migrate deploy', { stdio: 'inherit' });
+      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       
       // Executar script manual de conversão
       console.log('Fase 2: Executando script de conversão de dados...');
@@ -45,11 +45,11 @@ async function main() {
       
       // Criar segunda migração para relacionamentos
       console.log('Fase 3: Criando migração para relações entre entidades...');
-      execSync('cd api && npx prisma migrate dev --name add_component_instance_and_adr_relations --create-only', { stdio: 'inherit' });
+      execSync('npx prisma migrate dev --name add_component_instance_and_adr_relations --create-only', { stdio: 'inherit' });
       
       // Executar segunda migração
       console.log('Aplicando migração de relações...');
-      execSync('cd api && npx prisma migrate deploy', { stdio: 'inherit' });
+      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       
       // Converter ADRs para o novo modelo de participantes
       // Só pode ser executado depois que a tabela ADR_Participant for criada
@@ -78,11 +78,11 @@ async function main() {
       
       // Gerar migração final para remover colunas obsoletas
       console.log('Fase 5: Gerando migração final para remover campos obsoletos...');
-      execSync('cd api && npx prisma migrate dev --name remove_obsolete_fields --create-only', { stdio: 'inherit' });
+      execSync('npx prisma migrate dev --name remove_obsolete_fields --create-only', { stdio: 'inherit' });
       
       // Aplicar migração final
       console.log('Aplicando migração final...');
-      execSync('cd api && npx prisma migrate deploy', { stdio: 'inherit' });
+      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
       
       // Criar triggers para garantir a integridade dos ADRs
       console.log('Fase 6: Criando triggers para validação de ADRs...');

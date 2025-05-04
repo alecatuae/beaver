@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String    @map("password_hash")
+  email        String    @unique
+  role         User_role @default(USER)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  logs         Log[]
+
+  @@map("User")
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("Team")
+}
+
+model Category {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?     @db.Text
+  image       String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  components  Component[]
+
+  @@map("Category")
+}
+
+model Component {
+  id          Int              @id @default(autoincrement())
+  name        String
+  description String?          @db.Text
+  status      Component_status
+  categoryId  Int?             @map("category_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  category    Category?        @relation(fields: [categoryId], references: [id])
+  tags        ComponentTag[]
+
+  @@index([categoryId], map: "Component_category_id_fkey")
+  @@map("Component")
+}
+
+model ADR {
+  id        Int        @id @default(autoincrement())
+  title     String
+  decision  String     @db.Text
+  status    ADR_status
+  createdAt DateTime   @default(now()) @map("created_at")
+  tags      ADRTag[]
+
+  @@map("ADR")
+}
+
+model RoadmapItem {
+  id          Int              @id @default(autoincrement())
+  title       String
+  description String?          @db.Text
+  type        RoadmapItem_type
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@map("RoadmapItem")
+}
+
+model Log {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     @map("user_id")
+  action    String
+  timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Log_user_id_fkey")
+  @@map("Log")
+}
+
+model GlossaryTerm {
+  id         Int    @id @default(autoincrement())
+  term       String @unique
+  definition String @db.Text
+
+  @@map("GlossaryTerm")
+}
+
+model ComponentTag {
+  id          Int        @id @default(autoincrement())
+  componentId Int?       @map("component_id")
+  tag         String
+  component   Component? @relation(fields: [componentId], references: [id])
+
+  @@index([componentId], map: "ComponentTag_component_id_fkey")
+  @@map("ComponentTag")
+}
+
+model ADRTag {
+  id    Int    @id @default(autoincrement())
+  adrId Int?   @map("adr_id")
+  tag   String
+  adr   ADR?   @relation(fields: [adrId], references: [id])
+
+  @@index([adrId], map: "ADRTag_adr_id_fkey")
+  @@map("ADRTag")
+}
+
+enum ADR_status {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+}
+
+enum RoadmapItem_type {
+  FEATURE
+  BUGFIX
+  IMPROVEMENT
+}
+
+enum Component_status {
+  ACTIVE
+  INACTIVE
+  DEPRECATED
+}
+
+enum User_role {
+  ADMIN
+  USER
+  GUEST
+}

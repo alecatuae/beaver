@@ -12,7 +12,8 @@ export interface IRelation {
   updatedAt: Date;
 }
 
-export default class Neo4jClient {
+// Exportando a classe diretamente e como default
+export class Neo4jClient {
   private driver: Driver;
 
   constructor(driver: Driver) {
@@ -547,7 +548,7 @@ export default class Neo4jClient {
         }
       } catch (error) {
         // Se ocorrer erro "too large", tenta a abordagem alternativa
-        if (error.message && error.message.includes("too large")) {
+        if ((error as Error).message && (error as Error).message.includes("too large")) {
           logger.warn(`Erro "too large" ao excluir relacionamento. Tentando abordagem alternativa para ID: ${normalizedId}`);
           
           // Usa string de comparação direta em vez de converter para integer
@@ -589,4 +590,6 @@ export default class Neo4jClient {
       await session.close();
     }
   }
-} 
+}
+
+export default Neo4jClient; 

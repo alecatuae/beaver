@@ -1,7 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from './utils/logger';
-import { driver } from './neo4j';
+import neo4j from 'neo4j-driver';
 import { Neo4jIntegrationV2 } from './db/neo4j_integration_v2';
+
+// Configuração do driver Neo4j
+const driver = neo4j.driver(
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
+  neo4j.auth.basic(
+    process.env.NEO4J_USER || 'neo4j',
+    process.env.NEO4J_PASSWORD || 'beaver12345'
+  )
+);
 
 // Função para inicializar o cliente Prisma com tratamento de erros
 const initPrismaClient = () => {
@@ -90,40 +99,41 @@ prisma.$use(async (params, next) => {
   
   try {
     // Sincronização com Neo4j para entidades da v2.0
+    const modelName = String(params.model);
     
     // Ambientes
-    if (params.model === 'Environment' && ['create', 'update', 'delete'].includes(params.action)) {
+    if (modelName === 'Environment' && ['create', 'update', 'delete'].includes(params.action)) {
       logger.debug('Sincronizando ambientes com Neo4j');
       await neo4jIntegration.syncEnvironments();
     }
     
     // Times
-    if (params.model === 'Team' && ['create', 'update', 'delete'].includes(params.action)) {
+    if (modelName === 'Team' && ['create', 'update', 'delete'].includes(params.action)) {
       logger.debug('Sincronizando times com Neo4j');
       await neo4jIntegration.syncTeams();
     }
     
     // Component (para relação MANAGED_BY)
-    if (params.model === 'Component' && ['create', 'update'].includes(params.action) && 
+    if (modelName === 'Component' && ['create', 'update'].includes(params.action) && 
         (params.args.data.teamId !== undefined)) {
       logger.debug('Sincronizando times com Neo4j (atualização de componente)');
       await neo4jIntegration.syncTeams();
     }
     
     // Instâncias de componentes
-    if (params.model === 'ComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
+    if (modelName === 'ComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
       logger.debug('Sincronizando instâncias de componentes com Neo4j');
       await neo4jIntegration.syncComponentInstances();
     }
     
     // Participantes de ADRs
-    if (params.model === 'ADRParticipant' && ['create', 'update', 'delete'].includes(params.action)) {
+    if (modelName === 'ADRParticipant' && ['create', 'update', 'delete'].includes(params.action)) {
       logger.debug('Sincronizando participantes de ADRs com Neo4j');
       await neo4jIntegration.syncADRParticipants();
     }
     
     // Relações ADR-Instância
-    if (params.model === 'ADRComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
+    if (modelName === 'ADRComponentInstance' && ['create', 'update', 'delete'].includes(params.action)) {
       logger.debug('Sincronizando relações ADR-Instância com Neo4j');
       await neo4jIntegration.syncADRComponentInstances();
     }

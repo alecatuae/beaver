@@ -1,4 +1,4 @@
-import { PrismaClient, Role, ComponentStatus, ADRStatus, RoadmapType } from '@prisma/client';
+import { PrismaClient, User_role, Component_status, ADR_status } from '@prisma/client';
 import { hashPassword } from '../src/utils/auth';
 import * as neo4j from 'neo4j-driver';
 import { Neo4jClient } from '../src/db/neo4j';
@@ -7,9 +7,9 @@ const prisma = new PrismaClient();
 
 // Cliente Neo4j para sincronizar componentes
 const neo4jDriver = neo4j.driver(
-  process.env.NEO4J_URI || 'bolt://neo4j:7687',
+  process.env.NEO4J_URL || 'bolt://localhost:7687',
   neo4j.auth.basic(
-    process.env.NEO4J_USERNAME || 'neo4j',
+    process.env.NEO4J_USER || 'neo4j',
     process.env.NEO4J_PASSWORD || 'beaver12345'
   )
 );
@@ -31,7 +31,7 @@ async function main() {
       email: 'admin@beaver.com',
       username: 'admin',
       passwordHash: adminPassword,
-      role: Role.ADMIN,
+      role: User_role.ADMIN,
     },
   });
 
@@ -42,7 +42,7 @@ async function main() {
       email: 'user@beaver.com',
       username: 'user',
       passwordHash: userPassword,
-      role: Role.USER,
+      role: User_role.USER,
     },
   });
 
@@ -53,7 +53,7 @@ async function main() {
       email: 'guest@beaver.com',
       username: 'guest',
       passwordHash: guestPassword,
-      role: Role.GUEST,
+      role: User_role.GUEST,
     },
   });
 
@@ -105,25 +105,25 @@ async function main() {
     { 
       name: 'API Gateway', 
       description: 'API Gateway principal', 
-      status: ComponentStatus.ACTIVE,
+      status: Component_status.ACTIVE,
       categoryId: appCategory?.id || defaultCategory?.id
     },
     { 
       name: 'Serviço de Autenticação', 
       description: 'Serviço responsável pela autenticação de usuários', 
-      status: ComponentStatus.ACTIVE,
+      status: Component_status.ACTIVE,
       categoryId: appCategory?.id || defaultCategory?.id
     },
     { 
       name: 'Banco de Dados Principal', 
       description: 'Banco de dados relacional principal', 
-      status: ComponentStatus.ACTIVE,
+      status: Component_status.ACTIVE,
       categoryId: databaseCategory?.id || defaultCategory?.id
     },
     { 
       name: 'Serviço de Notificações', 
       description: 'Serviço de notificações push e email', 
-      status: ComponentStatus.INACTIVE,
+      status: Component_status.PLANNED,
       categoryId: appCategory?.id || defaultCategory?.id
     }
   ];
@@ -198,8 +198,8 @@ async function main() {
       const rel4 = await neo4jClient.createRelation(
         componentesIds[3], // Serviço de Notificações
         componentesIds[0], // API Gateway
-        'COMMUNICATES_WITH',
-        { description: 'Serviço de notificações se comunica com o API Gateway' }
+        'USES',
+        { description: 'Serviço de notificações usa o API Gateway para enviar notificações' }
       );
       console.log(`Relacionamento criado: ${componentesIds[3]} -> ${componentesIds[0]}`);
     } catch (error) {
@@ -207,115 +207,226 @@ async function main() {
     }
   }
 
+  console.log('Criando ambientes...');
+  
+  // Criar ambientes
+  const ambientes = [
+    { name: 'development', description: 'Ambiente de desenvolvimento' },
+    { name: 'homologation', description: 'Ambiente de homologação/testes' },
+    { name: 'production', description: 'Ambiente de produção' }
+  ];
+  
+  for (const amb of ambientes) {
+    await prisma.environment.upsert({
+      where: { name: amb.name },
+      update: {},
+      create: amb
+    });
+  }
+  
+  // Buscar IDs dos ambientes
+  const envDev = await prisma.environment.findUnique({ where: { name: 'development' } });
+  const envProd = await prisma.environment.findUnique({ where: { name: 'production' } });
+  
+  if (envDev && envProd) {
+    console.log('Criando instâncias de componentes...');
+    
+    // Criar instâncias de componentes
+    for (const compId of componentesIds) {
+      // Instância para desenvolvimento
+      await prisma.componentInstance.upsert({
+        where: { 
+          uniq_comp_env: {
+            componentId: compId,
+            environmentId: envDev.id
+          }
+        },
+        update: {},
+        create: {
+          componentId: compId,
+          environmentId: envDev.id,
+          hostname: `comp-${compId}-dev`,
+          specs: { cpu: '2', memory: '4Gi', disk: '20Gi' }
+        }
+      });
+      
+      // Instância para produção
+      await prisma.componentInstance.upsert({
+        where: { 
+          uniq_comp_env: {
+            componentId: compId,
+            environmentId: envProd.id
+          }
+        },
+        update: {},
+        create: {
+          componentId: compId,
+          environmentId: envProd.id,
+          hostname: `comp-${compId}-prod`,
+          specs: { cpu: '4', memory: '8Gi', disk: '50Gi' }
+        }
+      });
+    }
+  }
+
   console.log('Criando ADRs...');
-  // Cria ADRs iniciais
-  const adrGraphDb = await prisma.aDR.upsert({
+  
+  // Criar ADRs
+  const adr1 = await prisma.aDR.upsert({
     where: { id: 1 },
     update: {},
     create: {
-      id: 1,
-      title: 'Uso de Neo4j como banco de grafos',
-      decision: 'Decidimos usar Neo4j como nosso banco de dados de grafos para representar relações entre componentes arquiteturais devido à sua maturidade e suporte a consultas Cypher.',
-      status: ADRStatus.ACCEPTED,
-    },
+      title: 'Adoção do Neo4j como banco de grafos',
+      description: 'Decidimos usar Neo4j como nosso banco de dados de grafos para representar relações entre componentes arquiteturais devido à sua maturidade e suporte a consultas Cypher.',
+      status: ADR_status.ACCEPTED,
+      participants: {
+        create: [
+          {
+            userId: admin.id,
+            role: 'OWNER'
+          },
+          {
+            userId: user.id,
+            role: 'REVIEWER'
+          }
+        ]
+      },
+      components: {
+        create: [
+          { componentId: componentesIds[2] } // Banco de Dados Principal
+        ]
+      }
+    }
   });
 
-  const adrNextjs = await prisma.aDR.upsert({
+  const adr2 = await prisma.aDR.upsert({
     where: { id: 2 },
     update: {},
     create: {
-      id: 2,
-      title: 'Escolha do Next.js como framework frontend',
-      decision: 'Next.js foi escolhido para o frontend devido ao seu suporte a SSR, API routes, e ecossistema React maduro. Isso permite uma experiência de usuário mais fluida e melhor SEO.',
-      status: ADRStatus.ACCEPTED,
-    },
-  });
-
-  console.log('Criando termos do glossário...');
-  // Cria termos do glossário iniciais
-  const termAdr = await prisma.glossaryTerm.upsert({
-    where: { term: 'ADR' },
-    update: {},
-    create: {
-      term: 'ADR',
-      definition: 'Architectural Decision Record - Documento que registra uma decisão de arquitetura significativa junto com seu contexto e consequências.',
-    },
-  });
-
-  const termGraphDb = await prisma.glossaryTerm.upsert({
-    where: { term: 'Graph Database' },
-    update: {},
-    create: {
-      term: 'Graph Database',
-      definition: 'Banco de dados que usa estruturas de grafos para representar e armazenar dados, com nós (entidades), relacionamentos e propriedades.',
-    },
-  });
-
-  const termBFF = await prisma.glossaryTerm.upsert({
-    where: { term: 'BFF' },
-    update: {},
-    create: {
-      term: 'BFF',
-      definition: 'Backend-For-Frontend - Padrão arquitetural onde um serviço backend é especificamente projetado para atender às necessidades de um frontend específico.',
-    },
-  });
-
-  console.log('Criando tags de componentes...');
-  // Cria tags para componentes
-  await prisma.componentTag.createMany({
-    skipDuplicates: true,
-    data: [
-      { componentId: 1, tag: 'nextjs' },
-      { componentId: 1, tag: 'react' },
-      { componentId: 1, tag: 'tailwind' },
-      { componentId: 2, tag: 'graphql' },
-      { componentId: 2, tag: 'apollo' },
-      { componentId: 3, tag: 'mariadb' },
-      { componentId: 3, tag: 'neo4j' },
-    ],
-  });
-
-  console.log('Criando itens de roadmap...');
-  // Cria itens de roadmap
-  await prisma.roadmapItem.createMany({
-    skipDuplicates: true,
-    data: [
-      { 
-        title: 'Implementar visualização de grafo com Cytoscape',
-        description: 'Adicionar visualização interativa dos componentes da arquitetura usando a biblioteca Cytoscape.js',
-        type: RoadmapType.FEATURE,
+      title: 'Adoção do Next.js para Frontend',
+      description: 'Next.js foi escolhido para o frontend devido ao seu suporte a SSR, API routes, e ecossistema React maduro. Isso permite uma experiência de usuário mais fluida e melhor SEO.',
+      status: ADR_status.DRAFT,
+      participants: {
+        create: [
+          {
+            userId: user.id,
+            role: 'OWNER'
+          },
+          {
+            userId: guest.id,
+            role: 'REVIEWER'
+          }
+        ]
       },
-      {
-        title: 'Adicionar suporte a versionamento de ADRs',
-        description: 'Implementar histórico e controle de versão para Architectural Decision Records',
-        type: RoadmapType.FEATURE,
-      },
-      {
-        title: 'Corrigir filtros de busca no glossário',
-        description: 'Resolver problemas na busca case-insensitive no glossário de termos',
-        type: RoadmapType.BUGFIX,
-      },
-    ],
+      components: {
+        create: componentesIds.slice(0, 2).map(id => ({ componentId: id }))
+      }
+    }
   });
 
-  console.log('Logs iniciais...');
-  // Cria alguns logs iniciais
+  console.log('Criando tipos de roadmap...');
+  
+  // Criar tipos de roadmap
+  const roadmapTypes = [
+    { name: 'feature', description: 'Nova funcionalidade', colorHex: '#4ade80' },
+    { name: 'bugfix', description: 'Correção de bug', colorHex: '#f87171' },
+    { name: 'improvement', description: 'Melhoria em funcionalidade existente', colorHex: '#60a5fa' },
+    { name: 'technical_debt', description: 'Dívida técnica', colorHex: '#fbbf24' }
+  ];
+  
+  for (const type of roadmapTypes) {
+    await prisma.roadmapType.upsert({
+      where: { name: type.name },
+      update: {},
+      create: type
+    });
+  }
+  
+  // Buscar tipos
+  const featureType = await prisma.roadmapType.findFirst({ where: { name: 'feature' } });
+  const bugfixType = await prisma.roadmapType.findFirst({ where: { name: 'bugfix' } });
+  
+  if (featureType && bugfixType) {
+    console.log('Criando itens de roadmap...');
+    
+    // Criar itens de roadmap
+    await prisma.roadmapItem.createMany({
+      skipDuplicates: true,
+      data: [
+        {
+          title: 'Implementar autenticação SSO',
+          description: 'Adicionar suporte a login via SSO',
+          componentId: componentesIds[1], // Serviço de Autenticação
+          typeId: featureType.id,
+          status: 'TODO'
+        },
+        {
+          title: 'Melhorar desempenho do API Gateway',
+          description: 'Otimizar rotas e caching',
+          componentId: componentesIds[0], // API Gateway
+          typeId: featureType.id,
+          status: 'IN_PROGRESS'
+        },
+        {
+          title: 'Corrigir vazamento de memória no DB',
+          description: 'Resolver problema com conexões não fechadas',
+          componentId: componentesIds[2], // Banco de Dados
+          typeId: bugfixType.id,
+          status: 'DONE'
+        }
+      ]
+    });
+  }
+
+  console.log('Criando logs...');
+  
+  // Criar logs
   await prisma.log.createMany({
     skipDuplicates: true,
     data: [
       {
         userId: admin.id,
-        action: 'Criou componente Frontend',
+        level: 'INFO',
+        message: 'Criou componente Frontend',
+        metadata: { component_id: componentesIds[0] }
+      },
+      {
+        userId: user.id,
+        level: 'INFO',
+        message: 'Criou componente API BFF',
+        metadata: { component_id: componentesIds[1] }
       },
       {
         userId: admin.id,
-        action: 'Criou componente API BFF',
+        level: 'INFO',
+        message: 'Criou componente Database',
+        metadata: { component_id: componentesIds[2] }
+      }
+    ]
+  });
+
+  console.log('Criando termos do glossário...');
+  
+  // Criar termos do glossário
+  await prisma.glossaryTerm.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        term: 'API Gateway',
+        definition: 'Componente que atua como ponto de entrada único para APIs',
+        status: 'APPROVED'
       },
       {
-        userId: admin.id,
-        action: 'Criou componente Database',
+        term: 'SSO',
+        definition: 'Single Sign-On, método de autenticação que permite login único em múltiplos sistemas',
+        status: 'APPROVED'
       },
-    ],
+      {
+        term: 'TRM',
+        definition: 'Technology Reference Model, modelo para estruturar e categorizar a arquitetura tecnológica',
+        status: 'DRAFT'
+      }
+    ]
   });
 
   console.log('Seed concluído com sucesso!');
@@ -327,7 +438,6 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    // Encerrar conexões
     await prisma.$disconnect();
-    await neo4jClient.close();
+    await neo4jDriver.close();
   }); 

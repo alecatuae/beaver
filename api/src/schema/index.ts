@@ -1,16 +1,14 @@
 import SchemaBuilder from '@pothos/core';
 import PrismaPlugin from '@pothos/plugin-prisma';
 import { PrismaClient } from '@prisma/client';
-import { Neo4jClient } from '../db/neo4j';
 import { Context } from '../context';
 import { prisma } from '../prisma';
+import type PrismaTypes from '@pothos/plugin-prisma/generated';
 
 // Cria um builder para o schema
 export const builder = new SchemaBuilder<{
   Context: Context;
-  PrismaTypes: {
-    prisma: PrismaClient;
-  };
+  PrismaTypes: PrismaTypes;
   Scalars: {
     Date: {
       Input: Date;
@@ -29,8 +27,9 @@ export const builder = new SchemaBuilder<{
   plugins: [PrismaPlugin],
   prisma: {
     client: prisma,
+    // Não usar dmmf diretamente e deixar o Pothos gerar os tipos
+    // dmmf: dmmf,
   },
-  notStrict: 'Pothos may not work correctly when strict mode is not enabled in tsconfig.json',
 });
 
 // Define o escalar Date
@@ -48,12 +47,17 @@ builder.scalarType('JSON', {
 // Define o escalar BigInt
 builder.scalarType('BigInt', {
   serialize: (value) => String(value),
-  parseValue: (value) => BigInt(value),
+  parseValue: (value) => {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
+      return BigInt(value);
+    }
+    throw new Error('Invalid value for BigInt scalar');
+  },
 });
 
 // Tipo Query raiz
 builder.queryType({
-  fields: (t: any) => ({
+  fields: (t) => ({
     // Placeholder para manter o tipo Query válido
     _placeholder: t.boolean({
       resolve: () => true,
@@ -63,7 +67,7 @@ builder.queryType({
 
 // Tipo Mutation raiz
 builder.mutationType({
-  fields: (t: any) => ({
+  fields: (t) => ({
     // Placeholder para manter o tipo Mutation válido
     _placeholder: t.boolean({
       resolve: () => true,

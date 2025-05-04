@@ -48,8 +48,11 @@ export class Neo4jIntegrationV2 {
     try {
       logger.info('Iniciando sincronização de ambientes');
       
-      // Buscar todos os ambientes no MariaDB
-      const environments = await prisma.environment.findMany();
+      // Buscar todos os ambientes no MariaDB usando consulta SQL direta
+      const environments = await prisma.$queryRaw`
+        SELECT id, name, description, created_at as createdAt 
+        FROM Environment
+      `;
       logger.info(`Encontrados ${environments.length} ambientes para sincronizar`);
       
       // Criar/atualizar cada ambiente no Neo4j
@@ -69,7 +72,7 @@ export class Neo4jIntegrationV2 {
             id: env.id,
             name: env.name,
             description: env.description || '',
-            createdAt: env.createdAt.toISOString()
+            createdAt: new Date(env.createdAt).toISOString()
           })
         );
         logger.debug(`Ambiente sincronizado: ${env.name}`);
@@ -162,13 +165,12 @@ export class Neo4jIntegrationV2 {
     try {
       logger.info('Iniciando sincronização de instâncias de componentes');
       
-      // Buscar todas as instâncias no MariaDB com componentes e ambientes relacionados
-      const instances = await prisma.componentInstance.findMany({
-        include: {
-          component: true,
-          environment: true
-        }
-      });
+      // Buscar todas as instâncias no MariaDB usando SQL direto
+      const instances = await prisma.$queryRaw`
+        SELECT ci.id, ci.component_id as componentId, ci.environment_id as environmentId, 
+               ci.hostname, ci.specs, ci.created_at as createdAt
+        FROM Component_Instance ci
+      `;
       
       logger.info(`Encontradas ${instances.length} instâncias para sincronizar`);
       
@@ -194,7 +196,7 @@ export class Neo4jIntegrationV2 {
             environmentId: instance.environmentId,
             hostname: instance.hostname || null,
             specs: JSON.stringify(instance.specs || {}),
-            createdAt: instance.createdAt.toISOString()
+            createdAt: new Date(instance.createdAt).toISOString()
           })
         );
         
@@ -240,13 +242,12 @@ export class Neo4jIntegrationV2 {
     try {
       logger.info('Iniciando sincronização de participantes de ADRs');
       
-      // Buscar todos os participantes no MariaDB
-      const participants = await prisma.aDRParticipant.findMany({
-        include: {
-          adr: true,
-          user: true
-        }
-      });
+      // Buscar todos os participantes no MariaDB usando SQL direto
+      const participants = await prisma.$queryRaw`
+        SELECT ap.id, ap.adr_id as adrId, ap.user_id as userId, 
+               ap.role, ap.created_at as createdAt
+        FROM ADR_Participant ap
+      `;
       
       logger.info(`Encontrados ${participants.length} participantes para sincronizar`);
       
@@ -263,7 +264,7 @@ export class Neo4jIntegrationV2 {
             userId: participant.userId,
             adrId: participant.adrId,
             role: participant.role,
-            createdAt: participant.createdAt.toISOString()
+            createdAt: new Date(participant.createdAt).toISOString()
           })
         );
         
@@ -287,17 +288,14 @@ export class Neo4jIntegrationV2 {
     try {
       logger.info('Iniciando sincronização de relações ADR-Instância');
       
-      // Buscar todas as relações ADR-Instância no MariaDB
-      const adrInstances = await prisma.aDRComponentInstance.findMany({
-        include: {
-          adr: true,
-          instance: {
-            include: {
-              component: true
-            }
-          }
-        }
-      });
+      // Buscar todas as relações ADR-Instância no MariaDB usando SQL direto
+      const adrInstances = await prisma.$queryRaw`
+        SELECT aci.id, aci.adr_id as adrId, aci.instance_id as instanceId, 
+               aci.impact_level as impactLevel, aci.notes,
+               ci.component_id as componentId
+        FROM ADR_Component_Instance aci
+        JOIN Component_Instance ci ON aci.instance_id = ci.id
+      `;
       
       logger.info(`Encontradas ${adrInstances.length} relações ADR-Instância para sincronizar`);
       
@@ -325,22 +323,19 @@ export class Neo4jIntegrationV2 {
         logger.debug(`Relação ADR-Instância sincronizada: ADR ${rel.adrId} -> Instância ${rel.instanceId}`);
         
         // Verificar se existe a relação ADR-Component correspondente
-        const adrComponent = await prisma.aDRComponent.findFirst({
-          where: {
-            adrId: rel.adrId,
-            componentId: rel.instance.componentId
-          }
-        });
+        const adrComponent = await prisma.$queryRaw`
+          SELECT * FROM ADR_Component 
+          WHERE adr_id = ${rel.adrId} AND component_id = ${rel.componentId}
+          LIMIT 1
+        `;
         
         // Se não existe, criar automaticamente
-        if (!adrComponent) {
+        if (!adrComponent || adrComponent.length === 0) {
           // Primeiro no MariaDB
-          const newAdrComponent = await prisma.aDRComponent.create({
-            data: {
-              adrId: rel.adrId,
-              componentId: rel.instance.componentId
-            }
-          });
+          await prisma.$executeRaw`
+            INSERT INTO ADR_Component(adr_id, component_id, created_at)
+            VALUES (${rel.adrId}, ${rel.componentId}, NOW())
+          `;
           
           // Depois no Neo4j
           await session.executeWrite(tx =>
@@ -349,11 +344,11 @@ export class Neo4jIntegrationV2 {
               MERGE (a)-[:AFFECTS]->(c)
             `, {
               adrId: rel.adrId,
-              componentId: rel.instance.componentId
+              componentId: rel.componentId
             })
           );
           
-          logger.debug(`Relação ADR-Component criada automaticamente: ADR ${rel.adrId} -> Component ${rel.instance.componentId}`);
+          logger.debug(`Relação ADR-Component criada automaticamente: ADR ${rel.adrId} -> Component ${rel.componentId}`);
         }
       }
       
@@ -384,41 +379,47 @@ export class Neo4jIntegrationV2 {
       logger.info('Iniciando validação de integridade entre MariaDB e Neo4j');
       
       // Buscar contagens no MariaDB
+      const environmentCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM Environment`;
+      const teamCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM Team`;
+      const instanceCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM Component_Instance`;
+      const participantCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM ADR_Participant`;
+      const adrInstanceCount = await prisma.$queryRaw`SELECT COUNT(*) as count FROM ADR_Component_Instance`;
+
       const countsMariaDB = {
-        environments: await prisma.environment.count(),
-        teams: await prisma.team.count(),
-        componentInstances: await prisma.componentInstance.count(),
-        adrParticipants: await prisma.aDRParticipant.count(),
-        adrComponentInstances: await prisma.aDRComponentInstance.count()
+        environments: Number(environmentCount[0].count),
+        teams: Number(teamCount[0].count),
+        componentInstances: Number(instanceCount[0].count),
+        adrParticipants: Number(participantCount[0].count),
+        adrComponentInstances: Number(adrInstanceCount[0].count)
       };
       
       // Buscar contagens no Neo4j
-      const environmentCount = await session.executeRead(tx =>
+      const environmentCountNeo4j = await session.executeRead(tx =>
         tx.run('MATCH (e:Environment) RETURN count(e) as count')
       );
       
-      const teamCount = await session.executeRead(tx =>
+      const teamCountNeo4j = await session.executeRead(tx =>
         tx.run('MATCH (t:Team) RETURN count(t) as count')
       );
       
-      const instanceCount = await session.executeRead(tx =>
+      const instanceCountNeo4j = await session.executeRead(tx =>
         tx.run('MATCH (ci:ComponentInstance) RETURN count(ci) as count')
       );
       
-      const participantCount = await session.executeRead(tx =>
+      const participantCountNeo4j = await session.executeRead(tx =>
         tx.run('MATCH ()-[r:PARTICIPATES_IN]->() RETURN count(r) as count')
       );
       
-      const adrInstanceCount = await session.executeRead(tx =>
+      const adrInstanceCountNeo4j = await session.executeRead(tx =>
         tx.run('MATCH ()-[r:AFFECTS_INSTANCE]->() RETURN count(r) as count')
       );
       
       const countsNeo4j = {
-        environments: environmentCount.records[0]?.get('count').toNumber() || 0,
-        teams: teamCount.records[0]?.get('count').toNumber() || 0,
-        componentInstances: instanceCount.records[0]?.get('count').toNumber() || 0,
-        adrParticipants: participantCount.records[0]?.get('count').toNumber() || 0,
-        adrComponentInstances: adrInstanceCount.records[0]?.get('count').toNumber() || 0
+        environments: environmentCountNeo4j.records[0]?.get('count').toNumber() || 0,
+        teams: teamCountNeo4j.records[0]?.get('count').toNumber() || 0,
+        componentInstances: instanceCountNeo4j.records[0]?.get('count').toNumber() || 0,
+        adrParticipants: participantCountNeo4j.records[0]?.get('count').toNumber() || 0,
+        adrComponentInstances: adrInstanceCountNeo4j.records[0]?.get('count').toNumber() || 0
       };
       
       // Verificar discrepâncias
@@ -600,24 +601,24 @@ export class Neo4jIntegrationV2 {
       logger.info(`Encontradas ${orphaned.length} instâncias órfãs para corrigir`);
       
       for (const instance of orphaned) {
-        // Verificar se existe no MariaDB
-        const dbInstance = await prisma.componentInstance.findUnique({
-          where: { id: instance.id },
-          include: {
-            component: true,
-            environment: true
-          }
-        });
+        // Verificar se existe no MariaDB usando SQL direto
+        const dbInstance = await prisma.$queryRaw`
+          SELECT ci.id, ci.component_id as componentId, ci.environment_id as environmentId, 
+                 ci.hostname, ci.specs
+          FROM Component_Instance ci
+          WHERE ci.id = ${instance.id}
+          LIMIT 1
+        `;
         
-        if (dbInstance) {
+        if (dbInstance && dbInstance.length > 0) {
           // Recriar relações
           await session.executeWrite(tx =>
             tx.run(`
               MATCH (c:Component {id: $componentId}), (ci:ComponentInstance {id: $instanceId})
               MERGE (c)-[:INSTANTIATES]->(ci)
             `, {
-              componentId: dbInstance.componentId,
-              instanceId: dbInstance.id
+              componentId: dbInstance[0].componentId,
+              instanceId: dbInstance[0].id
             })
           );
           
@@ -626,12 +627,12 @@ export class Neo4jIntegrationV2 {
               MATCH (ci:ComponentInstance {id: $instanceId}), (e:Environment {id: $environmentId})
               MERGE (ci)-[:DEPLOYED_IN]->(e)
             `, {
-              instanceId: dbInstance.id,
-              environmentId: dbInstance.environmentId
+              instanceId: dbInstance[0].id,
+              environmentId: dbInstance[0].environmentId
             })
           );
           
-          logger.debug(`Corrigidas relações para instância ${dbInstance.id}`);
+          logger.debug(`Corrigidas relações para instância ${dbInstance[0].id}`);
         } else {
           // Se não existe no MariaDB, excluir do Neo4j
           await session.executeWrite(tx =>
