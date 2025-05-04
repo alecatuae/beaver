@@ -40,12 +40,12 @@ Este guia fornece instruções detalhadas sobre como desenvolver e manter a apli
 
 ### 1. Desenvolvimento Frontend
 - **Tecnologias Principais**:
-  - Next.js 14.1.x para server-side rendering
-  - React 18.2.x para componentes de UI
-  - TailwindCSS 3.4.x para estilização
-  - Apollo Client 3.13.x para conexão GraphQL
+  - Next.js para server-side rendering
+  - React para componentes de UI
+  - TailwindCSS para estilização
+  - Apollo Client para conexão GraphQL
   - Componentes Radix UI para elementos de interface
-  - Cytoscape.js 3.29.x para visualização de grafos
+  - Cytoscape.js para visualização de grafos
 
 - **Práticas de Desenvolvimento Frontend**:
   - Seguir o guia de estilo UI/UX para manter consistência visual
@@ -57,10 +57,10 @@ Este guia fornece instruções detalhadas sobre como desenvolver e manter a apli
 
 ### 2. Desenvolvimento da API
 - **Tecnologias Principais**:
-  - Apollo Server 4.12.x e Pothos GraphQL para construção da API
-  - Prisma 6.6.x para interações com o MariaDB
-  - Neo4j-driver 5.15.x para interações com o banco de dados de grafos
-  - Express 4.21.x como servidor HTTP
+  - Apollo Server e Pothos GraphQL para construção da API
+  - Prisma para interações com o MariaDB
+  - Neo4j-driver para interações com o banco de dados de grafos
+  - Express como servidor HTTP
   - JWT com assinatura RS256 para autenticação
 
 - **Práticas de Desenvolvimento da API**:
@@ -96,7 +96,7 @@ Este guia fornece instruções detalhadas sobre como desenvolver e manter a apli
   - Verificar dependências antes de permitir exclusões
 
 ### 4. Testes
-- Jest 32.x e Supertest 6.3.x para testes unitários e de integração
+- Jest e Supertest para testes unitários e de integração
 - Playwright para testes end-to-end
 - Implementar testes para todas as funcionalidades da plataforma:
   - Gerenciamento de instâncias de componentes
@@ -105,8 +105,8 @@ Este guia fornece instruções detalhadas sobre como desenvolver e manter a apli
   - Visualização e filtros TRM
 
 ### 5. Qualidade de Código e Padrões
-- ESLint 9.x e Biome 1.6.x para qualidade de código
-- TypeScript 5.x para tipagem estática
+- ESLint e Biome para qualidade de código
+- TypeScript para tipagem estática
 - Commitizen para mensagens de commit
 - Semantic-release para versionamento
 - Pre-commit hooks com lint-staged

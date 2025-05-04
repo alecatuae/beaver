@@ -138,4 +138,4 @@ Os requisitos estão organizados em categorias de negócio, funcionais (por mód
 | Observabilidade    | Perfil opcional inicia Prometheus, Grafana, Loki, Tempo.                                        | ​     |
 | Acessibilidade     | Contraste ≥ 4.5:1, navegável por teclado, foco visível.                                          | ​     |
 | Internacionalização| Suporte en-us (default) e pt-br; strings extraídas. Interface e documentação disponíveis em ambos idiomas. | ​     |
-| Backup & DR        | MariaDB nightly delta (30 d), Neo4j weekly full (4 sem).                                        | ​     |
+| Backup & DR        | MariaDB nightly delta (30 d), Neo4j weekly full (4 sem).                                        | ​     | 

@@ -1,6 +1,6 @@
-# Guia de Estilo UI/UX - Beaver v2.0
+# Guia de Estilo UI/UX - Beaver
 
-Este guia de estilo UI/UX abrangente documenta os padrões de design, princípios e diretrizes de implementação para a plataforma Beaver v2.0. Serve como referência para designers, desenvolvedores e stakeholders envolvidos no desenvolvimento e manutenção contínua da plataforma.
+Este guia de estilo UI/UX abrangente documenta os padrões de design, princípios e diretrizes de implementação para a plataforma Beaver. Serve como referência para designers, desenvolvedores e stakeholders envolvidos no desenvolvimento e manutenção contínua da plataforma.
 
 ## Sumário
 
@@ -31,14 +31,14 @@ Este guia de estilo UI/UX abrangente documenta os padrões de design, princípio
    - [Design Responsivo](#design-responsivo)
    - [Sistema de Mensagens de Erro](#sistema-de-mensagens-de-erro)
 6. [Diretrizes de Acessibilidade](#diretrizes-de-acessibilidade)
-7. [Novos Elementos na v2.0](#novos-elementos-na-v20)
+7. [Elementos de UI Específicos](#elementos-de-ui-específicos)
 8. [Apêndice](#apêndice)
 
 ## Introdução
 
 A plataforma Beaver foi projetada para apoiar equipes de arquitetura e engenharia, fornecendo ferramentas para documentação arquitetural, gerenciamento de registros de decisão (ADRs) e análise de impacto. Este guia de estilo assegura que a interface do usuário permaneça consistente, intuitiva e alinhada com as melhores práticas em design UX/UI. 
 
-A versão 2.0 introduz suporte aprimorado ao TRM (Technical Reference Model), gerenciamento de instâncias de componentes em diferentes ambientes, sistema de referência a termos do glossário, e várias outras funcionalidades que expandem as capacidades da plataforma, mantendo sua coerência visual e usabilidade.
+A plataforma oferece suporte ao TRM (Technical Reference Model), gerenciamento de instâncias de componentes em diferentes ambientes, sistema de referência a termos do glossário, e várias outras funcionalidades que garantem capacidades abrangentes, mantendo coerência visual e usabilidade.
 
 ## Princípios de Design
 
@@ -151,8 +151,8 @@ Nosso design segue estes princípios fundamentais:
   - Cada item de menu inclui um ícone e rótulo
   - Item ativo destacado com cor de fundo, indicador à esquerda e tipografia mais forte
   - Alternador de tema na parte inferior
-  - **Novo na v2.0**: Suporte a submenus hierárquicos para funcionalidades relacionadas
-  - **Novo na v2.0**: Indicador visual de itens expansíveis (seta para baixo)
+  - Suporte a submenus hierárquicos para funcionalidades relacionadas
+  - Indicador visual de itens expansíveis (seta para baixo)
 
 - **Estados**:
   - Padrão: Texto com peso regular, ícone padrão
@@ -198,8 +198,8 @@ Nosso design segue estes princípios fundamentais:
   - Distinção visual entre tipos de nós
   - Indicadores direcionais nas conexões
   - Barra de ferramentas lateral com controles de interação
-  - **Novo na v2.0**: Filtro por níveis TRM (Infrastructure, Platform, Application, Shared Services)
-  - **Novo na v2.0**: Visualização de instâncias específicas de componentes
+  - Filtro por níveis TRM (Infrastructure, Platform, Application, Shared Services)
+  - Visualização de instâncias específicas de componentes
 
 ### Cards de Componentes
 
@@ -213,7 +213,7 @@ Nosso design segue estes princípios fundamentais:
 - **Cabeçalho**: Nome do componente (truncado para 70% da largura se muito longo) e badge de status
 - **Corpo**: Descrição com limite de 2 linhas para aparência consistente
 - **Rodapé**: Tags (máximo 3 exibidas) e data de criação
-- **Novo na v2.0**: Indicador do time responsável pelo componente
+- **Indicador**: Time responsável pelo componente
 
 #### Tratamento de Texto
 - **Nome do Componente**: Truncar com reticências se exceder a largura disponível
@@ -226,7 +226,7 @@ Nosso design segue estes princípios fundamentais:
 - **Sombra**: Elevação sutil no hover
 - **Estado Hover**: Pequeno aumento de escala (1.02) para feedback interativo
 - **Indicador de Status**: Badge colorido (verde para active, amarelo para deprecated, vermelho para inactive)
-- **Novo na v2.0**: Realce visual de termos do glossário referenciados no texto com hover-cards
+- **Termos do Glossário**: Realce visual de termos referenciados no texto com hover-cards
 
 ### Gerenciamento de Relacionamentos
 
@@ -240,7 +240,7 @@ Nosso design segue estes princípios fundamentais:
 - **Cabeçalho**: Badge de tipo de relacionamento com distinção visual proeminente
 - **Corpo**: Componentes de origem e destino com indicador direcional (→)
 - **Rodapé**: Descrição (se disponível) e data de criação
-- **Novo na v2.0**: Suporte a relacionamentos entre instâncias específicas
+- **Recursos**: Suporte a relacionamentos entre instâncias específicas
 
 #### Tratamento de Texto
 - **Tipo de Relacionamento**: Exibido como um badge colorido baseado na categoria do tipo
@@ -284,8 +284,8 @@ Nosso design segue estes princípios fundamentais:
   - Relação direta com o conteúdo selecionado na área principal
   - Botão de fechar deve ser posicionado no canto superior direito como um ícone (✕) sem rótulo
   - Botões de ação na parte inferior devem seguir as convenções de cor e estilo de toda a plataforma
-  - **Novo na v2.0**: Exibição de instâncias específicas de componentes em cada ambiente
-  - **Novo na v2.0**: Visualização de times responsáveis pelos componentes
+  - Exibição de instâncias específicas de componentes em cada ambiente
+  - Visualização de times responsáveis pelos componentes
 
 ### Rodapé
 
@@ -377,7 +377,7 @@ Nosso design segue estes princípios fundamentais:
   - Estados ativos/selecionados claros
   - Espaçamento apropriado com rótulos
 
-- **Novo na v2.0**: 
+- **Recursos de Formulários**: 
   - Suporte a autocompletar termos do glossário usando "#" em campos de texto
   - Campo para associação de times responsáveis em formulários de componente
   - Suporte a seleção de níveis TRM para categorias
@@ -390,21 +390,21 @@ Nosso design segue estes princípios fundamentais:
   - Tamanho consistente (40-64px de diâmetro)
   - Rótulos claros
   - Estados interativos de hover e seleção
-  - **Novo na v2.0**: Distinção visual entre componentes e instâncias específicas
-  - **Novo na v2.0**: Indicação visual de camadas TRM
+  - Distinção visual entre componentes e instâncias específicas
+  - Indicação visual de camadas TRM
 
 - **Conexões**:
   - Setas direcionais mostrando fluxo de relacionamento
   - Rótulos de protocolo nas conexões
   - Espessura de linha indicando importância ou tipo
-  - Destaques de conexão na seleção de nó
+- Destaques de conexão na seleção de nó
 
 - **Controles**:
   - Botões de zoom in/out
   - Opção de redefinir visualização
   - Funcionalidade de exportar/baixar
   - Capacidades de panorâmica e manipulação direta
-  - **Novo na v2.0**: Filtros por ambiente, time, nível TRM
+  - Filtros por ambiente, time, nível TRM
 
 ## Padrões de Interação
 
@@ -475,7 +475,7 @@ Nosso design segue estes princípios fundamentais:
 
 ### Sistema de Mensagens de Erro
 
-O Beaver v2.0 implementa um sistema de mensagens de erro unificado para garantir consistência na comunicação de problemas aos usuários e facilitar o diagnóstico para desenvolvedores.
+O Beaver implementa um sistema de mensagens de erro unificado para garantir consistência na comunicação de problemas aos usuários e facilitar o diagnóstico para desenvolvedores.
 
 #### Mensagens de Erro para Usuários
 
@@ -570,7 +570,7 @@ Este sistema unificado de tratamento de erros garante feedback claro para usuár
 - **Navegação por Teclado**: Todos os elementos interativos devem ser acessíveis via teclado
 - **Alvos de Toque**: Tamanho mínimo de 44px × 44px para interfaces de toque
 
-## Novos Elementos na v2.0
+## Elementos de UI Específicos
 
 ### Componentes de Términos do Glossário
 
