@@ -68,10 +68,25 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "progress-indeterminate": {
+          "0%": { left: "-40%" },
+          "100%": { left: "100%" },
+        },
+        "spinner-rotate": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
+        "fade-in-out": {
+          "0%, 100%": { opacity: "0.3" },
+          "50%": { opacity: "0.8" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "progress-indeterminate": "progress-indeterminate 1.5s ease-in-out infinite",
+        "spinner-rotate": "spinner-rotate 1.2s linear infinite",
+        "fade-in-out": "fade-in-out 1.5s ease-in-out infinite",
       },
     },
   },
