@@ -39,7 +39,7 @@ O Beaver é uma plataforma de gerenciamento de arquitetura de tecnologia que per
 - **Autenticação**: JWT com armazenamento seguro via cookies HTTP-only
 
 ### Backend
-- **API**: Apollo Server com Pothos GraphQL
+- **API**: Express com controllers RESTful
 - **ORM**: Prisma para interação com MariaDB
 - **Bancos de Dados**:
   - **MariaDB**: Armazenamento relacional para metadados, usuários, e configurações
@@ -51,8 +51,8 @@ O Beaver é uma plataforma de gerenciamento de arquitetura de tecnologia que per
 
 | Camada | Bibliotecas / Ferramentas | Versão (2025-Q2) |
 |-------|-------------------|-------------------|
-| **Front-end** | Next.js · React · TailwindCSS · Apollo Client · @radix-ui components · class-variance-authority · clsx · d3 · date-fns · lucide-react · next-themes · tailwind-merge · tailwindcss-animate | 14.1.x · 18.2.x · 3.4.x · 3.13.x · latest · 0.7.x · 2.1.x · 7.9.x · 4.1.x · 0.330.x · 0.2.x · 2.3.x · 1.0.x |
-| **API** | Node.js · Apollo Server · Pothos GraphQL · Zod · Prisma Client · Neo4j-driver · Express · argon2 · jsonwebtoken · pino · dotenv | 20-22 LTS · 4.12.x · 3.41.x · 3.22.x · 5.8.x · 5.15.x · 4.21.x · 0.31.x · 9.0.x · 8.17.x · 16.3.x |
+| **Front-end** | Next.js · React · TailwindCSS · TanStack Query · @radix-ui components · class-variance-authority · clsx · d3 · date-fns · lucide-react · next-themes · tailwind-merge · tailwindcss-animate | 14.1.x · 18.2.x · 3.4.x · 5.x · latest · 0.7.x · 2.1.x · 7.9.x · 4.1.x · 0.330.x · 0.2.x · 2.3.x · 1.0.x |
+| **API** | Node.js · Express · Zod · Prisma Client · Neo4j-driver · argon2 · jsonwebtoken · pino · dotenv | 20-22 LTS · 4.21.x · 3.22.x · 5.8.x · 5.15.x · 0.31.x · 9.0.x · 8.17.x · 16.3.x |
 | **Testes** | Jest · Supertest · Cypress/Playwright | 29.7.x · 6.3.x · latest |
 | **Dev-Ex** | ESLint (flat) · Biome · TypeScript · ts-node · ts-node-dev | 9.x · 1.6.x · 5.x · 10.9.x · 2.0.x |
 | **Container / IaC** | Docker Engine · Docker Compose v3.9 | latest · 3.9 |
@@ -81,9 +81,9 @@ _Nenhuma colisão de versão detectada. Todos os pacotes dependentes têm versõ
 
 ## Arquitetura em Contêineres
 
-┌───────────────┐          GraphQL          ┌───────────────┐
+┌───────────────┐          REST API          ┌───────────────┐
 │   Front-end   │  ───────────────────────▶ │     API BFF   │
-│ Next.js (SSR) │ ◀───────────────────────  │ Apollo Server │
+│ Next.js (SSR) │ ◀───────────────────────  │ Express.js    │
 └───────────────┘                           └───────────────┘
         │  Bolt/Cypher           Prisma ORM │
         ▼                                   ▼

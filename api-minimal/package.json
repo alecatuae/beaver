@@ -1,0 +1,31 @@
+{
+  "name": "beaver-api-minimal",
+  "version": "1.0.0",
+  "description": "Implementação minimal da API Beaver com Pothos GraphQL",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push --skip-generate"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.12.0",
+    "@pothos/core": "^3.41.0",
+    "@pothos/plugin-prisma": "^3.61.0",
+    "@pothos/plugin-simple-objects": "^3.7.0",
+    "@prisma/client": "^5.8.0",
+    "express": "^4.21.2",
+    "graphql": "^16.11.0",
+    "graphql-scalars": "^1.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "prisma": "^5.8.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+} 

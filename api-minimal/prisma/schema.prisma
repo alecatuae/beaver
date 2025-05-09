@@ -1,0 +1,43 @@
+// Schema Prisma Básico para Beaver API Minimal
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  username String   @unique
+  role     UserRole @default(VIEWER)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Component {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  status      ComponentStatus @default(ACTIVE)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("components")
+}
+
+enum UserRole {
+  ADMIN
+  ARCHITECT
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum ComponentStatus {
+  PLANNED
+  ACTIVE
+  DEPRECATED
+}

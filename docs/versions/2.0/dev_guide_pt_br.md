@@ -38,37 +38,167 @@ Este guia fornece instruções detalhadas sobre como desenvolver e manter a apli
 
 ## Fluxo de Desenvolvimento
 
-### 1. Desenvolvimento Frontend
+### 1. Desenvolvimento do Front-end
 - **Tecnologias Principais**:
-  - Next.js para server-side rendering
-  - React para componentes de UI
-  - TailwindCSS para estilização
-  - Apollo Client para conexão GraphQL
-  - Componentes Radix UI para elementos de interface
-  - Cytoscape.js para visualização de grafos
+  - Next.js 14+ para o framework
+  - TypeScript 5+ para tipagem estática
+  - TanStack Query para gerenciamento de estado e cache
+  - Axios para requisições HTTP
+  - Tailwind CSS para estilização
 
-- **Práticas de Desenvolvimento Frontend**:
-  - Seguir o guia de estilo UI/UX para manter consistência visual
-  - Implementar componentes conforme especificações detalhadas para cada página
-  - Utilizar os temas de cores, tipografia e espaçamento definidos
-  - Garantir acessibilidade com contraste adequado e navegação por teclado
-  - Implementar feedback visual para todas as interações do usuário
-  - Seguir os padrões de design responsivo para diferentes tamanhos de tela
+- **Práticas de Desenvolvimento**:
+  - Implementar interfaces TypeScript para todas as respostas da API
+  - Usar TanStack Query para cache e gerenciamento de estado
+  - Seguir padrões de acessibilidade WCAG 2.1
+  - Implementar testes unitários e de integração
+  - Usar componentes reutilizáveis
+
+- **Estrutura de Diretórios**:
+  ```
+  frontend/src/
+  ├── app/                # Rotas e páginas
+  ├── components/         # Componentes reutilizáveis
+  ├── hooks/             # Hooks personalizados
+  ├── lib/               # Utilitários e configurações
+  │   ├── api/           # Cliente HTTP e endpoints
+  │   └── types/         # Interfaces TypeScript
+  └── styles/            # Estilos globais
+  ```
+
+- **Exemplo de Integração com API**:
+  ```typescript
+  // lib/api/components.ts
+  import axios from 'axios';
+  import { useQuery } from '@tanstack/react-query';
+
+  interface Component {
+    id: string;
+    name: string;
+    status: string;
+    team: {
+      id: string;
+      name: string;
+    };
+  }
+
+  interface ComponentsResponse {
+    items: Component[];
+    pageInfo: {
+      currentPage: number;
+      pageSize: number;
+      totalItems: number;
+    };
+  }
+
+  export const getComponents = async (params: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ComponentsResponse> => {
+    const { data } = await axios.get('/api/v2/components', { params });
+    return data;
+  };
+
+  // hooks/useComponents.ts
+  export const useComponents = (params: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    return useQuery({
+      queryKey: ['components', params],
+      queryFn: () => getComponents(params)
+    });
+  };
+
+  // app/components/page.tsx
+  export default function ComponentsPage() {
+    const { data, isLoading, error } = useComponents({
+      page: 1,
+      pageSize: 20
+    });
+
+    if (isLoading) return <div>Carregando...</div>;
+    if (error) return <div>Erro ao carregar componentes</div>;
+
+    return (
+      <div>
+        {data.items.map(component => (
+          <div key={component.id}>
+            <h2>{component.name}</h2>
+            <p>Status: {component.status}</p>
+            <p>Time: {component.team.name}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  ```
 
 ### 2. Desenvolvimento da API
 - **Tecnologias Principais**:
-  - Apollo Server e Pothos GraphQL para construção da API
+  - Express.js para construção da API REST
   - Prisma para interações com o MariaDB
   - Neo4j-driver para interações com o banco de dados de grafos
-  - Express como servidor HTTP
   - JWT com assinatura RS256 para autenticação
 
 - **Práticas de Desenvolvimento da API**:
   - Implementar validação com Zod para todas as entradas de dados
-  - Seguir padrões CQRS para separar operações de leitura e escrita
+  - Seguir padrões RESTful para endpoints
   - Manter sincronização entre MariaDB e Neo4j para todas as entidades
   - Implementar tratamento adequado de erros com códigos padronizados
-  - Documentar todos os resolvers GraphQL com comentários claros
+  - Documentar todos os endpoints REST com OpenAPI/Swagger
+
+- **Estrutura de Diretórios da API**:
+  ```
+  api/src/
+  ├── controllers/        # Controladores para cada recurso
+  │   ├── ComponentController.ts
+  │   ├── ADRController.ts
+  │   ├── TeamController.ts
+  │   └── ...
+  ├── routes/             # Definições de rotas
+  │   ├── components.ts
+  │   ├── adrs.ts
+  │   ├── teams.ts
+  │   └── index.ts        # Exporta todas as rotas
+  ├── middleware/         # Middlewares (auth, validação)
+  │   ├── auth.ts
+  │   └── validation.ts
+  ├── services/           # Lógica de negócios
+  │   ├── ComponentService.ts
+  │   └── ...
+  └── index.ts            # Ponto de entrada
+  ```
+
+- **Padrões REST**:
+  - Usar verbos HTTP apropriados (GET, POST, PUT, DELETE)
+  - Implementar paginação e filtros via query parameters
+  - Retornar códigos HTTP apropriados
+  - Usar versionamento de API (/api/v2/...)
+  - Implementar cache via headers HTTP
+
+- **Exemplo de Endpoint**:
+  ```typescript
+  // GET /api/v2/components
+  router.get('/components', async (req, res) => {
+    const { status, page = 1, pageSize = 20 } = req.query;
+    const components = await prisma.component.findMany({
+      where: { status },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: { team: true }
+    });
+    res.json({
+      items: components,
+      pageInfo: {
+        currentPage: page,
+        pageSize,
+        totalItems: await prisma.component.count({ where: { status } })
+      }
+    });
+  });
+  ```
 
 ### 3. Boas Práticas
 

@@ -1,14 +1,15 @@
 import SchemaBuilder from '@pothos/core';
 import PrismaPlugin from '@pothos/plugin-prisma';
+import SimpleObjectsPlugin from '@pothos/plugin-simple-objects';
 import { PrismaClient } from '@prisma/client';
 import { Context } from '../context';
 import { prisma } from '../prisma';
 import type { PrismaClient as PrismaClientType } from '@prisma/client';
 
-// Cria um builder para o schema
+// Cria um builder para o schema com configuração de tipagem completa
 export const builder = new SchemaBuilder<{
   Context: Context;
-  // Define o tipo PrismaTypes diretamente sem importação externa
+  // Define o tipo PrismaTypes corretamente
   PrismaTypes: {
     // Referência ao client do Prisma
     prisma: PrismaClientType;
@@ -28,12 +29,11 @@ export const builder = new SchemaBuilder<{
     };
   };
 }>({
-  plugins: ['prisma'],
+  // Use instâncias dos plugins, não strings
+  plugins: [SimpleObjectsPlugin, PrismaPlugin],
   prisma: {
     client: prisma,
   },
-  // Define notStrict como uma string conforme esperado pelo tipo
-  notStrict: "Pothos may not work correctly when strict mode is not enabled in tsconfig.json",
 });
 
 // Define o escalar Date
@@ -60,24 +60,26 @@ builder.scalarType('BigInt', {
 });
 
 // Tipo Query raiz
-builder.queryType({
-  fields: (t) => ({
-    // Placeholder para manter o tipo Query válido
-    _placeholder: t.boolean({
-      resolve: () => true,
-    }),
+builder.queryType({});
+
+// Campos para o tipo Query
+builder.queryFields((t) => ({
+  // Placeholder para manter o tipo Query válido
+  _placeholder: t.boolean({
+    resolve: () => true,
   }),
-});
+}));
 
 // Tipo Mutation raiz
-builder.mutationType({
-  fields: (t) => ({
-    // Placeholder para manter o tipo Mutation válido
-    _placeholder: t.boolean({
-      resolve: () => true,
-    }),
+builder.mutationType({});
+
+// Campos para o tipo Mutation
+builder.mutationFields((t) => ({
+  // Placeholder para manter o tipo Mutation válido
+  _placeholder: t.boolean({
+    resolve: () => true,
   }),
-});
+}));
 
 // Importa e registra todos os enums
 import './enums';
