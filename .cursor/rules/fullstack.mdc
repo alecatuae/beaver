@@ -19,14 +19,17 @@ Siga os princípios arquiteturais, padrões de UI e práticas de desenvolvimento
 - Estilize componentes usando **TailwindCSS 3.4.x**.
 - Use componentes **Radix UI** para elementos de interface consistentes.
 - Gerencie a busca de dados e estado com **TanStack Query** (anteriormente React Query).
+- Use **Axios** para requisições HTTP à API REST.
 - Implemente **Cytoscape.js 3.29.x** para visualização de grafos.
 
 ## Desenvolvimento Backend
-- Construa APIs usando **Apollo Server 4.12.x** e **Pothos GraphQL 3.41.x**.
+- Construa APIs REST usando **Express.js 4.21.x**.
 - Use **Prisma 6.6.x** para interações com o **MariaDB 11.8**.
 - Implemente **Neo4j-driver 5.15.x** para operações com o banco de dados de grafos.
 - Utilize **Zod 3.22.x** para validação de dados.
-- Siga o padrão **CQRS** para separar operações de leitura e escrita.
+- Siga o padrão **RESTful** para endpoints da API.
+- Implemente versionamento de API (`/api/v2/...`).
+- Use headers HTTP apropriados para cache e controle de versão.
 
 ## Modelo de Dados
 - **Para detalhes completos, consulte:**
@@ -64,6 +67,34 @@ Siga os princípios arquiteturais, padrões de UI e práticas de desenvolvimento
 - Implemente o sistema de erro padronizado com formato `ERR-XXXX-YY-ZZ`.
 - Exiba mensagens de erro claras e orientadas à solução.
 - Nunca registre dados sensíveis nos logs.
+
+## Padrões REST
+- Use verbos HTTP apropriados (GET, POST, PUT, DELETE).
+- Implemente paginação e filtros via query parameters.
+- Retorne códigos HTTP apropriados.
+- Use versionamento de API (`/api/v2/...`).
+- Implemente cache via headers HTTP.
+- Padronize o formato de resposta:
+  ```typescript
+  // Sucesso
+  {
+    "items": [...],
+    "pageInfo": {
+      "currentPage": number,
+      "pageSize": number,
+      "totalItems": number
+    }
+  }
+
+  // Erro
+  {
+    "error": {
+      "code": "ERR-XXXX-YY-ZZ",
+      "message": string,
+      "details": object
+    }
+  }
+  ```
 
 ## Novas Funcionalidades v2.0
 - **Para especificações completas, consulte:**
